@@ -1,0 +1,82 @@
+======================================================================
+TSL-51 THAI SIGN LANGUAGE TRAINING REPORT
+======================================================================
+
+CONFIGURATION
+----------------------------------------------------------------------
+  dataset: tsl51_user_sign
+  data_path: None
+  samples: None
+  folds: 5
+  hidden: 256
+  layers: 5
+  dropout: 0.3
+  model: gru
+  epochs: 100
+  batch: 128
+  lr: 0.001
+  patience: 10
+  seed: 42
+  no_cache: False
+  force_download: False
+  augment: 10
+  test_split: 0.2
+
+MODEL PARAMETERS
+----------------------------------------------------------------------
+  Model Type: GRU
+  Hidden Dimensions: 256
+  Number of Layers: 5
+  Dropout Rate: 0.3
+  Input Features: 162
+  Output Classes: 51
+  Est. Parameters: ~4.02M
+
+TRAINING CONFIGURATION
+----------------------------------------------------------------------
+  Optimizer: AdamW
+  Learning Rate: 0.001
+  Weight Decay: 1e-4
+  LR Scheduler: OneCycleLR
+  Batch Size: 128
+  Max Epochs: 100
+  Early Stopping: patience=10
+  CV Folds: 5
+  Augmentation: 10x
+  Test Split: 20%
+
+DATASET INFORMATION
+----------------------------------------------------------------------
+  Total Samples: 4813
+  Number of Classes: 51
+  Feature Dimension: 162
+  Train Samples: 3609
+  Test Samples: 1204
+
+PER-FOLD RESULTS
+----------------------------------------------------------------------
+  Fold 1: 99.69%
+  Fold 2: 99.69%
+  Fold 3: 99.38%
+  Fold 4: 99.27%
+  Fold 5: 99.58%
+
+  Best Fold: Fold 1
+  Std Dev: 0.17%
+
+OVERALL METRICS
+----------------------------------------------------------------------
+  CV Average: 99.52% (±0.17%)
+  Overall Accuracy: 99.52%
+  Precision: 99.53%
+  Recall: 99.52%
+  F1-Score: 99.52%
+
+TEST SET RESULTS
+----------------------------------------------------------------------
+  Test Accuracy: 99.75%
+  Test Precision: 99.76%
+  Test Recall: 99.75%
+  Test F1-Score: 99.75%
+
+======================================================================

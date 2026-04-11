@@ -1,0 +1,42 @@
+{
+  "timestamp": "2026-04-09T23:14:51.881340",
+  "config": {
+    "dataset": "tsl51_user_sign",
+    "data_path": null,
+    "folds": 3,
+    "hidden": 256,
+    "layers": 3,
+    "dropout": 0.3,
+    "model": "gru",
+    "epochs": 10,
+    "batch": 64,
+    "lr": 0.001,
+    "patience": 10,
+    "seed": 42,
+    "no_cache": false,
+    "force_download": false
+  },
+  "fold_results": [
+    {
+      "fold": 1,
+      "accuracy": 0.9289617486338798
+    },
+    {
+      "fold": 2,
+      "accuracy": 0.945054945054945
+    },
+    {
+      "fold": 3,
+      "accuracy": 0.9230769230769231
+    }
+  ],
+  "average_accuracy": 0.9323645389219161,
+  "std_accuracy": 0.009289513759247338,
+  "overall_accuracy": 0.9323583180987203,
+  "precision": 0.9422384440665975,
+  "recall": 0.9323583180987203,
+  "f1_score": 0.9214815220346767,
+  "num_classes": 51,
+  "num_samples": 547,
+  "input_dim": 162
+}
