@@ -83,7 +83,7 @@ def test_sequence_length():
     print("TEST 2: Sequence Length")
     print("="*60)
 
-    content = Path("D:/TSL/camera_translate.py").read_text(encoding="utf-8")
+    content = Path("camera_translate.py").read_text(encoding="utf-8")
 
     if "deque(maxlen=100)" in content:
         print("[PASS]: sequence_buffer initialised with maxlen=100 (matches training 89-121 frames)")
@@ -99,7 +99,7 @@ def test_minimum_frames():
     print("TEST 3: Minimum Frames")
     print("="*60)
     
-    content = Path("D:/TSL/camera_translate.py").read_text(encoding="utf-8")
+    content = Path("camera_translate.py").read_text(encoding="utf-8")
     
     # Check for "len(self.sequence_buffer) < 60"
     if "len(self.sequence_buffer) < 60" in content:
@@ -146,7 +146,7 @@ def test_dimension_assertion():
     print("TEST 5: Dimension Assertion")
     print("="*60)
     
-    content = Path("D:/TSL/camera_translate.py").read_text(encoding="utf-8")
+    content = Path("camera_translate.py").read_text(encoding="utf-8")
     
     # Check for dimension assertion
     if "len(features) != target_len" in content and "ERROR: Feature dimension mismatch" in content:
@@ -163,7 +163,7 @@ def test_quality_gate():
     print("TEST 6: Quality Gate")
     print("="*60)
     
-    content = Path("D:/TSL/camera_translate.py").read_text(encoding="utf-8")
+    content = Path("camera_translate.py").read_text(encoding="utf-8")
     
     # Check for confidence threshold
     if "confidence < 0.70" in content or "confidence < 0.7" in content:
@@ -180,7 +180,7 @@ def test_consecutive_missing():
     print("TEST 7: Consecutive Missing Counter")
     print("="*60)
     
-    content = Path("D:/TSL/camera_translate.py").read_text(encoding="utf-8")
+    content = Path("camera_translate.py").read_text(encoding="utf-8")
     
     # Check for consecutive missing counter
     if "consecutive_missing" in content and "self.consecutive_missing > 10" in content:

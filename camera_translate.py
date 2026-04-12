@@ -103,6 +103,24 @@ class ThaiSignTranslator:
         self.current_prediction = ""
         self.confidence = 0.0
         self.consecutive_missing = 0
+        self._font_cache = {}
+
+    def _get_cached_font(self, font_size, font_path=None):
+        """Get font from cache or load it."""
+        key = (font_path, font_size)
+        if key in self._font_cache:
+            return self._font_cache[key]
+
+        try:
+            if font_path:
+                font = ImageFont.truetype(font_path, font_size)
+            else:
+                font = ImageFont.load_default(size=font_size)
+        except Exception:
+            font = ImageFont.load_default(size=font_size)
+
+        self._font_cache[key] = font
+        return font
 
         try:
             print("Initializing MediaPipe Tasks landmarkers...")
@@ -178,25 +196,44 @@ class ThaiSignTranslator:
         pil_img = PILImage.fromarray(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
         draw = ImageDraw.Draw(pil_img)
 
-        try:
-            font_paths = [
-                "C:/Windows/Fonts/phagspa.ttf",
-                "C:/Windows/Fonts/tahoma.ttf",
-                "C:/Windows/Fonts/seguisym.ttf",
-                "C:/Windows/Fonts/FONTA.TTF",
-                "C:/Windows/Fonts/FONTB.TTF",
-            ]
-            font = None
-            for font_path in font_paths:
-                try:
-                    font = ImageFont.truetype(font_path, font_size)
+        font_paths = [
+            "C:/Windows/Fonts/phagspa.ttf",
+            "C:/Windows/Fonts/tahoma.ttf",
+            "C:/Windows/Fonts/seguisym.ttf",
+            "C:/Windows/Fonts/FONTA.TTF",
+            "C:/Windows/Fonts/FONTB.TTF",
+        ]
+
+        font = None
+        for font_path in font_paths:
+            try:
+                # Use our cached font getter to avoid repetitive try-catches with truetype that miss cache
+                # To make this performant, we just try to get the cached font, and if it's the default font
+                # returned, it means the truetype font failed. However, _get_cached_font will return the default
+                # font and cache it under the truetype key if it fails.
+                # Let's simplify this by attempting to grab the font directly. If it fails, truetype throws.
+                # Since _get_cached_font catches and falls back to default, we can just use the first available font path.
+                # Actually, wait, let's keep the logic similar but use cache.
+                # Let's update _get_cached_font to throw if we want, or handle it here.
+                # For simplicity, if we haven't found a font path yet, let's just find the first valid path and stick to it.
+                # The _get_cached_font handles fallback.
+                font = self._get_cached_font(font_size, font_path)
+                # Check if it loaded the default font by seeing if its type isn't FreeTypeFont
+                # PIL.ImageFont.FreeTypeFont vs PIL.ImageFont.ImageFont
+                if hasattr(font, 'font') and getattr(font, 'path', None):
+                    break # it's a freetype font
+                elif type(font).__name__ == "FreeTypeFont":
                     break
-                except Exception:
-                    continue
-            if font is None:
-                font = ImageFont.load_default(size=font_size)
-        except Exception:
-            font = ImageFont.load_default(size=font_size)
+                # If we get here, let's just break on the first one that doesn't raise exception in _get_cached_font
+                # Actually _get_cached_font won't raise exception, so it'll just return default.
+                # Let's check if the returned font has the 'path' attribute or is a FreeTypeFont.
+                if hasattr(font, 'getname'):
+                     break
+            except Exception:
+                continue
+
+        if font is None:
+            font = self._get_cached_font(font_size)
 
         bbox = draw.textbbox((x, y), text, font=font)
 
@@ -267,15 +304,19 @@ class ThaiSignTranslator:
                 pil_img = PILImage.fromarray(cv2.cvtColor(frame, cv2.COLOR_RGB2BGR))
                 draw = ImageDraw.Draw(pil_img)
                 try:
-                    font = ImageFont.truetype("C:/Windows/Fonts/tahoma.ttf", 80)
-                    conf_font = ImageFont.truetype("C:/Windows/Fonts/tahoma.ttf", 30)
+                    # Attempt to get tahoma or phagspa, falling back to default handled inside _get_cached_font
+                    # But if we want exact same logic:
+                    font = self._get_cached_font(80, "C:/Windows/Fonts/tahoma.ttf")
+                    conf_font = self._get_cached_font(30, "C:/Windows/Fonts/tahoma.ttf")
+                    if not hasattr(font, 'getname'): raise ValueError() # Force fallback if it's default
                 except Exception:
                     try:
-                        font = ImageFont.truetype("C:/Windows/Fonts/phagspa.ttf", 80)
-                        conf_font = ImageFont.truetype("C:/Windows/Fonts/phagspa.ttf", 30)
+                        font = self._get_cached_font(80, "C:/Windows/Fonts/phagspa.ttf")
+                        conf_font = self._get_cached_font(30, "C:/Windows/Fonts/phagspa.ttf")
+                        if not hasattr(font, 'getname'): raise ValueError()
                     except Exception:
-                        font = ImageFont.load_default(size=60)
-                        conf_font = ImageFont.load_default(size=25)
+                        font = self._get_cached_font(60)
+                        conf_font = self._get_cached_font(25)
 
                 bbox = draw.textbbox((0, 0), text, font=font)
                 text_w = bbox[2] - bbox[0]
@@ -370,12 +411,14 @@ class ThaiSignTranslator:
                             pil_img = PILImage.fromarray(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
                             draw = ImageDraw.Draw(pil_img)
                             try:
-                                font = ImageFont.truetype("C:/Windows/Fonts/tahoma.ttf", 22)
+                                font = self._get_cached_font(22, "C:/Windows/Fonts/tahoma.ttf")
+                                if not hasattr(font, 'getname'): raise ValueError()
                             except Exception:
                                 try:
-                                    font = ImageFont.truetype("C:/Windows/Fonts/phagspa.ttf", 22)
+                                    font = self._get_cached_font(22, "C:/Windows/Fonts/phagspa.ttf")
+                                    if not hasattr(font, 'getname'): raise ValueError()
                                 except Exception:
-                                    font = ImageFont.load_default(size=18)
+                                    font = self._get_cached_font(18)
 
                             draw.text((sidebar_x + 12, y_pos), f"{index + 1}. {word}", font=font, fill=(255, 255, 255))
                             draw.text((sidebar_x + 170, y_pos), f"{conf:.0%}", font=font, fill=(200, 255, 200))
