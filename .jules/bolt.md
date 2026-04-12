@@ -1,0 +1,3 @@
+## 2024-05-24 - Disk I/O Bottleneck in Real-Time Frame Processing Loop
+**Learning:** Found a severe performance bottleneck where `ImageFont.truetype()` and `ImageFont.load_default()` were being called directly inside a real-time video frame processing loop (`run` method and `_draw_thai_text`). This causes continuous, redundant disk I/O for every single frame and UI element drawn, which drastically degrades framerate and CPU usage for something that shouldn't be reloaded continuously.
+**Action:** When drawing text using PIL inside high-frequency loops (like real-time video processing or games), always cache the loaded font instances in memory (e.g., in a dictionary using a key of `(font_path, size)`) rather than loading them from disk each frame.
