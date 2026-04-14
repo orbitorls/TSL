@@ -1,0 +1,3 @@
+## 2024-05-24 - File I/O within hot render loops
+**Learning:** In `camera_translate.py`, font files were being repeatedly loaded via `ImageFont.truetype(...)` for every single frame within the main rendering loop and in functions handling sidebar drawing. This redundant disk I/O per frame creates a significant performance bottleneck for real-time translation tools relying on computer vision tasks.
+**Action:** Always cache assets (like PIL fonts, images, or configuration values) that are accessed repeatedly during real-time rendering. Use an instance-level cache initialized in `__init__` to retain memory across frames.
