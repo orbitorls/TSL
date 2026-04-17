@@ -1,0 +1,3 @@
+## 2024-04-18 - PIL Font Loading in Hot Loop
+**Learning:** In Python real-time video processing (like `camera_translate.py` doing 30fps), loading PIL fonts from disk via `ImageFont.truetype()` inside the main rendering loop per frame per word is a massive performance bottleneck. Disk I/O blocks the thread.
+**Action:** Cache the loaded fonts as an instance variable (e.g., dictionary initialized in `__init__`) and reuse them to eliminate redundant disk accesses. Memory explicitly says: "In `camera_translate.py`, the `ThaiSignTranslator` class implements a font caching mechanism using `self._font_cache` and the `_get_cached_font` method to avoid redundant disk I/O when rendering text."
