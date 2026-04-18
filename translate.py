@@ -163,7 +163,11 @@ Examples:
             data = json.loads(input_path.read_text(encoding='utf-8'))
             frames = data["frames"]
         except Exception as e:
-            print(f"Error loading {input_path}: {e}")
+            # Log and continue; print concise message
+            try:
+                print(f"Error loading {input_path}: {e}")
+            except Exception:
+                pass
             continue
         
         # Extract features and predict

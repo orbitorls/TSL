@@ -8,7 +8,6 @@ Requirements:
 
 from __future__ import annotations
 
-import math
 import os
 from collections import Counter, deque
 from pathlib import Path

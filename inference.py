@@ -3,33 +3,26 @@ TSL-51 Inference Script
 =======================
 Use this script to run inference with trained model.
 
-FEATURE EXTRACTION:
-==================
-The model expects 162 features in this order:
-1. Left Hand: 21 points × 3 coordinates (x, y, z) = 63 features
-   - Order: lh_x0, lh_y0, lh_z0, lh_x1, lh_y1, lh_z1, ... lh_x20, lh_y20, lh_z20
-   
-2. Right Hand: 21 points × 3 coordinates = 63 features
-   - Order: rh_x0, rh_y0, rh_z0, rh_x1, rh_y1, rh_z1, ... rh_x20, rh_y20, rh_z20
-
-3. Pose Landmarks: 12 points × 3 coordinates = 36 features
-   - Order: l_shoulder_x/y/z, r_shoulder_x/y/z, l_elbow_x/y/z, r_elbow_x/y/z,
-            l_wrist_x/y/z, r_wrist_x/y/z, lbrow_outer_x/y/z, lbrow_inner_x/y/z,
-            rbrow_inner_x/y/z, rbrow_outer_x/y/z, mouth_right_x/y/z, mouth_left_x/y/z
+FEATURE LEVELS:
+===============
+- basic: 162 features (hand + pose)
+- finger: 258 features (hand + pose + finger)
+- full: 1596 features (hand + pose + face)
+- face: 1434 features (face only)
 
 INPUT FORMAT:
-============
-- numpy array shape: (162,) or (batch_size, 162)
-- Values: normalized coordinates (typical range -1 to 1 or 0 to 1)
+=============
+- numpy array shape: (features,) or (batch_size, features)
+- Values: normalized coordinates
 
 USAGE:
 ======
 # Load model and predict
-python inference.py --model models/tsl51_gru_best.pt --input your_data.npz
+python inference.py --model models/tsl51_xxx.pt --input your_data.npz
 
 # Or use as Python module
 from inference import TSLPredictor
-predictor = TSLPredictor('models/tsl51_gru_best.pt')
+predictor = TSLPredictor('models/tsl51_xxx.pt')
 label, confidence = predictor.predict(landmarks)
 """
 
@@ -53,32 +46,34 @@ PROJECT_DIR = Path(__file__).resolve().parent
 # ============================================================================
 # FEATURE EXTRACTION UTILITIES
 # ============================================================================
-def extract_features_from_landmark_df(lm_df):
+def extract_features_from_landmark_df(lm_df, feature_level='basic'):
     """
-    Extract 162 features from landmark DataFrame.
+    Extract features from landmark DataFrame based on feature level.
     This MUST match the training feature extraction exactly!
     """
     features = []
     
-    # Left hand (21 points * 3 = 63)
+    from utils.dataset_utils import safe_mean
+    # ===== 1. BASIC: Hand + Pose (162) =====
+    # Left hand (21 * 3 = 63)
     for i in range(21):
         for c in ['x', 'y', 'z']:
             col = f'lh_{c}{i}'
             if col in lm_df.columns:
-                features.append(lm_df[col].mean())
+                features.append(safe_mean(lm_df[col]))
             else:
                 features.append(0.0)
     
-    # Right hand (21 points * 3 = 63)
+    # Right hand (21 * 3 = 63)
     for i in range(21):
         for c in ['x', 'y', 'z']:
             col = f'rh_{c}{i}'
             if col in lm_df.columns:
-                features.append(lm_df[col].mean())
+                features.append(safe_mean(lm_df[col]))
             else:
                 features.append(0.0)
     
-    # Pose landmarks (12 points * 3 = 36)
+    # Pose (12 * 3 = 36)
     pose_cols = ['l_shoulder', 'r_shoulder', 'l_elbow', 'r_elbow', 'l_wrist', 'r_wrist',
                 'lbrow_outer', 'lbrow_inner', 'rbrow_inner', 'rbrow_outer',
                 'mouth_right', 'mouth_left']
@@ -86,11 +81,43 @@ def extract_features_from_landmark_df(lm_df):
         for c in ['x', 'y', 'z']:
             col = f'{base}_{c}'
             if col in lm_df.columns:
-                features.append(lm_df[col].mean())
+                features.append(safe_mean(lm_df[col]))
             else:
                 features.append(0.0)
     
+    # ===== 2. FINGER: Additional finger details =====
+    if feature_level in ['finger', 'full', 'face']:
+        finger_names = ['thumb', 'index', 'middle', 'ring', 'pinky']
+        for hand_prefix in ['lh_', 'rh_']:
+            for finger in finger_names:
+                for c in ['x', 'y', 'z']:
+                    for joint in ['mcp', 'pip', 'dip']:
+                        col = f'{hand_prefix}{finger}_{joint}_{c}'
+                        if col in lm_df.columns:
+                            features.append(safe_mean(lm_df[col]))
+                        else:
+                            features.append(0.0)
+    
+    # ===== 3. FACE: 478 Facial Landmarks (1434 features) =====
+    if feature_level in ['face', 'full']:
+        for i in range(478):
+            for c in ['x', 'y', 'z']:
+                col = f'face_{c}{i}'
+                if col in lm_df.columns:
+                    features.append(safe_mean(lm_df[col]))
+                else:
+                    features.append(0.0)
+    
     return np.array(features, dtype=np.float32)
+
+
+# Feature level to dimension mapping
+FEATURE_DIMS = {
+    'basic': 162,
+    'finger': 258,
+    'full': 1596,
+    'face': 1434,
+}
 
 
 # ============================================================================
@@ -109,6 +136,54 @@ class GRUModel(torch.nn.Module):
         x = x.unsqueeze(1)
         out, _ = self.gru(x)
         out = out[:, -1, :]
+        out = self.norm(out)
+        out = self.dropout(out)
+        return self.fc(out)
+
+
+class MOPGRU(torch.nn.Module):
+    """Modified GRU with multiplied update gate."""
+    def __init__(self, input_dim, num_classes, hidden_dim=256, num_layers=3, dropout=0.3):
+        super().__init__()
+        self.rnn = torch.nn.GRU(input_dim, hidden_dim, num_layers, batch_first=True, 
+                              bidirectional=True, dropout=dropout if num_layers > 1 else 0)
+        self.norm = torch.nn.LayerNorm(hidden_dim * 2)
+        self.fc = torch.nn.Linear(hidden_dim * 2, num_classes)
+        self.dropout = torch.nn.Dropout(dropout)
+    
+    def forward(self, x):
+        if x.dim() == 2:
+            x = x.unsqueeze(1)
+        out, _ = self.rnn(x)
+        out = out[:, -1, :]
+        out = self.norm(out)
+        out = self.dropout(out)
+        return self.fc(out)
+
+
+class HybridGRUTransformer(torch.nn.Module):
+    """Hybrid GRU + Transformer."""
+    def __init__(self, input_dim, num_classes, hidden_dim=256, num_layers=3, dropout=0.3, nhead=8):
+        super().__init__()
+        self.gru = torch.nn.GRU(input_dim, hidden_dim, num_layers, batch_first=True, 
+                              bidirectional=True, dropout=dropout if num_layers > 1 else 0)
+        self.proj = torch.nn.Linear(hidden_dim * 2, hidden_dim)
+        encoder_layer = torch.nn.TransformerEncoderLayer(
+            d_model=hidden_dim, nhead=nhead, dim_feedforward=hidden_dim * 4,
+            dropout=dropout, batch_first=True
+        )
+        self.transformer = torch.nn.TransformerEncoder(encoder_layer, num_layers=2)
+        self.norm = torch.nn.LayerNorm(hidden_dim)
+        self.fc = torch.nn.Linear(hidden_dim, num_classes)
+        self.dropout = torch.nn.Dropout(dropout)
+    
+    def forward(self, x):
+        if x.dim() == 2:
+            x = x.unsqueeze(1)
+        gru_out, _ = self.gru(x)
+        proj_out = self.proj(gru_out)
+        trans_out = self.transformer(proj_out)
+        out = trans_out[:, -1, :]
         out = self.norm(out)
         out = self.dropout(out)
         return self.fc(out)
@@ -145,11 +220,11 @@ class TSLPredictor:
     Thai Sign Language Predictor
     
     Usage:
-        predictor = TSLPredictor('models/tsl51_gru_best.pt')
+        predictor = TSLPredictor('models/tsl51_xxx.pt')
         label, confidence = predictor.predict(landmarks)
     """
     
-    EXPECTED_FEATURES = 162  # Must match training
+    FEATURE_LEVELS = FEATURE_DIMS
     
     def __init__(self, model_path, device=None):
         self.device = device or torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -159,7 +234,7 @@ class TSLPredictor:
             raise FileNotFoundError(f"Model not found: {model_path}")
         
         # Load checkpoint
-        checkpoint = torch.load(self.model_path, map_location=self.device)
+        checkpoint = torch.load(self.model_path, map_location=self.device, weights_only=False)
         
         # Load metadata
         self.classes = checkpoint['classes']
@@ -170,16 +245,31 @@ class TSLPredictor:
         self.model_name = checkpoint.get('model', 'gru')
         self.accuracy = checkpoint.get('accuracy', 0.0)
         
-        # Validate dimensions
-        if self.input_dim != self.EXPECTED_FEATURES:
-            print(f"WARNING: Model expects {self.input_dim} features but expected {self.EXPECTED_FEATURES}")
-            print("This may cause prediction errors!")
+        # Get feature level from config
+        self.feature_level = checkpoint.get('config', {}).get('feature_level', 'basic')
         
-        # Create model
-        if self.model_name == 'gru':
-            self.model = GRUModel(self.input_dim, self.num_classes)
-        else:
-            self.model = MLP(self.input_dim, self.num_classes)
+        # Validate dimensions
+        expected_dim = FEATURE_DIMS.get(self.feature_level, 162)
+        if self.input_dim != expected_dim:
+            print(f"WARNING: Model has {self.input_dim} features but expected {expected_dim}")
+        
+        # Create model based on type
+        model_classes = {
+            'mlp': MLP,
+            'gru': GRUModel,
+            'mopgru': MOPGRU,
+            'hybrid': HybridGRUTransformer,
+        }
+        model_class = model_classes.get(self.model_name, MLP)
+        
+        config = checkpoint.get('config', {})
+        self.model = model_class(
+            self.input_dim, 
+            self.num_classes,
+            hidden_dim=config.get('hidden_dim', 256),
+            num_layers=config.get('num_layers', 3),
+            dropout=config.get('dropout', 0.3)
+        )
         
         # Load weights
         self.model.load_state_dict(checkpoint['state_dict'])
@@ -187,6 +277,7 @@ class TSLPredictor:
         self.model.eval()
         
         print(f"Model loaded: {self.model_name}")
+        print(f"Feature level: {self.feature_level}")
         print(f"Input dim: {self.input_dim}")
         print(f"Classes: {len(self.classes)}")
         print(f"Training accuracy: {self.accuracy*100:.2f}%")
@@ -198,21 +289,20 @@ class TSLPredictor:
         
         # Flatten if needed
         if x.ndim > 2:
-            x = x.reshape(-1, self.EXPECTED_FEATURES)
+            x = x.reshape(-1, self.input_dim)
         
         # Handle single sample
         if x.ndim == 1:
-            if len(x) != self.EXPECTED_FEATURES:
-                raise ValueError(f"Expected {self.EXPECTED_FEATURES} features, got {len(x)}")
+            if len(x) != self.input_dim:
+                raise ValueError(f"Expected {self.input_dim} features, got {len(x)}")
             x = x.reshape(1, -1)
         else:
             # Batch processing
-            if x.shape[1] != self.EXPECTED_FEATURES:
-                # Try to auto-fix: maybe user passed different format
-                if x.shape[0] == self.EXPECTED_FEATURES:
+            if x.shape[1] != self.input_dim:
+                if x.shape[0] == self.input_dim:
                     x = x.reshape(1, -1)
                 else:
-                    raise ValueError(f"Expected features dimension {self.EXPECTED_FEATURES}, got {x.shape[1]}")
+                    raise ValueError(f"Expected features dimension {self.input_dim}, got {x.shape[1]}")
         
         return x
     
@@ -221,7 +311,7 @@ class TSLPredictor:
         Predict sign from landmarks.
         
         Args:
-            landmarks: numpy array of shape (162,) or (batch, 162)
+            landmarks: numpy array of shape (features,) or (batch, features)
             return_top_k: number of top predictions to return
             
         Returns:
@@ -251,12 +341,12 @@ class TSLPredictor:
             return [(self.classes[idx.item()], prob.item()) 
                     for idx, prob in zip(top_indices, top_probs)]
     
-    def predict_from_csv(self, csv_path):
+    def predict_from_csv(self, csv_path, feature_level=None):
         """Predict from CSV file containing landmarks."""
         import pandas as pd
-        
         df = pd.read_csv(csv_path)
-        features = extract_features_from_landmark_df(df)
+        level = feature_level or self.feature_level
+        features = extract_features_from_landmark_df(df, level)
         return self.predict(features)
     
     def predict_from_npz(self, npz_path):
@@ -300,16 +390,12 @@ def main():
         if 'X' in data:
             landmarks = data['X']
         else:
-            # Assume first array
             landmarks = data[data.files[0]]
         preds = predictor.predict(landmarks, return_top_k=args.top_k)
     elif input_path.suffix == '.csv':
-        import pandas as pd
-        df = pd.read_csv(input_path)
-        landmarks = extract_features_from_landmark_df(df)
-        preds = predictor.predict(landmarks, return_top_k=args.top_k)
+        preds = predictor.predict_from_csv(input_path, return_top_k=args.top_k)
     else:
-        print(f"ERROR: Unsupported file format. Use .npz or .csv")
+        print("ERROR: Unsupported file format. Use .npz or .csv")
         return 1
     
     # Show results
@@ -323,7 +409,8 @@ def main():
     print("MODEL INFO")
     print("="*60)
     print(f"Classes: {len(predictor.classes)}")
-    print(f"Expected features: {predictor.EXPECTED_FEATURES}")
+    print(f"Feature level: {predictor.feature_level}")
+    print(f"Input features: {predictor.input_dim}")
     print(f"Model accuracy: {predictor.accuracy*100:.2f}%")
     
     return 0

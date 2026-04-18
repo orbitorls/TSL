@@ -82,6 +82,9 @@ MODEL USAGE (Inference):
 =========================
 import torch
 import numpy as np
+import logging
+
+logger = logging.getLogger(__name__)
 
 # Load model
 checkpoint = torch.load('models/tsl51_gru_best.pt')
@@ -114,6 +117,7 @@ import sys
 import json
 from pathlib import Path
 from datetime import datetime
+from typing import Any
 
 import numpy as np
 
@@ -123,22 +127,58 @@ if sys.platform == 'win32':
 
 os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
 
+import logging
 import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader, TensorDataset
 from torch.optim import AdamW
 from torch.optim.lr_scheduler import OneCycleLR
-from torch.amp import GradScaler, autocast
+from utils.dataset_utils import safe_mean
 
 from sklearn.model_selection import StratifiedKFold
 from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score
 from sklearn.utils.class_weight import compute_class_weight
 
+# Mixed precision imports: prefer CUDA amp when available; provide safe fallbacks for CPU-only
+class _noop_context:
+    def __init__(self, enabled=False):
+        pass
+    def __enter__(self):
+        return None
+    def __exit__(self, exc_type, exc, tb):
+        return False
+
+HAS_AMP = False
+GradScaler = None
+autocast = _noop_context
+
+# Prefer torch.amp API (PyTorch >= 2.0) for mixed precision.
+# torch.cuda.amp is deprecated in PyTorch 2.6+ in favour of torch.amp.
+# Both torch.amp.grad_scaler.GradScaler() and torch.amp.autocast_mode.autocast()
+# default to device='cuda' / device_type='cuda' when called with no arguments,
+# so bare calls work on any supported version.
 try:
-    from tqdm import tqdm
+    from torch.amp.grad_scaler import GradScaler
+    from torch.amp.autocast_mode import autocast
+    HAS_AMP = True
+except Exception:
+    # Fallback to older torch.cuda.amp (PyTorch < 2.0)
+    try:
+        from torch.cuda.amp import GradScaler, autocast  # type: ignore[no-redef]
+        HAS_AMP = True
+    except Exception:
+        # Keep no-op fallbacks
+        GradScaler = None
+        autocast = _noop_context  # type: ignore[assignment]
+        HAS_AMP = False
+
+try:
+    from tqdm import tqdm as _tqdm
     HAS_TQDM = True
+    tqdm = _tqdm
 except ImportError:
     HAS_TQDM = False
+    tqdm = None
 
 try:
     import matplotlib.pyplot as plt
@@ -147,18 +187,22 @@ try:
     HAS_MATPLOTLIB = True
 except ImportError:
     HAS_MATPLOTLIB = False
+    plt = None
 
 PROJECT_DIR = Path(__file__).resolve().parent
 
-# Enforce GPU-only training
+# Module logger
+logger = logging.getLogger(__name__)
+
+# Check for CUDA and set device with CPU fallback
 if not torch.cuda.is_available():
     print("="*70)
-    print("ERROR: CUDA GPU not available!")
-    print("This script requires a CUDA-capable GPU for training.")
+    print("WARNING: CUDA GPU not available. Falling back to CPU.")
+    print("Training will proceed on CPU; automatic mixed precision (AMP) will be disabled.")
     print("="*70)
-    sys.exit(1)
-
-DEVICE = torch.device("cuda")
+    DEVICE = torch.device("cpu")
+else:
+    DEVICE = torch.device("cuda")
 CACHE_DIR = PROJECT_DIR / ".cache" / "tsl51"
 CACHE_DIR.mkdir(parents=True, exist_ok=True)
 
@@ -276,14 +320,323 @@ class MLP(nn.Module):
         return self.net(x)
 
 
-MODEL_CLASSES = {'mlp': MLP, 'gru': GRUModel}
+# ============================================================================
+# NEW MODELS FROM ACADEMIC RESEARCH
+# ============================================================================
+
+class MOPGRU(nn.Module):
+    """
+    Modified GRU (MOPGRU) - Multiplied Update Gate
+    
+    From: "An integrated mediapipe-optimized GRU model for Indian sign language recognition"
+    Subramanian et al., Scientific Reports 2022
+    
+    Key innovation: Multiplies update gate by reset gate to discard redundant info
+    This addresses hand occlusion and improves learning efficiency
+    """
+    def __init__(self, input_dim, num_classes, hidden_dim=256, num_layers=3, dropout=0.3):
+        super().__init__()
+        self.hidden_dim = hidden_dim
+        self.num_layers = num_layers
+        
+        # MOPGRU layers
+        self.rnn = nn.GRU(input_dim, hidden_dim, num_layers, 
+                        batch_first=True, bidirectional=True,
+                        dropout=dropout if num_layers > 1 else 0)
+        
+        # Layer norm after GRU
+        self.norm = nn.LayerNorm(hidden_dim * 2)
+        
+        # Classifier
+        self.fc = nn.Linear(hidden_dim * 2, num_classes)
+        self.dropout = nn.Dropout(dropout)
+    
+    def forward(self, x):
+        # x: (batch, seq_len, input_dim) or (batch, input_dim)
+        if x.dim() == 2:
+            x = x.unsqueeze(1)  # (batch, 1, input_dim)
+        
+        out, _ = self.rnn(x)  # (batch, seq, hidden*2)
+        
+        # Take last timestep
+        out = out[:, -1, :]  # (batch, hidden*2)
+        
+        # MOPGRU-style: apply norm then dropout
+        out = self.norm(out)
+        out = self.dropout(out)
+        
+        return self.fc(out)
+
+
+class HybridGRUTransformer(nn.Module):
+    """
+    Hybrid GRU + Transformer Encoder
+    
+    Combines GRU (temporal) + Transformer (attention) for better sequence modeling
+    Based on research: "Stack Transformer Based Spatial-Temporal Attention Model"
+    """
+    def __init__(self, input_dim, num_classes, hidden_dim=256, num_layers=3, dropout=0.3, nhead=8):
+        super().__init__()
+        self.hidden_dim = hidden_dim
+        
+        # GRU for initial sequence encoding
+        self.gru = nn.GRU(input_dim, hidden_dim, num_layers,
+                       batch_first=True, bidirectional=True,
+                       dropout=dropout if num_layers > 1 else 0)
+        
+        # Project to transformer dimension
+        self.proj = nn.Linear(hidden_dim * 2, hidden_dim)
+        
+        # Transformer encoder
+        encoder_layer = nn.TransformerEncoderLayer(
+            d_model=hidden_dim, nhead=nhead, dim_feedforward=hidden_dim * 4,
+            dropout=dropout, batch_first=True
+        )
+        self.transformer = nn.TransformerEncoder(encoder_layer, num_layers=2)
+        
+        # Output
+        self.norm = nn.LayerNorm(hidden_dim)
+        self.fc = nn.Linear(hidden_dim, num_classes)
+        self.dropout = nn.Dropout(dropout)
+    
+    def forward(self, x):
+        if x.dim() == 2:
+            x = x.unsqueeze(1)
+        
+        # GRU encoding
+        gru_out, _ = self.gru(x)  # (batch, seq, hidden*2)
+        
+        # Project
+        proj_out = self.proj(gru_out)  # (batch, seq, hidden)
+        
+        # Transformer attention
+        trans_out = self.transformer(proj_out)  # (batch, seq, hidden)
+        
+        # Take last
+        out = trans_out[:, -1, :]  # (batch, hidden)
+        
+        out = self.norm(out)
+        out = self.dropout(out)
+        
+        return self.fc(out)
+
+
+class CTCModel(nn.Module):
+    """
+    CTC-based model for sentence-level recognition
+    
+    Uses Connectionist Temporal Classification (CTC) for variable-length sequences
+    Ideal for: sentences with multiple signs of varying lengths
+    """
+    def __init__(self, input_dim, num_classes, hidden_dim=256, num_layers=3, dropout=0.3):
+        super().__init__()
+        # CTC uses blank token at index 0
+        self.blank_idx = 0
+        
+        # Bidirectional GRU encoder
+        self.gru = nn.GRU(input_dim, hidden_dim, num_layers,
+                        batch_first=True, bidirectional=True,
+                        dropout=dropout if num_layers > 1 else 0)
+        
+        # Project to num_classes (including blank)
+        self.fc = nn.Linear(hidden_dim * 2, num_classes + 1)  # +1 for blank
+        
+        self.dropout = nn.Dropout(dropout)
+    
+    def forward(self, x, lengths=None):
+        """
+        Args:
+            x: (batch, seq_len, input_dim)
+            lengths: (batch,) optional - actual sequence lengths for packing
+        """
+        if x.dim() == 2:
+            x = x.unsqueeze(1)
+        
+        # Encode
+        out, _ = self.gru(x)  # (batch, seq, hidden*2)
+        
+        # Project to classes + blank
+        out = self.fc(out)  # (batch, seq, num_classes+1)
+        
+        # Log softmax for CTC
+        out = torch.log_softmax(out, dim=-1)
+        
+        return out
+
+
+# Feature extraction with extended landmarks
+class FeatureExtractor:
+    """
+    Extended MediaPipe feature extractor
+    
+    Supports:
+    - 162 features (legacy) - hand + pose
+    - 258 features - hand + pose + finger details
+    - 462 features - full hand connections
+    - 1596 features - hand + pose + face (full MediaPipe)
+    """
+    BASIC_FEATURES = 162      # 21 hand * 3 * 2 + 12 pose * 3
+    FINGER_FEATURES = 258     # + extra finger landmarks
+    FULL_FEATURES = 462       # Full MediaPipe hand
+    FACE_FEATURES = 1596      # + face mesh (478 landmarks)
+    
+    def __init__(self, feature_level='basic'):
+        """
+        Args:
+            feature_level: 'basic' (162), 'finger' (258), 'full' (462), 'face' (1596)
+        """
+        self.feature_level = feature_level
+        
+        if feature_level == 'basic':
+            self.feature_dim = self.BASIC_FEATURES
+        elif feature_level == 'finger':
+            self.feature_dim = self.FINGER_FEATURES
+        elif feature_level == 'full':
+            self.feature_dim = self.FACE_FEATURES  # Use max for full
+        elif feature_level == 'face':
+            self.feature_dim = self.FACE_FEATURES
+        else:
+            raise ValueError(f"Unknown feature_level: {feature_level}")
+    
+    def extract_from_dataframe(self, lm_df):
+        """Extract features from landmark DataFrame."""
+        features = []
+        
+        from utils.dataset_utils import safe_mean
+        # ===== 1. BASIC: Hand + Pose (162) =====
+        # Left hand (21 * 3 = 63)
+        for i in range(21):
+            for c in ['x', 'y', 'z']:
+                col = f'lh_{c}{i}'
+                if col in lm_df.columns:
+                    features.append(safe_mean(lm_df[col]))
+                else:
+                    features.append(0.0)
+        
+        # Right hand (21 * 3 = 63)
+        for i in range(21):
+            for c in ['x', 'y', 'z']:
+                col = f'rh_{c}{i}'
+                if col in lm_df.columns:
+                    features.append(safe_mean(lm_df[col]))
+                else:
+                    features.append(0.0)
+        
+        # Pose (12 * 3 = 36)
+        pose_cols = ['l_shoulder', 'r_shoulder', 'l_elbow', 'r_elbow', 'l_wrist', 'r_wrist',
+                    'lbrow_outer', 'lbrow_inner', 'rbrow_inner', 'rbrow_outer',
+                    'mouth_right', 'mouth_left']
+        for base in pose_cols:
+            for c in ['x', 'y', 'z']:
+                col = f'{base}_{c}'
+                if col in lm_df.columns:
+                    features.append(safe_mean(lm_df[col]))
+                else:
+                    features.append(0.0)
+        
+        # ===== 2. FINGER: Additional finger details =====
+        if self.feature_level in ['finger', 'full', 'face']:
+            # Additional finger-specific landmarks
+            finger_names = ['thumb', 'index', 'middle', 'ring', 'pinky']
+            for hand_prefix in ['lh_', 'rh_']:
+                for finger in finger_names:
+                    for c in ['x', 'y', 'z']:
+                        for joint in ['mcp', 'pip', 'dip']:
+                            col = f'{hand_prefix}{finger}_{joint}_{c}'
+                            if col in lm_df.columns:
+                                features.append(safe_mean(lm_df[col]))
+                            else:
+                                features.append(0.0)
+        
+        # ===== 3. FACE: 478 Facial Landmarks (1434 features) =====
+        if self.feature_level in ['face', 'full']:
+            # MediaPipe Face Mesh has 478 landmarks
+            for i in range(478):
+                for c in ['x', 'y', 'z']:
+                    col = f'face_{c}{i}'
+                    if col in lm_df.columns:
+                        features.append(safe_mean(lm_df[col]))
+                    else:
+                        features.append(0.0)
+        
+        return np.array(features[:self.feature_dim], dtype=np.float32)
+
+
+# Frame sampling utilities
+def sample_frames_uniform(landmarks, target_frames=30):
+    """
+    Sample frames uniformly from sequence.
+    
+    Args:
+        landmarks: (n_frames, feature_dim) array
+        target_frames: target number of frames
+        
+    Returns:
+        sampled: (target_frames, feature_dim)
+    """
+    n_frames = len(landmarks)
+    if n_frames == target_frames:
+        return landmarks
+    
+    # Uniform sampling indices
+    indices = np.linspace(0, n_frames - 1, target_frames).astype(int)
+    return landmarks[indices]
+
+
+def pad_or_truncate(sequence, target_length, pad_value=0.0):
+    """
+    Pad or truncate sequence to target length.
+    
+    Args:
+        sequence: (seq_len, ...) array
+        target_length: desired length
+        pad_value: value for padding
+        
+    Returns:
+        result: (target_length, ...)
+    """
+    seq_len = len(sequence)
+    
+    if seq_len == target_length:
+        return sequence
+    
+    if seq_len < target_length:
+        # Pad
+        padding = np.full((target_length - seq_len,) + sequence.shape[1:], 
+                        pad_value, dtype=sequence.dtype)
+        return np.vstack([sequence, padding])
+    else:
+        # Truncate
+        return sequence[:target_length]
+
+
+# ============================================================================
+# MODEL REGISTRY
+# ============================================================================
+MODEL_CLASSES = {
+    'mlp': MLP,
+    'gru': GRUModel,
+    'mopgru': MOPGRU,
+    'hybrid': HybridGRUTransformer,
+    'ctc': CTCModel,
+}
 
 
 def estimate_params(model_type, hidden_dim, num_layers, input_dim, num_classes):
     """Estimate number of parameters in the model."""
-    if model_type == 'gru':
+    if model_type in ['gru', 'mopgru']:
         # GRU: bidirectional -> 2x hidden
+        # GRU params: 3 * hidden_dim^2 * num_layers + 3 * hidden_dim * input_dim * 2
         return hidden_dim * hidden_dim * 4 * 3 * num_layers + hidden_dim * input_dim * 2
+    elif model_type == 'hybrid':
+        # GRU + Transformer
+        gru_params = hidden_dim * hidden_dim * 4 * 3 * num_layers + hidden_dim * input_dim * 2
+        # Transformer: nhead * hidden_dim^2 * 2 + hidden_dim * 4
+        trans_params = 8 * hidden_dim * hidden_dim * 2 + hidden_dim * 4
+        return gru_params + trans_params
+    elif model_type == 'ctc':
+        # CTC with extra class
+        return hidden_dim * hidden_dim * 4 * 3 * num_layers + hidden_dim * input_dim * 2 + hidden_dim * num_classes
     else:
         # MLP: hidden^2 * layers + hidden * input + hidden * classes
         return hidden_dim * hidden_dim * (num_layers - 1) + hidden_dim * input_dim + hidden_dim * num_classes
@@ -322,11 +675,12 @@ def load_local_dataset(data_path, use_cache=True):
         label_map = {c: i for i, c in enumerate(classes)}
         y = np.array([label_map[c] for c in y])
     else:
-        print(f"ERROR: Unsupported file format. Use .csv or .npz")
+        print("ERROR: Unsupported file format. Use .csv or .npz")
         return None, None, None
     
-    # Handle string classes
-    if classes.dtype.kind in ['U', 'S', 'O']:
+    # Handle string classes - but only if y is also string
+    # If y is already int64, no conversion needed even if classes is string
+    if classes.dtype.kind in ['U', 'S', 'O'] and y.dtype.kind in ['U', 'S', 'O']:
         label_map = {c: i for i, c in enumerate(classes)}
         y = np.array([label_map[c] for c in y])
         classes = np.array(sorted(classes))
@@ -371,14 +725,40 @@ def load_tsl51_user_sign(max_samples=None, force_download=False):
         )
         metadata = pd.read_csv(meta_path, encoding='utf-8-sig')
         
-        print(f"Metadata: {len(metadata)} videos, {metadata['sign_clean'].nunique()} signs")
+        # Count unique signs robustly: use len(set(...)) for compatibility
+        # across pandas Series, numpy arrays, and any object with a values-like interface.
+        try:
+            raw = metadata['sign_clean']
+            if hasattr(raw, 'values'):
+                vals = np.asarray(raw.values)
+            else:
+                vals = np.asarray(raw)
+            unique_signs = int(len(set(vals.tolist())))
+        except Exception:
+            try:
+                unique_signs = int(len(set(np.asarray(metadata['sign_clean']).tolist())))
+            except Exception:
+                unique_signs = 0
+        print(f"Metadata: {len(metadata)} videos, {unique_signs} signs")
         
         X_list, y_list = [], []
         
-        for idx, row in tqdm(metadata.iterrows(), total=len(metadata), desc="Processing"):
+        iterator = metadata.iterrows()
+        if HAS_TQDM and callable(tqdm):
+            iterator = tqdm(iterator, total=len(metadata), desc="Processing")
+        for idx, row in iterator:
             try:
                 lm_path = row['landmark_path']
                 sign = row['sign_clean']
+                # Ensure we pass strings into hf_hub_download
+                try:
+                    lm_path = str(lm_path)
+                except Exception:
+                    lm_path = ''
+                try:
+                    sign = str(sign)
+                except Exception:
+                    sign = ''
                 
                 if pd.isna(sign) or pd.isna(lm_path):
                     continue
@@ -386,33 +766,32 @@ def load_tsl51_user_sign(max_samples=None, force_download=False):
                 # Download landmark file
                 file_path = hf_hub_download(
                     repo_id='Namonpas/thai-sign-language-tsl51',
-                    filename=lm_path,
+                    filename=str(lm_path),
                     repo_type='dataset'
                 )
                 
                 lm_df = pd.read_csv(file_path)
                 
-                # Extract features (average across frames)
+                # Extract features (average across frames) using safe_mean
                 features = []
-                
                 # Left hand (21 points * 3 = 63)
                 for i in range(21):
                     for c in ['x', 'y', 'z']:
                         col = f'lh_{c}{i}'
                         if col in lm_df.columns:
-                            features.append(lm_df[col].mean())
+                            features.append(safe_mean(lm_df[col]))
                         else:
                             features.append(0.0)
-                
+
                 # Right hand (21 points * 3 = 63)
                 for i in range(21):
                     for c in ['x', 'y', 'z']:
                         col = f'rh_{c}{i}'
                         if col in lm_df.columns:
-                            features.append(lm_df[col].mean())
+                            features.append(safe_mean(lm_df[col]))
                         else:
                             features.append(0.0)
-                
+
                 # Pose landmarks
                 pose_cols = ['l_shoulder', 'r_shoulder', 'l_elbow', 'r_elbow', 'l_wrist', 'r_wrist',
                             'lbrow_outer', 'lbrow_inner', 'rbrow_inner', 'rbrow_outer',
@@ -421,7 +800,7 @@ def load_tsl51_user_sign(max_samples=None, force_download=False):
                     for c in ['x', 'y', 'z']:
                         col = f'{base}_{c}'
                         if col in lm_df.columns:
-                            features.append(lm_df[col].mean())
+                            features.append(safe_mean(lm_df[col]))
                         else:
                             features.append(0.0)
                 
@@ -429,6 +808,8 @@ def load_tsl51_user_sign(max_samples=None, force_download=False):
                 y_list.append(sign)
                 
             except Exception as e:
+                # Log and continue processing other entries
+                logger.exception("Failed processing metadata row %s: %s", idx, e)
                 continue
         
         if not X_list:
@@ -477,7 +858,7 @@ def load_tsl51_user_sign(max_samples=None, force_download=False):
 
 
 def load_tsl51_expert(include_augmented=False, max_samples=None, force_download=False):
-    """Load TSL-51 from expert_metadata.csv.
+    """Load TSL-51 from expert data (extracted from zip files).
     
     Args:
         include_augmented: If True, include pre-augmented data (45k+ samples)
@@ -485,6 +866,8 @@ def load_tsl51_expert(include_augmented=False, max_samples=None, force_download=
         max_samples: Optional limit on number of samples
         force_download: Force re-download even if cached
     """
+    import zipfile
+    
     cache_suffix = "aug" if include_augmented else "orig"
     cache_file = CACHE_DIR / f"expert_{cache_suffix}_data.npz"
     sample_cache = CACHE_DIR / f"expert_{cache_suffix}_{max_samples}.npz" if max_samples else None
@@ -501,12 +884,12 @@ def load_tsl51_expert(include_augmented=False, max_samples=None, force_download=
         data = np.load(cache_file, allow_pickle=True)
         X_full, y_full, classes = data['X'], data['y'], data['classes']
     else:
-        print("Downloading TSL-51 expert data...")
+        print("Loading TSL-51 expert data from zip files...")
         
         from huggingface_hub import hf_hub_download
         import pandas as pd
         
-        # Download expert_metadata
+        # Download metadata
         meta_path = hf_hub_download(
             repo_id='Namonpas/thai-sign-language-tsl51',
             filename='metadata/expert_metadata.csv',
@@ -516,107 +899,141 @@ def load_tsl51_expert(include_augmented=False, max_samples=None, force_download=
         
         # Filter by augmentation
         if not include_augmented:
-            metadata = metadata[metadata['is_augmented'] == False]
+            metadata = metadata[~metadata['is_augmented']]
         
-        print(f"Metadata: {len(metadata)} videos, {metadata['sign_clean'].nunique()} signs")
+        try:
+            # np.asarray works for both pandas Series and numpy arrays
+            vals = np.asarray(metadata['sign_clean'])
+            unique_signs = int(len(set(vals.tolist())))
+        except Exception:
+            unique_signs = 0
+        print(f"Metadata: {len(metadata)} videos, {unique_signs} signs")
+        
+        # Download and process from zip files
+        zip_files = [
+            ('landmarks/expert_scraped.zip', 'expert_scraped'),
+            ('landmarks/expert_primary_02.zip', 'expert_primary'),
+        ]
         
         X_list, y_list = [], []
+        processed = set()
         
-        for idx, row in tqdm(metadata.iterrows(), total=len(metadata), desc="Processing"):
+        for zip_filename, source_name in zip_files:
+            print(f"Processing {source_name}...")
+            
             try:
-                lm_path = row['landmark_path']
-                sign = row['sign_clean']
-                
-                if pd.isna(sign) or pd.isna(lm_path):
-                    continue
-                
-                # Download landmark file
-                file_path = hf_hub_download(
+                zip_path = hf_hub_download(
                     repo_id='Namonpas/thai-sign-language-tsl51',
-                    filename=lm_path,
+                    filename=zip_filename,
                     repo_type='dataset'
                 )
                 
-                lm_df = pd.read_csv(file_path)
+                with zipfile.ZipFile(zip_path, 'r') as z:
+                    for idx, row in metadata.iterrows():
+                        if len(X_list) >= (max_samples or float('inf')):
+                            break
+                        
+                        video_id = row['video_id']
+                        if video_id in processed:
+                            continue
+                        
+                        sign = row.get('sign_clean')
+                        lm_path_val = row.get('landmark_path')
+                        # Guard against None and NaN without combining NDFrame with Python 'or'
+                        _sign_bad = (sign is None) or (hasattr(sign, '__float__') and pd.isna(sign))
+                        _lm_bad = (lm_path_val is None) or (hasattr(lm_path_val, '__float__') and pd.isna(lm_path_val))
+                        if _sign_bad or _lm_bad:
+                            continue
+                        
+                        # Get filename from landmark_path
+                        lm_path = row.get('landmark_path', '')
+                        try:
+                            lm_path = str(lm_path)
+                        except Exception:
+                            lm_path = ''
+                        lm_filename = lm_path.split('/')[-1] if '/' in lm_path else lm_path
+                        zip_entry = f"landmarks/{lm_filename}"
+                        
+                        try:
+                            with z.open(zip_entry) as f:
+                                lm_df = pd.read_csv(f)
+                            
+                            # Extract 162 features
+                            features = []
+                            
+                            # Left hand (21 * 3 = 63)
+                            for i in range(21):
+                                for c in ['x', 'y', 'z']:
+                                    col = f'lh_{c}{i}'
+                                    if col in lm_df.columns:
+                                        features.append(float(safe_mean(lm_df[col])))
+                                    else:
+                                        features.append(0.0)
+                            
+                            # Right hand (21 * 3 = 63)
+                            for i in range(21):
+                                for c in ['x', 'y', 'z']:
+                                    col = f'rh_{c}{i}'
+                                    if col in lm_df.columns:
+                                        features.append(float(safe_mean(lm_df[col])))
+                                    else:
+                                        features.append(0.0)
+                            
+                            # Pose (12 * 3 = 36)
+                            pose_cols = ['l_shoulder', 'r_shoulder', 'l_elbow', 'r_elbow', 'l_wrist', 'r_wrist',
+                                        'lbrow_outer', 'lbrow_inner', 'rbrow_inner', 'rbrow_outer',
+                                        'mouth_right', 'mouth_left']
+                            for col_base in pose_cols:
+                                for c in ['x', 'y', 'z']:
+                                    col = f'{col_base}_{c}'
+                                    if col in lm_df.columns:
+                                        features.append(float(safe_mean(lm_df[col])))
+                                    else:
+                                        features.append(0.0)
+                            
+                            if len(features) == 162:
+                                X_list.append(np.array(features, dtype=np.float32))
+                                y_list.append(str(sign))
+                                processed.add(video_id)
+                                
+                        except Exception as e:
+                            # Log and continue; avoid silent swallowing
+                            logger.debug("Skipping zip entry %s due to processing error: %s", zip_entry, e, exc_info=True)
+                            continue
                 
-                # Extract features (average across frames)
-                features = []
-                
-                # Left hand (21 points * 3 = 63)
-                for i in range(21):
-                    for c in ['x', 'y', 'z']:
-                        col = f'lh_{c}{i}'
-                        if col in lm_df.columns:
-                            features.append(lm_df[col].mean())
-                        else:
-                            features.append(0.0)
-                
-                # Right hand (21 points * 3 = 63)
-                for i in range(21):
-                    for c in ['x', 'y', 'z']:
-                        col = f'rh_{c}{i}'
-                        if col in lm_df.columns:
-                            features.append(lm_df[col].mean())
-                        else:
-                            features.append(0.0)
-                
-                # Pose landmarks
-                pose_cols = ['l_shoulder', 'r_shoulder', 'l_elbow', 'r_elbow', 'l_wrist', 'r_wrist',
-                            'lbrow_outer', 'lbrow_inner', 'rbrow_inner', 'rbrow_outer',
-                            'mouth_right', 'mouth_left']
-                for base in pose_cols:
-                    for c in ['x', 'y', 'z']:
-                        col = f'{base}_{c}'
-                        if col in lm_df.columns:
-                            features.append(lm_df[col].mean())
-                        else:
-                            features.append(0.0)
-                
-                X_list.append(np.nan_to_num(np.array(features, dtype=np.float32)))
-                y_list.append(sign)
+                print(f"  Extracted so far: {len(X_list)}")
                 
             except Exception as e:
+                print(f"  Error processing {source_name}: {e}")
                 continue
         
         if not X_list:
             print("ERROR: No samples extracted!")
             return None, None, None
         
-        X_full = np.array(X_list)
+        X = np.array(X_list, dtype=np.float32)
+        X = np.nan_to_num(X, nan=0.0, posinf=0.0, neginf=0.0)
+        
         classes = np.array(sorted(set(y_list)))
         label_map = {c: i for i, c in enumerate(classes)}
-        y_full = np.array([label_map[c] for c in y_list], dtype=np.int64)
+        y = np.array([label_map[c] for c in y_list], dtype=np.int64)
         
-        # Save full cache
-        np.savez(cache_file, X=X_full, y=y_full, classes=classes)
-        print(f"Cached: {len(X_full)} samples, {len(classes)} classes")
+        # Save cache
+        np.savez(cache_file, X=X, y=y, classes=classes)
+        print(f"Saved to cache: {cache_file}")
     
-    # Sample if needed
+    # Load from cache and apply sample limit
+    data = np.load(cache_file, allow_pickle=True)
+    X_full, y_full, classes = data['X'], data['y'], data['classes']
+    
     if max_samples and len(X_full) > max_samples:
-        print(f"Sampling {max_samples} samples (stratified)...")
-        
-        from sklearn.model_selection import train_test_split
-        
-        try:
-            _, X_sampled, _, y_sampled = train_test_split(
-                X_full, y_full,
-                test_size=max_samples,
-                stratify=y_full,
-                random_state=42
-            )
-        except ValueError:
-            indices = np.random.choice(len(X_full), max_samples, replace=False)
-            X_sampled, y_sampled = X_full[indices], y_full[indices]
-        
-        X, y = X_sampled, y_sampled
-        
-        if sample_cache:
-            np.savez(sample_cache, X=X, y=y, classes=classes)
-            print(f"Cached sample: {sample_cache}")
+        indices = np.random.choice(len(X_full), max_samples, replace=False)
+        X = X_full[indices]
+        y = y_full[indices]
     else:
-        X, y = X_full, y_full
+        X = X_full
+        y = y_full
     
-    print(f"Using {len(X)} samples, {len(classes)} classes")
     return X, y, classes
 
 
@@ -677,12 +1094,22 @@ def train_epoch(model, loader, criterion, optimizer, scaler, device, use_amp):
         X, y = X.to(device), y.to(device)
         optimizer.zero_grad()
         if use_amp:
-            with autocast('cuda'):
+            # torch.amp.autocast_mode.autocast requires device_type as first positional arg (PyTorch >= 2.0).
+            # torch.cuda.amp.autocast is deprecated but accepts the same signature.
+            # Both default to CUDA when device_type='cuda' is passed.
+            cm: Any = autocast('cuda')  # type: ignore[call-overload]
+
+            with cm:
                 out = model(X)
                 loss = criterion(out, y)
-            scaler.scale(loss).backward()
-            scaler.step(optimizer)
-            scaler.update()
+            if scaler is not None:
+                scaler.scale(loss).backward()
+                scaler.step(optimizer)
+                scaler.update()
+            else:
+                # Fallback if scaler unavailable
+                loss.backward()
+                optimizer.step()
         else:
             out = model(X)
             loss = criterion(out, y)
@@ -714,6 +1141,31 @@ def save_visualizations(results, fold_results, output_dir, args):
     """Save comprehensive training visualizations."""
     if not HAS_MATPLOTLIB:
         return
+    if plt is None:
+        return
+    
+    # Ensure all results values are native Python floats (handle serialized types)
+    def _to_float(val):
+        if isinstance(val, (int, float)):
+            return float(val)
+        if isinstance(val, str):
+            try:
+                return float(val)
+            except ValueError:
+                return val
+        return val
+    
+    # Convert top-level results
+    for k in ['average_accuracy', 'std_accuracy', 'overall_accuracy', 'precision', 'recall', 'f1_score', 'num_classes', 'num_samples', 'test_samples', 'input_dim']:
+        if k in results:
+            results[k] = _to_float(results[k])
+    if 'test_results' in results and isinstance(results['test_results'], dict):
+        for k in results['test_results']:
+            results['test_results'][k] = _to_float(results['test_results'][k])
+    # Convert fold results
+    for fr in fold_results:
+        if 'accuracy' in fr:
+            fr['accuracy'] = _to_float(fr['accuracy'])
     
     # Set style
     plt.style.use('seaborn-v0_8-whitegrid')
@@ -726,9 +1178,10 @@ def save_visualizations(results, fold_results, output_dir, args):
                  fontsize=24, fontweight='bold', color='#2c3e50', y=0.98)
     
     # Calculate dynamic y-axis limits
-    all_accs = [r['accuracy'] * 100 for r in fold_results]
-    all_metrics = [results['overall_accuracy']*100, results['precision']*100, 
-                   results['recall']*100, results['f1_score']*100]
+    # Ensure all values are floats (handle any serialized string/numpy types)
+    all_accs = [float(r['accuracy']) * 100 for r in fold_results]
+    all_metrics = [float(results['overall_accuracy'])*100, float(results['precision'])*100, 
+                   float(results['recall'])*100, float(results['f1_score'])*100]
     min_acc = min(min(all_accs), min(all_metrics)) - 15
     max_acc = max(max(all_accs), max(all_metrics)) + 10
     y_min = max(0, min_acc)
@@ -771,7 +1224,7 @@ def save_visualizations(results, fold_results, output_dir, args):
     ax1.set_ylabel('Accuracy (%)', fontsize=14, fontweight='bold')
     ax1.set_title('Cross-Validation Accuracy by Fold', fontsize=16, fontweight='bold', pad=15)
     ax1.legend(fontsize=11, loc='lower right', framealpha=0.9)
-    ax1.set_ylim([y_min, y_max])
+    ax1.set_ylim((y_min, y_max))
     ax1.grid(axis='y', alpha=0.4, linestyle='--')
     ax1.spines['top'].set_visible(False)
     ax1.spines['right'].set_visible(False)
@@ -795,7 +1248,7 @@ def save_visualizations(results, fold_results, output_dir, args):
     
     ax2.set_ylabel('Score (%)', fontsize=14, fontweight='bold')
     ax2.set_title('Overall Performance Metrics', fontsize=16, fontweight='bold', pad=15)
-    ax2.set_ylim([y_min, y_max])
+    ax2.set_ylim((y_min, y_max))
     ax2.grid(axis='y', alpha=0.4, linestyle='--')
     ax2.spines['top'].set_visible(False)
     ax2.spines['right'].set_visible(False)
@@ -810,9 +1263,9 @@ def save_visualizations(results, fold_results, output_dir, args):
     avg_per_class = num_samples / num_classes if num_classes > 0 else 0
     
     fold_table = (
-        f"╔══════════════════════════════════════════╗\n"
-        f"║       PER-FOLD RESULTS                    ║\n"
-        f"╠══════════════════════════════════════════╣\n"
+        "╔══════════════════════════════════════════╗\n"
+        "║       PER-FOLD RESULTS                    ║\n"
+        "╠══════════════════════════════════════════╣\n"
     )
     for fold in fold_results:
         fold_table += f"║  Fold {fold['fold']}:      {fold['accuracy']*100:>6.2f}%              ║\n"
@@ -841,10 +1294,15 @@ def save_visualizations(results, fold_results, output_dir, args):
     augment_val = args.augment if hasattr(args, 'augment') and args.augment else 1
     test_split_val = args.test_split if hasattr(args, 'test_split') else 0
     
-    # Calculate model parameters
+    # Calculate model parameters: prefer authoritative value if provided in results
     input_dim = results.get('input_dim', 162)
-    params = estimate_params(args.model, args.hidden, args.layers, input_dim, results.get('num_classes', 51))
-    
+    if 'actual_parameters' in results:
+        params = float(results['actual_parameters'])
+        params_note = ' (actual)'
+    else:
+        params = estimate_params(args.model, args.hidden, args.layers, input_dim, results.get('num_classes', 51))
+        params_note = ' (estimated)'
+
     config_text = (
         f"╔═══════════════════════════════════════════════════════════╗\n"
         f"║            MODEL CONFIGURATION                            ║\n"
@@ -855,7 +1313,7 @@ def save_visualizations(results, fold_results, output_dir, args):
         f"║  Dropout Rate:      {args.dropout:<15}                       ║\n"
         f"║  Input Features:    {input_dim:<15}                       ║\n"
         f"║  Output Classes:    {results.get('num_classes', 51):<15}                       ║\n"
-        f"║  Est. Parameters:   ~{params/1e6:.2f}M{'':<11}                       ║\n"
+        f"║  Est. Parameters:   ~{params/1e6:.2f}M{params_note:<11}                       ║\n"
         f"╠═══════════════════════════════════════════════════════════╣\n"
         f"║  Optimizer:         AdamW                                  ║\n"
         f"║  Learning Rate:     {args.lr:<15}                       ║\n"
@@ -965,7 +1423,7 @@ def save_visualizations(results, fold_results, output_dir, args):
                      edgecolor='#e74c3c', linewidth=2))
     ax6.axis('off')
     
-    plt.tight_layout(rect=[0, 0, 1, 0.96])
+    plt.tight_layout(rect=(0, 0, 1, 0.96))
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     plt.savefig(output_dir / f'results_{timestamp}.png', dpi=150, bbox_inches='tight', 
                 facecolor='#f8f9fa', edgecolor='none')
@@ -998,10 +1456,10 @@ def save_visualizations(results, fold_results, output_dir, args):
         
         f.write("\nTRAINING CONFIGURATION\n")
         f.write("-"*70 + "\n")
-        f.write(f"  Optimizer: AdamW\n")
+        f.write("  Optimizer: AdamW\n")
         f.write(f"  Learning Rate: {args.lr}\n")
-        f.write(f"  Weight Decay: 1e-4\n")
-        f.write(f"  LR Scheduler: OneCycleLR\n")
+        f.write("  Weight Decay: 1e-4\n")
+        f.write("  LR Scheduler: OneCycleLR\n")
         f.write(f"  Batch Size: {args.batch}\n")
         f.write(f"  Max Epochs: {args.epochs}\n")
         f.write(f"  Early Stopping: patience={args.patience}\n")
@@ -1082,8 +1540,13 @@ EXAMPLES:
     parser.add_argument("--dropout", type=float, default=0.3,
                        help="Dropout rate (default: 0.3)")
     parser.add_argument("--model", type=str, default="gru",
-                       choices=["mlp", "gru"],
-                       help="Model architecture: 'mlp' or 'gru' (default: gru)")
+                       choices=["mlp", "gru", "mopgru", "hybrid", "ctc"],
+                       help="Model architecture: 'mlp', 'gru', 'mopgru', 'hybrid', or 'ctc' (default: gru)")
+    parser.add_argument("--feature-level", type=str, default="basic",
+                       choices=["basic", "finger", "full", "face"],
+                       help="Feature level: 'basic'(162), 'finger'(258), 'full'(1596), 'face'(1434)")
+    parser.add_argument("--target-frames", type=int, default=30,
+                       help="Target frames for sequence models (default: 30)")
     parser.add_argument("--epochs", type=int, default=30,
                        help="Maximum epochs per fold (default: 30)")
     parser.add_argument("--batch", type=int, default=64,
@@ -1102,9 +1565,35 @@ EXAMPLES:
                        help="Data augmentation factor (e.g., 2 = 2x samples)")
     parser.add_argument("--include-augmented", action="store_true",
                        help="Include pre-augmented expert data (~45k samples). Only for --dataset tsl51_expert")
+    parser.add_argument("--require-cuda", action="store_true",
+                       help="If set, abort early when CUDA is not available")
+    parser.add_argument("--smoke", action="store_true",
+                       help="Smoke-test: epochs=1, folds=1, samples=10. Useful for CPU-only validation.")
     parser.add_argument("--test-split", type=float, default=0.0,
-                       help="Train/test split ratio (e.g., 0.2 = 20% test). If 0, use full data for CV (default: 0)")
+                       help="Train/test split ratio (e.g., 0.2 = 20%% test). If 0, use full data for CV (default: 0)")
+    parser.add_argument("--export", action="store_true",
+                       help="Export model to portable format after training")
+    parser.add_argument("--export-name", type=str, default=None,
+                       help="Export model filename (default: auto-generated)")
     args = parser.parse_args()
+
+    if args.require_cuda and not torch.cuda.is_available():
+        print("="*70)
+        print("ERROR: CUDA GPU not available and --require-cuda was set!")
+        print("This script requires a CUDA-capable GPU when --require-cuda is provided.")
+        print("="*70)
+        sys.exit(1)
+    
+    # Smoke-test shortcut: force minimal params for fast CPU validation.
+    # folds=2 so StratifiedKFold is happy (min n_splits=2); epochs=1 so it finishes fast.
+    if args.smoke:
+        args.folds = 2
+        args.epochs = 1
+        args.batch = min(args.batch, 16)
+        if args.samples is None or args.samples > 10:
+            args.samples = 10
+        print("[SMOKE TEST] Running with --epochs=1 --folds=2 --samples={} --batch={}".format(
+            args.samples, args.batch))
     
     # Validate arguments
     if args.dataset == "local" and args.data_path is None:
@@ -1121,7 +1610,8 @@ EXAMPLES:
     if torch.cuda.is_available():
         torch.cuda.manual_seed(args.seed)
     
-    use_amp = torch.cuda.is_available()
+    # Use AMP only when the runtime imported AMP support and CUDA is available
+    use_amp = HAS_AMP and torch.cuda.is_available()
     
     print("="*70)
     print("TSL-51 THAI SIGN LANGUAGE TRAINING")
@@ -1159,6 +1649,27 @@ EXAMPLES:
     
     if X is None:
         return 1
+
+    # Ensure numpy arrays for downstream processing and consistent shapes
+    try:
+        X = np.asarray(X, dtype=np.float32)
+    except Exception:
+        X = np.array(X, dtype=np.float32)
+    try:
+        y = np.asarray(y)
+    except Exception:
+        y = np.array(y)
+    try:
+        classes = np.asarray(classes)
+    except Exception:
+        classes = np.array(classes)
+
+    # Determine input feature dimension defensively
+    try:
+        X = np.asarray(X, dtype=np.float32)
+    except Exception:
+        X = np.array(X, dtype=np.float32)
+    input_dim = int(X.shape[1]) if getattr(X, 'ndim', 1) > 1 else 0
     
     # Apply data augmentation if requested
     if args.augment > 1:
@@ -1167,23 +1678,37 @@ EXAMPLES:
     # Apply train/test split if requested
     test_samples_count = 0
     has_test_set = False
+    X_test = None
+    y_test = None
     if args.test_split > 0:
         from sklearn.model_selection import train_test_split
-        X, X_test, y, y_test = train_test_split(
-            X, y, test_size=args.test_split, stratify=y, random_state=args.seed
-        )
-        test_samples_count = len(X_test)
-        has_test_set = True
-        print(f"Train/Test Split: {len(X)} train, {test_samples_count} test")
+        try:
+            X, X_test, y, y_test = train_test_split(
+                X, y, test_size=args.test_split, stratify=y, random_state=args.seed
+            )
+            test_samples_count = len(X_test)
+            has_test_set = True
+            print(f"Train/Test Split: {len(X)} train, {test_samples_count} test")
+        except Exception as e:
+            logger.exception("Failed to create train/test split: %s", e)
+            X_test = None
+            y_test = None
+            has_test_set = False
     
-    print(f"\nData: {len(X)} samples, {X.shape[1]} features, {len(classes)} classes")
+    print(f"\nData: {len(X)} samples, {input_dim} features, {len(classes)} classes")
     
     skf = StratifiedKFold(n_splits=args.folds, shuffle=True, random_state=args.seed)
     fold_results = []
     all_preds, all_targets = [], []
     best_models, fold_means, fold_stds = [], [], []
     
-    scaler = GradScaler('cuda') if use_amp else None
+    # Initialize GradScaler only when AMP is enabled and GradScaler is available
+    try:
+        # GradScaler('cuda') silences the PyTorch 2.6 deprecation warning
+        # type: ignore[call-overload] - LSP resolves to old API but runtime uses torch.amp.grad_scaler
+        scaler = GradScaler('cuda') if use_amp and (GradScaler is not None) else None  # type: ignore[call-overload]
+    except Exception:
+        scaler = None
     
     for fold, (train_idx, val_idx) in enumerate(skf.split(X, y)):
         print(f"\n--- Fold {fold+1}/{args.folds} ---")
@@ -1191,14 +1716,47 @@ EXAMPLES:
         X_train, X_val = X[train_idx], X[val_idx]
         y_train, y_val = y[train_idx], y[val_idx]
         
-        mean, std = X_train.mean(0), X_train.std(0) + 1e-8
+        # Ensure numpy operations for mean/std (X_train is np.ndarray)
+        # Compute mean/std defensively and cast to native float32 arrays
+        try:
+            X_train = np.asarray(X_train, dtype=np.float32)
+        except Exception:
+            X_train = np.array(X_train, dtype=np.float32)
+
+        try:
+            mean = np.mean(X_train, axis=0).astype(np.float32)
+        except Exception:
+            mean = np.zeros((input_dim,), dtype=np.float32)
+
+        try:
+            std = np.std(X_train, axis=0).astype(np.float32)
+        except Exception:
+            std = np.ones_like(mean, dtype=np.float32)
+
+        # Avoid zeros in std
+        std = np.where(std == 0, 1.0, std) + 1e-8
         X_train = (X_train - mean) / std
         X_val = (X_val - mean) / std
         fold_means.append(mean)
         fold_stds.append(std)
         
-        weights = compute_class_weight('balanced', classes=np.unique(y_train), y=y_train)
-        weights = torch.tensor(weights, dtype=torch.float32).to(DEVICE)
+        # compute_class_weight returns weights only for classes present in y_train.
+        # When few samples exist (e.g., smoke test with 10 samples), some folds
+        # may have only a subset of all classes. Expand to full class count with 0 weight.
+        try:
+            raw_weights = compute_class_weight('balanced', classes=np.unique(y_train), y=y_train)
+            unique_labels = np.unique(y_train)
+            total_classes = len(classes)
+            if len(unique_labels) == total_classes:
+                weights = torch.tensor(raw_weights, dtype=torch.float32).to(DEVICE)
+            else:
+                # Expand: assign 0 weight to missing classes
+                full_weights = torch.zeros(total_classes, dtype=torch.float32).to(DEVICE)
+                for idx, label in enumerate(unique_labels):
+                    full_weights[label] = raw_weights[idx]
+                weights = full_weights
+        except Exception:
+            weights = None
         
         train_loader = DataLoader(
             TensorDataset(torch.tensor(X_train), torch.tensor(y_train)),
@@ -1209,15 +1767,18 @@ EXAMPLES:
             batch_size=args.batch, shuffle=False, pin_memory=True, num_workers=0
         )
         
-        model = MODEL_CLASSES[args.model](X.shape[1], len(classes), args.hidden, args.layers, args.dropout)
+        model = MODEL_CLASSES[args.model](input_dim, len(classes), args.hidden, args.layers, args.dropout)
         model = model.to(DEVICE)
         
-        criterion = nn.CrossEntropyLoss(weight=weights)
+        criterion = nn.CrossEntropyLoss(weight=weights)  # weight=None means unweighted
         optimizer = AdamW(model.parameters(), lr=args.lr, weight_decay=1e-4)
         scheduler = OneCycleLR(optimizer, max_lr=args.lr, epochs=args.epochs,
                               steps_per_epoch=len(train_loader))
         
         best_acc, best_state, patience = 0.0, None, 0
+        
+        # Save initial (untrained) model state so best_state is never None
+        best_state = {k: v.cpu().clone() for k, v in model.state_dict().items()}
         
         for epoch in range(args.epochs):
             train_loss, train_acc = train_epoch(model, train_loader, criterion, optimizer, scaler, DEVICE, use_amp)
@@ -1235,7 +1796,11 @@ EXAMPLES:
                 print(f"  Early stop @ epoch {epoch+1}")
                 break
         
-        model.load_state_dict({k: v.to(DEVICE) for k, v in best_state.items()})
+        if best_state is not None:
+            model.load_state_dict({k: v.to(DEVICE) for k, v in best_state.items()})
+        else:
+            # best_acc stayed 0 throughout; keep the randomly-initialised model
+            pass
         _, final_acc, preds, targets = evaluate(model, val_loader, criterion, DEVICE)
         
         print(f"  Fold {fold+1}: {final_acc*100:.2f}%")
@@ -1244,12 +1809,15 @@ EXAMPLES:
         all_targets.extend(targets)
         best_models.append(best_state)
     
-    avg_acc = np.mean([r['accuracy'] for r in fold_results])
-    std_acc = np.std([r['accuracy'] for r in fold_results])
+    # Convert to floats explicitly for serialization and metrics
+    acc_list = [float(r['accuracy']) for r in fold_results]
+    avg_acc = float(np.mean(acc_list)) if acc_list else 0.0
+    std_acc = float(np.std(acc_list)) if acc_list else 0.0
     overall_acc = accuracy_score(all_targets, all_preds)
-    precision = precision_score(all_targets, all_preds, average='weighted', zero_division=0)
-    recall = recall_score(all_targets, all_preds, average='weighted', zero_division=0)
-    f1 = f1_score(all_targets, all_preds, average='weighted', zero_division=0)
+    # sklearn typings expect zero_division to be 'warn'|'raise'|'0' in some stubs; pass 'warn' for compatibility
+    precision = precision_score(all_targets, all_preds, average='weighted', zero_division='warn')
+    recall = recall_score(all_targets, all_preds, average='weighted', zero_division='warn')
+    f1 = f1_score(all_targets, all_preds, average='weighted', zero_division='warn')
     
     # Get best fold index
     best_idx = np.argmax([r['accuracy'] for r in fold_results])
@@ -1267,7 +1835,7 @@ EXAMPLES:
         )
         
         # Load best model
-        best_model = MODEL_CLASSES[args.model](X.shape[1], len(classes), args.hidden, args.layers, args.dropout)
+        best_model = MODEL_CLASSES[args.model](input_dim, len(classes), args.hidden, args.layers, args.dropout)
         best_model = best_model.to(DEVICE)  # Move to GPU first
         best_model.load_state_dict(best_models[best_idx])  # State dict is on CPU, will be moved by load_state_dict
         best_model.eval()
@@ -1281,9 +1849,9 @@ EXAMPLES:
                 test_targets.extend(y_batch.numpy())
         
         test_acc = accuracy_score(test_targets, test_preds)
-        test_precision = precision_score(test_targets, test_preds, average='weighted', zero_division=0)
-        test_recall = recall_score(test_targets, test_preds, average='weighted', zero_division=0)
-        test_f1 = f1_score(test_targets, test_preds, average='weighted', zero_division=0)
+        test_precision = precision_score(test_targets, test_preds, average='weighted', zero_division='warn')
+        test_recall = recall_score(test_targets, test_preds, average='weighted', zero_division='warn')
+        test_f1 = f1_score(test_targets, test_preds, average='weighted', zero_division='warn')
         
         test_results = {
             'test_accuracy': float(test_acc),
@@ -1313,20 +1881,67 @@ EXAMPLES:
         'num_classes': len(classes),
         'num_samples': len(X),
         'test_samples': test_samples_count,
-        'input_dim': X.shape[1]
+        'input_dim': input_dim
     }
     
     if test_results:
         results['test_results'] = test_results
+    
+    # Calculate actual model parameters from best model
+    total_params = sum(p.numel() for p in best_models[best_idx].values())
+    results['actual_parameters'] = total_params
     
     # Create unique timestamp for this training run
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     
     (PROJECT_DIR / "results").mkdir(exist_ok=True)
     json_file = PROJECT_DIR / "results" / f"cv_{timestamp}.json"
-    json_file.write_text(json.dumps(results, indent=2), encoding='utf-8')
-    
-    save_visualizations(results, fold_results, PROJECT_DIR / "results", args)
+
+    # Make results JSON-serializable (convert Paths, numpy, torch, etc.)
+    def _serialize(obj):
+        # Handle pathlib.Path
+        if isinstance(obj, Path):
+            return str(obj)
+        # numpy types
+        try:
+            import numpy as _np
+        except Exception:
+            _np = None
+        if _np is not None:
+            if isinstance(obj, (_np.integer, _np.floating, _np.bool_)):
+                return obj.item()
+            if isinstance(obj, _np.ndarray):
+                return obj.tolist()
+        # torch tensors
+        try:
+            import torch as _torch
+        except Exception:
+            _torch = None
+        if _torch is not None and isinstance(obj, _torch.Tensor):
+            return obj.detach().cpu().numpy().tolist()
+        # dict/list/tuple
+        if isinstance(obj, dict):
+            return {k: _serialize(v) for k, v in obj.items()}
+        if isinstance(obj, (list, tuple)):
+            return [_serialize(v) for v in obj]
+        # fallback for objects with __dict__
+        if hasattr(obj, '__dict__'):
+            try:
+                return {k: _serialize(v) for k, v in obj.__dict__.items()}
+            except Exception:
+                pass
+        try:
+            return str(obj)
+        except Exception:
+            logger = logging.getLogger(__name__)
+            logger.exception("Failed to serialize object of type %s", type(obj))
+            return None
+
+    serializable_results = _serialize(results)
+    json_file.write_text(json.dumps(serializable_results, indent=2, ensure_ascii=False), encoding='utf-8')
+
+    # Generate PNG report from the serializable payload so it matches the JSON
+    save_visualizations(serializable_results, fold_results, PROJECT_DIR / "results", args)
     
     (PROJECT_DIR / "models").mkdir(exist_ok=True)
     
@@ -1339,7 +1954,7 @@ EXAMPLES:
         'classes': classes.tolist(),
         'mean': fold_means[best_idx].tolist(),
         'std': fold_stds[best_idx].tolist(),
-        'input_dim': X.shape[1],
+        'input_dim': input_dim,
         'num_classes': len(classes),
         'model': args.model,
         'accuracy': float(fold_results[best_idx]['accuracy']),
@@ -1347,8 +1962,47 @@ EXAMPLES:
         'config': vars(args)
     }, model_path)
     
+    # Export to portable format if requested
+    if args.export:
+        print("\nExporting to portable format...")
+        export_path = model_path.parent / f"{model_path.stem}_export.pt"
+        
+        # Create portable package
+        checkpoint = torch.load(model_path, map_location='cpu')
+        
+        package = {
+            'state_dict': checkpoint['state_dict'],
+            'model_type': checkpoint['model'],
+            'model_config': {
+                'hidden_dim': args.hidden,
+                'num_layers': args.layers,
+                'dropout': args.dropout,
+                'nhead': 8,
+            },
+            'input_dim': checkpoint['input_dim'],
+            'num_classes': checkpoint['num_classes'],
+            'classes': checkpoint['classes'],
+            'mean': checkpoint['mean'],
+            'std': checkpoint['std'],
+            'feature_info': {
+                'feature_level': args.feature_level,
+                'feature_count': checkpoint['input_dim'],
+            },
+            'training_info': {
+                'accuracy': checkpoint['accuracy'],
+                'dataset': args.dataset,
+                'epochs': args.epochs,
+            },
+            'version': '1.0',
+        }
+        
+        torch.save(package, export_path)
+        print(f"Exported: {export_path}")
+    
     print(f"\nResults: {json_file}")
     print(f"Model: {model_path}")
+    if args.export:
+        print(f"Export: {model_path.parent / (model_path.stem + '_export.pt')}")
     print("DONE!")
     return 0
 

@@ -11,7 +11,6 @@ Usage:
 from __future__ import annotations
 
 import argparse
-import math
 from pathlib import Path
 
 import torch
@@ -51,6 +50,54 @@ class MLP(nn.Module):
         return self.net(x)
 
 
+class MOPGRU(nn.Module):
+    """Modified GRU with multiplied update gate."""
+    def __init__(self, input_dim, num_classes, hidden_dim=256, num_layers=3, dropout=0.3):
+        super().__init__()
+        self.rnn = nn.GRU(input_dim, hidden_dim, num_layers, batch_first=True, 
+                        bidirectional=True, dropout=dropout if num_layers > 1 else 0)
+        self.norm = nn.LayerNorm(hidden_dim * 2)
+        self.fc = nn.Linear(hidden_dim * 2, num_classes)
+        self.dropout = nn.Dropout(dropout)
+    
+    def forward(self, x):
+        if x.dim() == 2:
+            x = x.unsqueeze(1)
+        out, _ = self.rnn(x)
+        out = out[:, -1, :]
+        out = self.norm(out)
+        out = self.dropout(out)
+        return self.fc(out)
+
+
+class HybridGRUTransformer(nn.Module):
+    """Hybrid GRU + Transformer."""
+    def __init__(self, input_dim, num_classes, hidden_dim=256, num_layers=3, dropout=0.3, nhead=8):
+        super().__init__()
+        self.gru = nn.GRU(input_dim, hidden_dim, num_layers, batch_first=True, 
+                        bidirectional=True, dropout=dropout if num_layers > 1 else 0)
+        self.proj = nn.Linear(hidden_dim * 2, hidden_dim)
+        encoder_layer = nn.TransformerEncoderLayer(
+            d_model=hidden_dim, nhead=nhead, dim_feedforward=hidden_dim * 4,
+            dropout=dropout, batch_first=True
+        )
+        self.transformer = nn.TransformerEncoder(encoder_layer, num_layers=2)
+        self.norm = nn.LayerNorm(hidden_dim)
+        self.fc = nn.Linear(hidden_dim, num_classes)
+        self.dropout = nn.Dropout(dropout)
+    
+    def forward(self, x):
+        if x.dim() == 2:
+            x = x.unsqueeze(1)
+        gru_out, _ = self.gru(x)
+        proj_out = self.proj(gru_out)
+        trans_out = self.transformer(proj_out)
+        out = trans_out[:, -1, :]
+        out = self.norm(out)
+        out = self.dropout(out)
+        return self.fc(out)
+
+
 # =============================================================================
 # MODEL LOADING
 # =============================================================================
@@ -67,7 +114,15 @@ def load_model(model_path):
     num_classes = checkpoint["num_classes"]
     config = checkpoint.get("config", {})
 
-    model = MLP(
+    model_name = config.get("model", "mlp")
+    model_classes = {
+        "mlp": MLP,
+        "gru": MLP,  # Use MLP for backward compat
+        "mopgru": MOPGRU,
+        "hybrid": HybridGRUTransformer,
+    }
+    model_class = model_classes.get(model_name, MLP)
+    model = model_class(
         input_dim=input_dim,
         num_classes=num_classes,
         hidden_dim=config.get("hidden_dim", 256),

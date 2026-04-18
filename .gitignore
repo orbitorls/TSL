@@ -1,0 +1,11 @@
+__pycache__/
+*.pyc
+.DS_Store
+tsl-website/node_modules/
+tsl-website/.next/
+.cache/
+models/*.pt
+models/*.onnx
+results/*.json
+results/*.txt
+results/*.png

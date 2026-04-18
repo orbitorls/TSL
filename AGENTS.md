@@ -18,8 +18,10 @@ Thai Sign Language (TSL-51) recognition system using PyTorch. Supports training 
 
 ### Dependencies (Inferred)
 ```bash
-pip install torch numpy pandas matplotlib scikit-learn tqdm huggingface_hub opencv-python mediapipe
+pip install torch numpy pandas matplotlib scikit-learn tqdm huggingface_hub opencv-python mediapipe pillow
 ```
+
+See also: `requirements.txt` for the canonical dependency list.
 
 ## Common Commands
 
