@@ -1,0 +1,16 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+body {
+  font-family: 'Satoshi', system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  color: #0f172a; /* gray-900 */
+  background-color: #f7faf9; /* surface-50 fallback */
+}
+
+.brand-accent { color: #2ac4ae }
+
+.glass-card {
+  background: linear-gradient(180deg, rgba(255,255,255,0.9), rgba(255,255,255,0.85));
+  backdrop-filter: blur(6px);
+}
