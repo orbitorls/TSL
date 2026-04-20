@@ -1,0 +1,3 @@
+## 2024-04-20 - Real-time Render Loop I/O Bottleneck
+**Learning:** Found a major performance bottleneck where `camera_translate.py` was loading PIL TrueType fonts directly from disk on every single video frame within the hot render loop (`ImageFont.truetype`). This causes excessive disk I/O and parsing overhead that severely degrades FPS in real-time camera translation.
+**Action:** Implement memory caching for static assets (like fonts, icons, images) loaded during frame processing loops. Create an instance dictionary (e.g., `self._font_cache = {}`) to store loaded objects and reuse them instead of performing repeated I/O operations.
