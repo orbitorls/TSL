@@ -1,0 +1,3 @@
+## 2024-04-21 - PIL Font Loading I/O Bottleneck in Real-Time Camera Loop
+**Learning:** Loading fonts directly from disk via `ImageFont.truetype` inside a tight, real-time loop (like processing frames in `camera_translate.py`) introduces a significant file I/O bottleneck that degrades FPS and overall application responsiveness. The code was iterating over an array of font paths, attempting to load from disk on *every frame* for *every text element* rendered.
+**Action:** Always pre-load and cache PIL font assets and other disk-based dependencies in the `__init__` method of the class managing the rendering loop. Use an instance-level dictionary caching pattern (`self._font_cache`) and a helper method (`_get_cached_font`) to ensure assets are loaded only once.
