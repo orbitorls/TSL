@@ -1,0 +1,3 @@
+## 2025-04-26 - PIL Font Loading in Video Loops
+**Learning:** Loading PIL ImageFonts via `ImageFont.truetype(font_path, size)` is an expensive disk I/O operation. When placed inside a real-time computer vision frame rendering loop (like in `camera_translate.py`), the redundant disk reads per frame cause severe FPS drops and act as a major performance bottleneck for the inference pipeline.
+**Action:** Always cache PIL fonts in real-time rendering components by initializing a cache dictionary (e.g., `self._font_cache = {}`) and wrapping font instantiation logic in a retrieval method to avoid duplicate disk accesses.
