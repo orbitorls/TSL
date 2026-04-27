@@ -12,9 +12,14 @@ import torch
 import argparse
 import os
 from datetime import datetime
+from pathlib import Path
 
-# Import model architecture
-from train_tsl51_v3 import GRUModel, MLP
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
+
+# Import model architecture from shared module
+from src.train.models import GRUModel, MLP, MOPGRU, HybridGRUTransformer
 
 
 def export_to_onnx(model_path: str, output_path: str = None, model_type: str = 'gru'):
@@ -36,8 +41,8 @@ def export_to_onnx(model_path: str, output_path: str = None, model_type: str = '
         config = checkpoint.get('config', {}) if isinstance(checkpoint, dict) else {}
         input_dim = config.get('input_dim', checkpoint.get('input_dim', 162))
         num_classes = config.get('num_classes', checkpoint.get('num_classes', 51))
-        hidden_dim = config.get('hidden_dim', 256)
-        num_layers = config.get('num_layers', 3)
+        hidden_dim = config.get('hidden_dim', config.get('hidden', 256))
+        num_layers = config.get('num_layers', config.get('layers', 3))
         dropout = config.get('dropout', 0.3)
     else:
         # Legacy format
@@ -49,25 +54,34 @@ def export_to_onnx(model_path: str, output_path: str = None, model_type: str = '
         dropout = 0.3
     
     # Create model
-    if model_type.lower() == 'mlp':
-        model = MLP(input_dim, num_classes, hidden_dim, num_layers, dropout)
-    else:
-        model = GRUModel(input_dim, num_classes, hidden_dim, num_layers, dropout)
+    checkpoint_model_type = checkpoint.get('model', config.get('model', model_type)) if isinstance(checkpoint, dict) else model_type
+    model_type = (checkpoint_model_type or model_type).lower()
+    model_classes = {
+        'mlp': MLP,
+        'gru': GRUModel,
+        'mopgru': MOPGRU,
+        'hybrid': HybridGRUTransformer,
+    }
+    model_class = model_classes.get(model_type, GRUModel)
+    model = model_class(input_dim, num_classes, hidden_dim, num_layers, dropout)
     
     # Load weights
     model.load_state_dict(state_dict)
     model.eval()
     
     # Create dummy input
-    # Note: GRUModel.forward() in train_tsl51_v3.py calls x = x.unsqueeze(1)
-    # which means the model expects input shaped (batch, input_dim) and
-    # performs an internal unsqueeze to (batch, 1, input_dim). Passing a
-    # (batch, 1, input_dim) here would produce a 4D tensor after unsqueeze
-    # (which breaks torch.onnx.export). Use (batch, input_dim) for GRU.
+    # Determine input shape from checkpoint metadata
+    seq_mode = checkpoint.get('seq_mode', False) if isinstance(checkpoint, dict) else False
+    target_frames = checkpoint.get('target_frames', 30) if isinstance(checkpoint, dict) else 30
+
     if model_type.lower() == 'mlp':
+        # MLP always receives flat (batch, input_dim)
         dummy_input = torch.randn(1, input_dim)
+    elif seq_mode:
+        # Sequence-trained GRU: pass real (batch, T, input_dim) so ONNX graph is 3D
+        dummy_input = torch.randn(1, target_frames, input_dim)
     else:
-        # GRUModel expects (batch, input_dim) and will unsqueeze internally
+        # Mean-aggregated GRU: (batch, input_dim) — model does unsqueeze(1) internally
         dummy_input = torch.randn(1, input_dim)
     
     # Output path
@@ -87,7 +101,7 @@ def export_to_onnx(model_path: str, output_path: str = None, model_type: str = '
         input_names=['input'],
         output_names=['output'],
         dynamic_axes={
-            'input': {0: 'batch_size'},
+            'input': {0: 'batch_size', 1: 'seq_len'} if seq_mode else {0: 'batch_size'},
             'output': {0: 'batch_size'}
         }
     )
@@ -111,7 +125,7 @@ def main():
                      help='Path to trained model')
     parser.add_argument('--output', type=str, default=None,
                      help='Output ONNX path')
-    parser.add_argument('--type', type=str, default='gru', choices=['gru', 'mlp'],
+    parser.add_argument('--type', type=str, default='gru', choices=['gru', 'mlp', 'mopgru', 'hybrid'],
                      help='Model type')
     
     args = parser.parse_args()

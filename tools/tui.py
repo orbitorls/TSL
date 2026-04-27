@@ -61,7 +61,7 @@ COMMANDS: Dict[str, Dict] = {
     "train_expert": {
         "name": "Train Expert",
         "desc": "Train Expert model variant",
-        "cmd": "python train_expert.py",
+        "cmd": "python train_tsl51_v3.py --dataset tsl51_expert",
         "params": [
             ("Epochs", "epochs", "30", "input", None),
             ("Batch Size", "batch", "64", "input", None),
@@ -72,7 +72,7 @@ COMMANDS: Dict[str, Dict] = {
     "inference": {
         "name": "Inference",
         "desc": "Run inference on landmark data (.npz)",
-        "cmd": "python inference.py",
+        "cmd": "python inference.py --model models/tsl51_gru_best.pt --input data.npz --top-k 3",
         "params": [
             ("Model Path", "model", "models/tsl51_gru_best.pt", "input", None),
             ("Input File", "input", "data.npz", "input", None),
@@ -111,7 +111,7 @@ COMMANDS: Dict[str, Dict] = {
     "download_tsl51": {
         "name": "Download TSL-51",
         "desc": "Download TSL-51 dataset from HuggingFace",
-        "cmd": "python download_tsl51_v2.py",
+        "cmd": "python scripts/archive/data/download_tsl51_v2.py",
         "params": [
             ("Max Samples", "max_samples", "", "input", None),
         ]
@@ -119,7 +119,7 @@ COMMANDS: Dict[str, Dict] = {
     "download_expert": {
         "name": "Download Expert",
         "desc": "Download Expert dataset",
-        "cmd": "python download_expert_full.py",
+        "cmd": "python scripts/archive/data/download_expert_full.py",
         "params": [
             ("Max Samples", "max_samples", "", "input", None),
         ]
@@ -135,7 +135,7 @@ COMMANDS: Dict[str, Dict] = {
     "export_model": {
         "name": "Export Model",
         "desc": "Export trained model to portable format",
-        "cmd": "python export_model.py",
+        "cmd": "python root_archive/export_model.py",
         "params": [
             ("Model Path", "model", "models/tsl51_gru_best.pt", "input", None),
         ]
@@ -143,7 +143,7 @@ COMMANDS: Dict[str, Dict] = {
     "export_onnx": {
         "name": "Export ONNX",
         "desc": "Export model to ONNX format",
-        "cmd": "python export_onnx.py",
+        "cmd": "python root_archive/export_onnx.py",
         "params": [
             ("Model Path", "model", "models/tsl51_gru_best.pt", "input", None),
         ]
@@ -153,7 +153,7 @@ COMMANDS: Dict[str, Dict] = {
     "benchmark": {
         "name": "Benchmark",
         "desc": "Run video benchmark (WER/BLEU/ROUGE)",
-        "cmd": "python benchmark_video.py",
+        "cmd": "python benchmark_models.py",
         "params": [
             ("Model Path", "model", "models/tsl51_gru_best.pt", "input", None),
             ("Max Videos", "max", "50", "input", None),
@@ -162,13 +162,13 @@ COMMANDS: Dict[str, Dict] = {
     "reports": {
         "name": "Reports",
         "desc": "Create benchmark reports",
-        "cmd": "python create_benchmark_report.py",
+        "cmd": "python root_archive/create_benchmark_report.py",
         "params": []
     },
     "check_data": {
         "name": "Check Data",
         "desc": "Run data verification scripts",
-        "cmd": "python -c \"import os; [os.system(f'python scripts/verify/{f}') for f in os.listdir('scripts/verify') if f.endswith('.py')]\"",
+        "cmd": "python -c \"import os; [os.system(f'python scripts/archive/verify/{f}') for f in os.listdir('scripts/archive/verify') if f.endswith('.py')]\"",
         "params": []
     },
     
@@ -190,10 +190,11 @@ COMMANDS: Dict[str, Dict] = {
 
 # TRAINING PRESETS
 PRESETS = {
-    "quick": {"model": "gru", "epochs": "5", "batch": "64", "layers": "2", "hidden": "128", "augment": "0", "k_folds": "0"},
-    "default": {"model": "gru", "epochs": "50", "batch": "128", "layers": "3", "hidden": "256", "augment": "5", "k_folds": "0"},
+    "quick": {"model": "gru", "epochs": "5", "batch": "64", "layers": "2", "hidden": "128", "augment": "0", "k_folds": "5"},
+    "default": {"model": "gru", "epochs": "50", "batch": "128", "layers": "3", "hidden": "256", "augment": "5", "k_folds": "5"},
     "full_cv": {"model": "gru", "epochs": "100", "batch": "128", "layers": "3", "hidden": "256", "augment": "10", "k_folds": "5"},
-    "mlp": {"model": "mlp", "epochs": "50", "batch": "128", "layers": "3", "hidden": "256", "augment": "5"},
+    "mlp": {"model": "mlp", "epochs": "50", "batch": "128", "layers": "3", "hidden": "256", "augment": "5", "k_folds": "5"},
+    "large_dataset": {"model": "gru", "epochs": "100", "batch": "256", "layers": "4", "hidden": "512", "augment": "0", "k_folds": "5"},
 }
 TRAINING_PRESETS = PRESETS  # Alias for compatibility
 
@@ -205,6 +206,9 @@ class TSLApp(App):
     """TSL TUI - Complete Thai Sign Language Recognition Interface."""
     
     CSS = """
+    Screen {
+        background: $primary-darken-3;
+    }
     
     /* Right Panel */
     #right-panel {
@@ -214,18 +218,26 @@ class TSLApp(App):
         background: $surface;
     }
     
+    /* Left Panel */
+    #left-panel {
+        width: 40%;
+        height: 100%;
+        background: $surface-darken-1;
+    }
+    
     /* Section Headers */
     .section-header {
         text-style: bold;
         margin: 1 0 0 0;
         padding: 0 1;
+        color: $accent;
     }
     
     /* Training Presets */
     #presets-container {
         height: auto;
         padding: 1;
-        background: $surface-darken-1;
+        background: $surface-darken-2;
         border: solid $border;
         margin: 0 1 1 1;
     }
@@ -233,6 +245,7 @@ class TSLApp(App):
     .preset-btn {
         width: 100%;
         margin: 0 0 1 0;
+        border: none;
     }
     
     /* Config Inputs */
@@ -247,6 +260,8 @@ class TSLApp(App):
     Input.config-input {
         width: 100%;
         margin: 0 0 1 0;
+        border: solid $border;
+        background: $surface;
     }
     
     /* Quick Actions */
@@ -274,11 +289,13 @@ class TSLApp(App):
         padding: 0 1;
         background: $primary;
         color: $text;
+        text-style: bold;
     }
     
     /* Buttons */
     Button {
         width: 100%;
+        border: none;
     }
     
     .action-btn {
@@ -290,6 +307,24 @@ class TSLApp(App):
         color: $warning;
         text-style: bold;
     }
+    
+    /* Dataset Selection */
+    #dataset-container {
+        height: auto;
+        padding: 1;
+        background: $surface-darken-2;
+        border: solid $border;
+        margin: 0 1 1 1;
+    }
+    
+    /* Navigation */
+    #nav-container {
+        height: auto;
+        padding: 1;
+        background: $surface-darken-2;
+        border: solid $border;
+        margin: 0 1 1 1;
+    }
     """
     
     BINDINGS = [
@@ -297,9 +332,13 @@ class TSLApp(App):
         Binding("1", "preset_quick", "Quick"),
         Binding("2", "preset_default", "Default"),
         Binding("3", "preset_full", "Full CV"),
+        Binding("4", "preset_large", "Large Dataset"),
         Binding("r", "run_training", "Run"),
         Binding("s", "stop_training", "Stop"),
         Binding("c", "clear_output", "Clear"),
+        Binding("d", "show_dashboard", "Dashboard"),
+        Binding("v", "run_data_validation", "Data Validation"),
+        Binding("b", "run_model_benchmark", "Model Benchmark"),
     ]
     
     def __init__(self):
@@ -318,7 +357,7 @@ class TSLApp(App):
             # ===== LEFT PANEL =====
             with VerticalScroll(id="left-panel"):
                 # Title
-                yield Static("[bold cyan]TSL TUI[/bold cyan] [dim]v1.0[/dim]", classes="section-header")
+                yield Static("[bold cyan]TSL TUI[/bold cyan] [dim]v2.0[/dim]", classes="section-header")
                 yield Static("[dim]Thai Sign Language Recognition[/dim]\n", classes="section-header")
                 
                 # Training Presets
@@ -328,12 +367,24 @@ class TSLApp(App):
                     yield Button("2. Default (50 epochs)", id="btn-preset-default", classes="preset-btn", variant="success")
                     yield Button("3. Full K-Fold CV", id="btn-preset-full", classes="preset-btn", variant="success")
                     yield Button("4. MLP Fast", id="btn-preset-mlp", classes="preset-btn", variant="warning")
+                    yield Button("5. Large Dataset (~45k)", id="btn-preset-large", classes="preset-btn", variant="primary")
+                
+                # Dataset Selection
+                yield Static("[magenta]DATASET[/magenta]", classes="section-header")
+                with Vertical(id="dataset-container"):
+                    yield Label("Select Dataset:")
+                    yield Select([
+                        ("User Sign (547 samples)", "tsl51_user_sign"),
+                        ("Expert (1,155 samples)", "tsl51_expert"),
+                        ("Expert Full (~45k samples)", "tsl51_expert_full"),
+                        ("Combined (1,702 samples)", "tsl51_combined"),
+                    ], value="tsl51_user_sign", id="sel-dataset")
                 
                 # Configuration
                 yield Static("[cyan]CONFIGURATION[/cyan]", classes="section-header")
                 with Vertical(id="config-container"):
                     yield Label("Model:")
-                    yield Select([("GRU", "gru"), ("MLP", "mlp")], value="gru", id="sel-model")
+                    yield Select([("GRU", "gru"), ("MLP", "mlp"), ("MOPGRU", "mopgru"), ("Hybrid", "hybrid")], value="gru", id="sel-model")
                     
                     yield Label("Epochs:")
                     yield Input(value="50", id="inp-epochs", classes="config-input")
@@ -353,8 +404,8 @@ class TSLApp(App):
                     yield Label("Augmentation (0=off):")
                     yield Input(value="5", id="inp-augment", classes="config-input")
                     
-                    yield Label("K-Folds (0=normal, 5=K-Fold CV):")
-                    yield Input(value="0", id="inp-kfolds", classes="config-input")
+                    yield Label("K-Folds (blank=training default):")
+                    yield Input(value="5", id="inp-kfolds", classes="config-input")
                 
                 # Action Buttons
                 yield Static("[green]ACTIONS[/green]", classes="section-header")
@@ -362,12 +413,19 @@ class TSLApp(App):
                     yield Button("RUN", id="btn-run", variant="success", classes="action-btn")
                     yield Button("STOP", id="btn-stop", variant="error", classes="action-btn", disabled=True)
                 
+                # Navigation
+                yield Static("[blue]NAVIGATION[/blue]", classes="section-header")
+                with Vertical(id="nav-container"):
+                    yield Button("Dashboard", id="btn-dashboard", variant="primary")
+                    yield Button("Data Validation", id="btn-data-validation")
+                    yield Button("Model Benchmark", id="btn-model-benchmark")
+                
                 # Other Commands (restored minimal set)
-                yield Static("[blue]OTHER[/blue]", classes="section-header")
+                yield Static("[blue]ACTIONS[/blue]", classes="section-header")
                 yield Button("Inference", id="btn-inference")
                 yield Button("Camera", id="btn-camera")
-                yield Button("Download Data", id="btn-download")
-                yield Button("Benchmark", id="btn-benchmark")
+                yield Button("Download TSL-51", id="btn-download_tsl51")
+                yield Button("Download Expert", id="btn-download_expert")
                 yield Button("Clear Output", id="btn-clear")
             
             # ===== RIGHT PANEL =====
@@ -381,9 +439,9 @@ class TSLApp(App):
     
     def on_mount(self) -> None:
         self.title = "TSL TUI - Thai Sign Language Recognition"
-        self.sub_title = "[b]q[/b]=Quit | [b]r[/b]=Run | [b]s[/b]=Stop | [b]1-4[/b]=Presets"
-        self._load_preset("default")
+        self.sub_title = "[b]q[/b]=Quit | [b]r[/b]=Run | [b]s[/b]=Stop | [b]1-4[/b]=Presets | [b]d[/b]=Dashboard | [b]v[/b]=Validate | [b]b[/b]=Benchmark"
         self._log("[cyan]TSL TUI initialized. Select a preset or configure manually.[/cyan]")
+        self._load_preset("default")
     
     def _log(self, msg: str) -> None:
         """Write to output log."""
@@ -438,6 +496,7 @@ class TSLApp(App):
     def _get_training_command(self) -> str:
         """Build training command from current config."""
         try:
+            dataset = self.query_one("#sel-dataset", Select).value
             model = self.query_one("#sel-model", Select).value
             epochs = self.query_one("#inp-epochs", Input).value
             batch = self.query_one("#inp-batch", Input).value
@@ -447,10 +506,10 @@ class TSLApp(App):
             augment = self.query_one("#inp-augment", Input).value
             kfolds = self.query_one("#inp-kfolds", Input).value
             
-            cmd = f"python train_tsl51_v3.py --model {model} --epochs {epochs} --batch {batch} --layers {layers} --hidden {hidden} --lr {lr} --augment {augment}"
+            cmd = f"python train_tsl51_v3.py --dataset {dataset} --model {model} --epochs {epochs} --batch {batch} --layers {layers} --hidden {hidden} --lr {lr} --augment {augment}"
             
-            if kfolds != "0":
-                cmd += f" --k-folds {kfolds}"
+            if kfolds.strip():
+                cmd += f" --folds {kfolds}"
             
             return cmd
         except Exception:
@@ -656,6 +715,26 @@ class TSLApp(App):
         self._load_preset("mlp")
         self._log("[cyan]Loaded: MLP Fast preset[/cyan]")
     
+    def action_preset_large(self) -> None:
+        self._load_preset("large_dataset")
+        try:
+            self.query_one("#sel-dataset", Select).value = "tsl51_expert_full"
+        except Exception:
+            pass
+        self._log("[cyan]Loaded: Large Dataset preset (tsl51_expert_full)[/cyan]")
+    
+    def action_show_dashboard(self) -> None:
+        """Show dashboard."""
+        self._show_dashboard()
+    
+    def action_run_data_validation(self) -> None:
+        """Run data validation."""
+        self._run_data_validation()
+    
+    def action_run_model_benchmark(self) -> None:
+        """Run model benchmark."""
+        self._run_model_benchmark()
+    
     # Button handlers
     def on_button_pressed(self, event: Button.Pressed) -> None:
         btn_id = event.button.id or ""
@@ -683,6 +762,20 @@ class TSLApp(App):
             return
         if btn_id == "btn-preset-mlp":
             self.action_preset_mlp()
+            return
+        if btn_id == "btn-preset-large":
+            self.action_preset_large()
+            return
+
+        # navigation
+        if btn_id == "btn-dashboard":
+            self._show_dashboard()
+            return
+        if btn_id == "btn-data-validation":
+            self._run_data_validation()
+            return
+        if btn_id == "btn-model-benchmark":
+            self._run_model_benchmark()
             return
 
         # Generic command buttons -> id format: btn-<command_key>
@@ -716,6 +809,110 @@ class TSLApp(App):
             desc = meta.get("name", cmd_key)
             self.worker = self._run_command_async(str(cmd), desc)
             return
+    
+    def _show_dashboard(self) -> None:
+        """Show dashboard with system info."""
+        self._log("\n[bold cyan]=== DASHBOARD ===[/bold cyan]")
+        self._log("[cyan]System Information:[/cyan]")
+        
+        # GPU info
+        try:
+            import torch
+            if torch.cuda.is_available():
+                self._log(f"  GPU: {torch.cuda.get_device_name(0)}")
+                self._log(f"  CUDA Available: Yes")
+            else:
+                self._log("  GPU: Not available (CPU only)")
+        except Exception:
+            self._log("  GPU: Unable to detect")
+        
+        # Dataset cache info
+        try:
+            from pathlib import Path
+            cache_dir = Path(".cache/tsl51")
+            if cache_dir.exists():
+                cache_files = list(cache_dir.glob("*.npz"))
+                self._log(f"  Cached Datasets: {len(cache_files)} files")
+                for f in cache_files:
+                    size_mb = f.stat().st_size / (1024 * 1024)
+                    self._log(f"    - {f.name} ({size_mb:.1f} MB)")
+            else:
+                self._log("  Cached Datasets: None")
+        except Exception:
+            self._log("  Cached Datasets: Unable to check")
+        
+        # Model files
+        try:
+            from pathlib import Path
+            models_dir = Path("models")
+            if models_dir.exists():
+                model_files = list(models_dir.glob("*.pt"))
+                self._log(f"  Trained Models: {len(model_files)} files")
+                for f in sorted(model_files)[-5:]:  # Show last 5
+                    self._log(f"    - {f.name}")
+            else:
+                self._log("  Trained Models: None")
+        except Exception:
+            self._log("  Trained Models: Unable to check")
+        
+        self._log("[cyan]Current Configuration:[/cyan]")
+        try:
+            dataset = self.query_one("#sel-dataset", Select).value
+            model = self.query_one("#sel-model", Select).value
+            epochs = self.query_one("#inp-epochs", Input).value
+            batch = self.query_one("#inp-batch", Input).value
+            self._log(f"  Dataset: {dataset}")
+            self._log(f"  Model: {model}")
+            self._log(f"  Epochs: {epochs}")
+            self._log(f"  Batch Size: {batch}")
+        except Exception:
+            self._log("  Unable to read current config")
+        
+        self._log("[bold cyan]================[/bold cyan]")
+    
+    def _run_data_validation(self) -> None:
+        """Run data validation on selected dataset."""
+        if self.training_active:
+            self._update_status("[red]Already running![/red]")
+            return
+        
+        try:
+            dataset = self.query_one("#sel-dataset", Select).value
+            self._log(f"\n[bold cyan]=== DATA VALIDATION: {dataset} ===[/bold cyan]")
+            
+            cmd = f"python -c \"from src.data.loader import {self._get_loader_function(dataset)}; X, y, classes = {self._get_loader_function(dataset)}(); from src.data.loader import validate_dataset, print_dataset_quality_report; results = validate_dataset(X, y, classes); print_dataset_quality_report(results)\""
+            
+            desc = f"Data Validation ({dataset})"
+            self.worker = self._run_command_async(cmd, desc)
+        except Exception as e:
+            self._log(f"[red]Error: {e}[/red]")
+    
+    def _run_model_benchmark(self) -> None:
+        """Run model benchmark."""
+        if self.training_active:
+            self._update_status("[red]Already running![/red]")
+            return
+        
+        try:
+            dataset = self.query_one("#sel-dataset", Select).value
+            self._log(f"\n[bold cyan]=== MODEL BENCHMARK: {dataset} ===[/bold cyan]")
+            
+            cmd = f"python benchmark_models.py --dataset {dataset}"
+            
+            desc = f"Model Benchmark ({dataset})"
+            self.worker = self._run_command_async(cmd, desc)
+        except Exception as e:
+            self._log(f"[red]Error: {e}[/red]")
+    
+    def _get_loader_function(self, dataset: str) -> str:
+        """Get the appropriate loader function name for a dataset."""
+        loader_map = {
+            "tsl51_user_sign": "load_tsl51_user_sign",
+            "tsl51_expert": "load_tsl51_expert",
+            "tsl51_expert_full": "load_tsl51_expert_full",
+            "tsl51_combined": "load_tsl51_combined",
+        }
+        return loader_map.get(dataset, "load_tsl51_user_sign")
 
 
 if __name__ == "__main__":

@@ -4,11 +4,12 @@ TSL-51 Model Export Script
 Export trained model to a portable format that can be used anywhere.
 
 Usage:
-    python export_model.py --input models/tsl51_hybrid_*.pt --output tsl51_model.pt
+    python tools/export_model.py --input models/tsl51_hybrid_*.pt --output tsl51_model.pt
 """
 
 import argparse
 import sys
+from datetime import datetime
 from pathlib import Path
 
 if sys.platform == 'win32':
@@ -40,8 +41,8 @@ def export_model(input_path, output_path=None):
         # Model architecture info
         'model_type': checkpoint.get('model', 'gru'),
         'model_config': {
-            'hidden_dim': checkpoint.get('config', {}).get('hidden_dim', 256),
-            'num_layers': checkpoint.get('config', {}).get('layers', 3),
+            'hidden_dim': checkpoint.get('config', {}).get('hidden_dim', checkpoint.get('config', {}).get('hidden', 256)),
+            'num_layers': checkpoint.get('config', {}).get('num_layers', checkpoint.get('config', {}).get('layers', 3)),
             'dropout': checkpoint.get('config', {}).get('dropout', 0.3),
             'nhead': 8,
         },
@@ -54,7 +55,11 @@ def export_model(input_path, output_path=None):
         # Normalization (REQUIRED for inference)
         'mean': checkpoint['mean'],
         'std': checkpoint['std'],
-        
+
+        # Temporal sequence mode (new in v2)
+        'seq_mode': checkpoint.get('seq_mode', False),
+        'target_frames': checkpoint.get('target_frames', 30),
+
         # Feature extraction info
         'feature_info': {
             'feature_level': checkpoint.get('config', {}).get('feature_level', 'basic'),
@@ -72,7 +77,7 @@ def export_model(input_path, output_path=None):
         
         # Version
         'version': '1.0',
-        'exported_at': torch.datetime.datetime.now().isoformat(),
+        'exported_at': datetime.now().isoformat(),
     }
     
     # Determine output path

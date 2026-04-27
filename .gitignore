@@ -1,11 +1,60 @@
+# Python
 __pycache__/
 *.pyc
+*.pyo
+*.pyd
+.Python
+*.so
+*.egg
+*.egg-info/
+dist/
+build/
+.pytest_cache/
+.coverage
+htmlcov/
+.mypy_cache/
+.ruff_cache/
+.dmypy.json
+dmypy.json
+
+# Virtual environments
+.venv/
+venv/
+ENV/
+env/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
 .DS_Store
-tsl-website/node_modules/
-tsl-website/.next/
+Thumbs.db
+
+# Project specific
 .cache/
 models/*.pt
 models/*.onnx
 results/*.json
 results/*.txt
 results/*.png
+
+# Website
+tsl-website/node_modules/
+tsl-website/.next/
+
+# Archive (these contain scripts used by TUI, keep versioned)
+# root_archive/ - Legacy scripts referenced by tools/config.py
+# scripts/archive/ - Archive of historical scripts
+
+# Jupyter
+.ipynb_checkpoints/
+*.ipynb
+
+# Temporary files
+*.tmp
+*.bak
+*.log

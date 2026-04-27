@@ -4,8 +4,8 @@ Thai Sign Language Video Benchmark Script
 ทดสอบโมเดลกับวิดีโอ + WER/BLEU/ROUGE Metrics
 
 Usage:
-    python benchmark_video.py --samples 10
-    python benchmark_video.py --samples 50 --output results/
+    python tools/benchmark_video.py --samples 10
+    python tools/benchmark_video.py --samples 50 --output results/
 """
 
 import argparse
@@ -22,6 +22,11 @@ if sys.platform == 'win32':
 import numpy as np
 import torch
 import logging
+
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
+
 from utils.dataset_utils import safe_mean
 
 # Module logger

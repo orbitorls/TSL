@@ -121,11 +121,17 @@ from typing import Any
 
 import numpy as np
 
-if sys.platform == 'win32':
-    import io
-    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='replace')
+# Platform-specific compatibility
+from src.train.compat import (
+    setup_windows_encoding,
+    setup_mkl_threads,
+    HAS_AMP, GradScaler, autocast,
+    HAS_TQDM, tqdm,
+    HAS_MATPLOTLIB, plt,
+)
 
-os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
+setup_windows_encoding()
+setup_mkl_threads()
 
 import logging
 import torch
@@ -138,56 +144,6 @@ from utils.dataset_utils import safe_mean
 from sklearn.model_selection import StratifiedKFold
 from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score
 from sklearn.utils.class_weight import compute_class_weight
-
-# Mixed precision imports: prefer CUDA amp when available; provide safe fallbacks for CPU-only
-class _noop_context:
-    def __init__(self, enabled=False):
-        pass
-    def __enter__(self):
-        return None
-    def __exit__(self, exc_type, exc, tb):
-        return False
-
-HAS_AMP = False
-GradScaler = None
-autocast = _noop_context
-
-# Prefer torch.amp API (PyTorch >= 2.0) for mixed precision.
-# torch.cuda.amp is deprecated in PyTorch 2.6+ in favour of torch.amp.
-# Both torch.amp.grad_scaler.GradScaler() and torch.amp.autocast_mode.autocast()
-# default to device='cuda' / device_type='cuda' when called with no arguments,
-# so bare calls work on any supported version.
-try:
-    from torch.amp.grad_scaler import GradScaler
-    from torch.amp.autocast_mode import autocast
-    HAS_AMP = True
-except Exception:
-    # Fallback to older torch.cuda.amp (PyTorch < 2.0)
-    try:
-        from torch.cuda.amp import GradScaler, autocast  # type: ignore[no-redef]
-        HAS_AMP = True
-    except Exception:
-        # Keep no-op fallbacks
-        GradScaler = None
-        autocast = _noop_context  # type: ignore[assignment]
-        HAS_AMP = False
-
-try:
-    from tqdm import tqdm as _tqdm
-    HAS_TQDM = True
-    tqdm = _tqdm
-except ImportError:
-    HAS_TQDM = False
-    tqdm = None
-
-try:
-    import matplotlib.pyplot as plt
-    import matplotlib
-    matplotlib.use('Agg')
-    HAS_MATPLOTLIB = True
-except ImportError:
-    HAS_MATPLOTLIB = False
-    plt = None
 
 PROJECT_DIR = Path(__file__).resolve().parent
 
@@ -1525,8 +1481,8 @@ EXAMPLES:
         """
     )
     parser.add_argument("--dataset", type=str, default="tsl51_user_sign",
-                       choices=["tsl51_user_sign", "tsl51_expert", "tsl51_combined", "local"],
-                       help="Dataset to use (default: tsl51_user_sign)")
+                       choices=["tsl51_user_sign", "tsl51_expert", "tsl51_expert_full", "tsl51_combined", "local"],
+                       help="Dataset to use (default: tsl51_user_sign). tsl51_expert_full uses ~45k samples")
     parser.add_argument("--data-path", type=str, default=None,
                        help="Path to local dataset (required for --dataset local)")
     parser.add_argument("--samples", type=int, default=None,
@@ -1638,6 +1594,13 @@ EXAMPLES:
             max_samples=args.samples,
             force_download=args.force_download
         )
+    elif args.dataset == "tsl51_expert_full":
+        # Import from src.data.loader for full expert dataset
+        from src.data.loader import load_tsl51_expert_full
+        X, y, classes = load_tsl51_expert_full(
+            max_samples=args.samples,
+            force_download=args.force_download
+        )
     elif args.dataset == "tsl51_combined":
         X, y, classes = load_tsl51_combined(
             max_samples=args.samples,
@@ -1649,6 +1612,14 @@ EXAMPLES:
     
     if X is None:
         return 1
+
+    # Validate dataset quality
+    from src.data.loader import validate_dataset, print_dataset_quality_report
+    validation_results = validate_dataset(X, y, classes)
+    print_dataset_quality_report(validation_results)
+    
+    if not validation_results['valid']:
+        print("WARNING: Dataset validation failed. Proceeding anyway, but results may be unreliable.")
 
     # Ensure numpy arrays for downstream processing and consistent shapes
     try:

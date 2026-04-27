@@ -1,14 +1,51 @@
 # AGENTS.md - Thai Sign Language Recognition Project
 
 ## Project Overview
+
 Thai Sign Language (TSL-51) recognition system using PyTorch. Supports training on isolated signs and inference for real-time translation.
+
+## Architecture
+
+### Modular Structure
+The project has been refactored with a clean modular architecture:
+
+- **`src/data/`** - Data loading and processing
+  - `loader.py` - Dataset loading functions (user_sign, expert, combined, full expert ~45k)
+  - `loader_expert.py` - Full expert dataset loader
+  - `feature_extraction.py` - Feature extraction utilities
+  - `extractor.py` - MediaPipe landmark extractor
+
+- **`src/train/`** - Training modules
+  - `config.py` - Training configuration and presets
+  - `trainer.py` - Core training logic (Trainer class)
+  - `evaluator.py` - Evaluation metrics and reporting
+  - `models.py` - Model definitions (GRU, MLP, MOPGRU, HybridGRUTransformer, CTC)
+  - `augment.py` - Data augmentation
+  - `visualize.py` - Training visualization
+
+- **`src/inference/`** - Inference modules
+  - `runner.py` - General inference script
+  - `predict_video.py` - Video prediction
+  - `camera_translate.py` - Real-time camera translation
+  - `translate.py` - JSON translation
+
+### Legacy Shims (Root Level)
+
+The following root-level files are legacy shims for backward compatibility:
+
+- `inference.py` → `src.inference.runner`
+- `predict_video.py` → `src.inference.predict_video`
+- `camera_translate.py` → `src.inference.camera_translate`
+- `translate.py` → `src.inference.translate`
+- `tsl_tasks_extractor.py` → `src.data.extractor`
 
 ## Key Files
 
 ### Training
-- **`train_tsl51_v3.py`** - Main training script with K-Fold CV, data augmentation, GPU support
-- **`download_tsl51_v2.py`** - Dataset download/preprocessing from HuggingFace
-- **`analyze_sentence_data.py`** - Analyze TSL-51 sentence-level data structure
+- **`train_tsl51_v3.py`** - Main training script with K-Fold CV, data augmentation, GPU support (CLI entry point)
+- **`src/data/loader.py`** - Modular data loading with validation and quality metrics
+- **`src/train/config.py`** - Training configuration with presets (quick, default, full_cv, mlp_fast, large_dataset)
+- **`src/train/trainer.py`** - Core training logic with gradient clipping, mixed precision, early stopping
 
 ### Inference & Prediction
 - **`inference.py`** - Load trained models and run inference on pre-extracted features
@@ -27,14 +64,22 @@ See also: `requirements.txt` for the canonical dependency list.
 
 ### Training
 ```bash
-# Default training (5-fold CV, GRU model)
+# Default training (5-fold CV, GRU model, user_sign dataset)
 python train_tsl51_v3.py
+
+# Training with full expert dataset (~45k samples)
+python train_tsl51_v3.py --dataset tsl51_expert_full
 
 # Fast training with augmentation
 python train_tsl51_v3.py --layers 3 --epochs 50 --batch 128 --augment 5 --test-split 0.2
 
 # MLP model variant
 python train_tsl51_v3.py --model mlp --hidden 256 --layers 3
+
+# Using preset configurations (via src/train/config.py)
+# Quick: python train_tsl51_v3.py --smoke
+# Default: python train_tsl51_v3.py
+# Full CV: python train_tsl51_v3.py --folds 5 --epochs 100
 ```
 
 ### Inference
@@ -54,8 +99,18 @@ python camera_translate.py --model models/tsl51_gru_best.pt
 ### Dataset
 - **Source**: HuggingFace `Namonpas/thai-sign-language-tsl51`
 - **User Sign**: 547 videos, 51 classes (single signs)
+- **Expert Original**: 1,155 videos, 51 classes
+- **Expert Full**: ~45,000 samples including augmented data
+- **Combined**: 1,702 samples (user_sign + expert original)
 - **Sentence Data**: 252 videos, 76 unique sentences (3-6 signs per sentence)
 - **Features**: 162-dimensional (63 left hand + 63 right hand + 36 pose landmarks)
+
+### Dataset Options
+- `tsl51_user_sign` - Default, 547 samples
+- `tsl51_expert` - 1,155 original expert samples (or ~45k with --include-augmented)
+- `tsl51_expert_full` - Full expert dataset with all augmented data (~45k samples)
+- `tsl51_combined` - Combined user_sign + expert (1,702 samples)
+- `local` - Custom local dataset
 
 ### Models
 - **GRU**: Bidirectional, default 256 hidden, 3 layers

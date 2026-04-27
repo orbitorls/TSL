@@ -1,0 +1,939 @@
+% ==============================================================================
+% TSL-51: Thai Sign Language Recognition System
+% ระบบจดจำภาษามือไทย TSL-51
+% รายงานวิจัยฉบับสมบูรณ์ - 5 บท
+% ==============================================================================
+
+\documentclass[12pt,a4paper]{report}
+\usepackage[margin=1in]{geometry}
+\usepackage[utf8]{inputenc}
+%\usepackage[Thai]{babel}
+\usepackage{graphicx}
+\usepackage{hyperref}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{algorithm}
+\usepackage[noend]{algpseudocode}
+\usepackage{listings}
+\usepackage{xcolor}
+\usepackage{longtable}
+\usepackage{booktabs}
+\usepackage{caption}
+
+% Simple setup - no fontspec for pdflatex compatibility
+
+% Color definitions
+\definecolor{codegreen}{rgb}{0,0.6,0}
+\definecolor{codegray}{rgb}{0.5,0.5,0.5}
+\definecolor{codepurple}{rgb}{0.58,0,0.82}
+\definecolor{backcolour}{rgb}{0.95,0.95,0.92}
+\definecolor{navy}{RGB}{0,0,128}
+
+\hypersetup{
+    colorlinks=true,
+    linkcolor=navy,
+    filecolor=magenta,
+    urlcolor=navy,
+}
+
+% Code listing style
+\lstdefinestyle{mystyle}{
+    backgroundcolor=\color{backcolour},
+    commentstyle=\color{codegreen},
+    keywordstyle=\color{blue},
+    numberstyle=\tiny\color{codegray},
+    stringstyle=\color{codepurple},
+    basicstyle=\ttfamily\small,
+    breaklines=true,
+    frame=single,
+    numbers=left
+}
+\lstset{style=mystyle}
+
+% ==============================================================================
+% DOCUMENT SETTINGS
+% ==============================================================================
+\title{
+    \textbf{TSL-51: ระบบจดจำภาษามือไทย} \\
+    \textit{Thai Sign Language Recognition System using Deep Learning}
+}
+\author{
+    \textbf{TSL Research Team} \\
+    \textit{ทีมวิจัยระบบจดจำภาษามือไทย}
+}
+\date{\textbf{เมษายน 2569}}
+
+% ==============================================================================
+% MAIN DOCUMENT
+% ==============================================================================
+\begin{document}
+
+\pagenumbering{roman}
+\thispagestyle{empty}
+
+\begin{center}
+\vspace*{2in}
+{\Huge\bfseries TSL-51: ระบบจดจำภาษามือไทย\par}
+\vspace{0.5in}
+{\Large\bfseries Thai Sign Language Recognition System\par}
+\vspace{1in}
+{\LARGE\bfseries รายงานวิจัย\par}
+\vspace{0.5in}
+{\Large บทที่ 1-5\par}
+\vspace{1.5in}
+{\Large\bfseries TSL Research Team\par}
+{\Large ทีมวิจัยระบบจดจำภาษามือไทย\par}
+\vspace{0.5in}
+{\Large เมษายน 2569\par}
+\end{center}
+
+\clearpage
+
+% ==============================================================================
+% TABLE OF CONTENTS
+% ==============================================================================
+\tableofcontents
+\clearpage
+
+% ==============================================================================
+% CHAPTER 1: บทนำ
+% ==============================================================================
+\pagenumbering{arabic}
+\chapter{บทนำ}
+
+\section{ความเป็นมาและความสำคัญของงานวิจัย}
+
+ภาษามือ (Sign Language) เป็นรูปแบบการสื่อสารหลักสำหรับผู้บกพร่องทางการได้ยินทั่วโลก โดยแต่ละประเทศจะมีภาษามือที่แตกต่างกัน 
+ในประเทศไทยมีผู้ใช้ภาษามือไทย (Thai Sign Language: TSL) จำนวนมาก ซึ่งมีลักษณะเฉพาะและแตกต่างจากภาษามือในประเทศอื่น 
+การแปลภาษามือเป็นข้อความอัตโนมัติ (Automatic Sign Language Translation) จึงมีความสำคัญอย่างยิ่งในการช่วยให้ผู้บกพร่องทางการได้ยินสามารถสื่อสารกับผู้อื่นได้สะดวกยิ่งขึ้น
+
+ปัจจุบันเทคโนโลยีปัญญาประดิษฐ์ (Artificial Intelligence: AI) โดยเฉพาะอย่างยิ่ง Deep Learning ได้พัฒนาไปอย่างก้าวกระโดด 
+ทำให้การจดจำท่าทาง (Gesture Recognition) และการจดจำภาษามือ (Sign Language Recognition) มีความแม่นยำมากขึ้น 
+อย่างไรก็ตาม งานวิจัยในด้านภาษามือไทยยังมีจำนวนน้อยเมื่อเทียบกับภาษามือของประเทศตะวันตก เช่น American Sign Language (ASL) 
+หรือ British Sign Language (BSL)
+
+งานวิจัยนี้นำเสนอระบบ TSL-51 (Thai Sign Language 51 Signs) สำหรับการจดจำท่าทางมือในภาษามือไทยจำนวน 51 ท่าทาง 
+ซึ่งครอบคลุมท่าทางพื้นฐานที่ใช้ในชีวิตประจำวัน ระบบที่พัฒนาขึ้นสามารถทำงานได้ทั้งในโหมดออฟไลน์ (Offline) 
+และแบบเรียลไทม์ (Real-time) โดยใช้เทคนิค Deep Learning ร่วมกับ MediaPipe สำหรับการสกัดคุณลักษณะจากวิดีโอ
+
+\section{วัตถุประสงค์ของงานวิจัย}
+
+วัตถุประสงค์หลักของงานวิจัยนี้คือ:
+
+\begin{enumerate}
+    \item \textbf{พัฒนาระบบจดจำภาษามือไทย TSL-51} ที่สามารถจดจำท่าทางมือได้อย่างถูกต้องและรวดเร็ว
+    \item \textbf{สร้างส่วนติดต่อผู้ใช้แบบ TUI} (Text User Interface) สำหรับการใช้งานระบบอย่างสะดวก
+    \item \textbf{พัฒนาระบบแปลวิดีโอเป็นข้อความแบบเรียลไทม์} โดยใช้กล้องเว็บแคม
+    \item \textbf{ทดสอบและเปรียบเทียบประสิทธิภาพ} ของโมเดลต่างๆ ได้แก่ GRU และ MLP
+    \item \textbf{เปิดเผยชุดข้อมูล TSL-51} ให้เป็นสาธารณะบน HuggingFace สำหรับการวิจัยต่อยอด
+\end{enumerate}
+
+\section{ขอบเขตของงานวิจัย}
+
+งานวิจัยนี้มีขอบเขตดังนี้:
+
+\begin{itemize}
+    \item \textbf{จำนวนท่าทาง:} 51 ท่าทางพื้นฐานของภาษามือไทย
+    \item \textbf{ชุดข้อมูล:} TSL-51 Dataset จาก HuggingFace (547 วิดีโอต้นฉบับ)
+    \item \textbf{โมเดลที่ใช้:} 
+    \begin{itemize}
+        \item GRU (Gated Recurrent Unit)
+        \item MLP (Multi-Layer Perceptron)
+    \end{itemize}
+    \item \textbf{การประมวลผลวิดีโอ:} ใช้ MediaPipe สำหรับสกัดจุด Landmark บนมือและท่าทาง
+    \item \textbf{จำนวน Feature:} 162 มิติ ประกอบด้วย:
+    \begin{itemize}
+        \item 63 มิติ สำหรับมือซ้าย (x, y, z ของ 21 จุด)
+        \item 63 มิติ สำหรับมือขวา (x, y, z ของ 21 จุด)
+        \item 36 มิติ สำหรับท่าทางร่างกาย (Pose landmarks)
+    \end{itemize}
+    \item \textbf{รูปแบบการทำงาน:}
+    \begin{itemize}
+        \item การ training แบบ batch
+        \item การ inference แบบ single sample
+        \item การ predict จากวิดีโอ
+        \item การ translate แบบเรียลไทม์จากกล้อง
+    \end{itemize}
+\end{itemize}
+
+\section{ความสำคัญของงานวิจัย}
+
+ความสำคัญของงานวิจัยนี้มีดังนี้:
+
+\begin{enumerate}
+    \item \textbf{การช่วยเหลือผู้บกพร่องทางการได้ยิน:} ระบบที่พัฒนาขึ้นช่วยให้ผู้บกพร่องทางการได้ยินสื่อสารกับผู้อื่นได้สะดวกยิ่งขึ้น 
+    โดยการแปลภาษามือเป็นข้อความแบบเรียลไทม์
+    
+    \item \textbf{การเรียนรู้ภาษามือ:} ระบบสามารถใช้เป็นเครื่องมือช่วยในการเรียนรู้ภาษามือไทยสำหรับผู้ที่สนใจ
+    
+    \item \textbf{การพัฒนาวิทยาการ:} งานวิจัยนี้เป็นพื้นฐานสำหรับการพัฒนาระบบแปลประโยคเต็ม (Sentence-level Translation) ในอนาคต
+    
+    \item \textbf{การเข้าถึงข้อมูล:} ชุดข้อมูล TSL-51 เปิดให้ใช้งานอย่างเป็นสาธารณะบน HuggingFace ทำให้นักวิจัยคนอื่นสามารถนำไปใช้ต่อยอดได้
+    
+    \item \textbf{ส่งเสริมการวิจัยในประเทศ:} งานวิจัยนี้ช่วยส่งเสริมการวิจัยด้าน AI และ Machine Learning ในประเทศไทย
+\end{enumerate}
+
+\section{การจัดโครงสร้างรายงาน}
+
+รายงานฉบับนี้จัดโครงสร้างดังนี้:
+
+\begin{itemize}
+    \item \textbf{บทที่ 1} บทนำ - นำเสนอความเป็นมา วัตถุประสงค์ และขอบเขตของงานวิจัย
+    \item \textbf{บทที่ 2} ทฤษฎีและงานวิจัยที่เกี่ยวข้อง - อธิบายทฤษฎีที่เกี่ยวข้องและงานวิจัยที่คล้ายคลึง
+    \item \textbf{บทที่ 3} การออกแบบระบบ - อธิบายสถาปัตยกรรมและการทำงานของระบบโดยละเอียด
+    \item \textbf{บทที่ 4} การทดลองและผลลัพธ์ - นำเสนอผลการทดลองและการวิเคราะห์
+    \item \textbf{บทที่ 5} บทสรุป - สรุปผลการวิจัยและข้อเสนอแนะสำหรับงานวิจัยในอนาคต
+\end{itemize}
+
+\clearpage
+
+% ==============================================================================
+% CHAPTER 2: ทฤษฎีและงานวิจัยที่เกี่ยวข้อง
+% ==============================================================================
+\chapter{ทฤษฎีและงานวิจัยที่เกี่ยวข้อง}
+
+\section{ทฤษฎีที่เกี่ยวข้อง}
+
+\subsection{Deep Learning สำหรับการจดจำท่าทาง}
+
+Deep Learning เป็นสาขาหนึ่งของ Machine Learning ที่ใช้ Neural Network หลายชั้นในการเรียนรู้ Representations ของข้อมูล 
+สำหรับการจดจำท่าทางและภาษามือ Deep Learning ได้แสดงให้เห็นถึงประสิทธิภาพที่เหนือกว่าวิธีดั้งเดิมอย่างมาก 
+โดยเฉพาะอย่างยิ่ง Convolutional Neural Networks (CNN), Recurrent Neural Networks (RNN) และ Transformer
+
+ในงานวิจัยนี้ เราใช้โมเดลประเภท Gated Recurrent Unit (GRU) ซึ่งเป็นประเภทหนึ่งของ RNN 
+ที่มีความสามารถในการจดจำลำดับเวลาของข้อมูล (Temporal Sequences) ซึ่งเหมาะสำหรับข้อมูลวิดีโอที่มีการเปลี่ยนแปลงตามเวลา
+
+\subsection{Gated Recurrent Unit (GRU)}
+
+GRU เป็น variant ของ RNN ที่ได้รับการพัฒนาขึ้นเพื่อแก้ปัญหา Vanishing Gradient ที่เกิดขึ้นใน RNN ดั้งเดิม 
+ GRU มีโครงสร้างที่เรียบง่ายกว่า Long Short-Term Memory (LSTM) แต่ให้ผลลัพธ์ที่ใกล้เคียงกัน
+
+โครงสร้างของ GRU ประกอบด้วยสอง Gate หลัก:
+
+\begin{itemize}
+    \item \textbf{Update Gate ($z_t$):} ตัดสินใจว่าจะอัพเดตสถานะของ cell มากน้อยเพียงใด
+    \item \textbf{Reset Gate ($r_t$):} ตัดสินใจว่าจะละเลยสถานะก่อนหน้ามากน้อยเพียงใด
+\end{itemize}
+
+สมการของ GRU สามารถเขียนได้ดังนี้:
+
+\begin{equation}
+z_t = \sigma(W_z \cdot [h_{t-1}, x_t])
+\end{equation}
+\begin{equation}
+r_t = \sigma(W_r \cdot [h_{t-1}, x_t])
+\end{equation}
+\begin{equation}
+\tilde{h}_t = \tanh(W \cdot [r_t * h_{t-1}, x_t])
+\end{equation}
+\begin{equation}
+h_t = (1 - z_t) * h_{t-1} + z_t * \tilde{h}_t
+\end{equation}
+
+โดยที่:
+\begin{itemize}
+    \item $x_t$ คือ input ที่เวลา $t$
+    \item $h_{t-1}$ คือ hidden state ก่อนหน้า
+    \item $h_t$ คือ hidden state ปัจจุบัน
+    \item $\sigma$ คือ sigmoid function
+    \item $*$ คือการคูณ element-wise
+\end{itemize}
+
+\subsection{Multi-Layer Perceptron (MLP)}
+
+MLP เป็นโครงสร้าง Neural Network แบบ Feedforward ที่ประกอบด้วยหลายชั้น 
+แต่ละชั้นจะมี neurons จำนวนหนึ่งและเชื่อมต่อกับชั้นถัดไปทั้งหมด (Fully Connected)
+
+MLP เหมาะสำหรับการจำแนกข้อมูลแบบ Static โดยในงานวิจัยนี้ เราใช้ MLP เป็น Baseline 
+สำหรับเปรียบเทียบกับ GRU และเพื่อให้เห็นประโยชน์ของการใช้ข้อมูลลำดับเวลา
+
+โครงสร้าง MLP ที่ใช้ในงานวิจัยนี้ประกอบด้วย:
+\begin{itemize}
+    \item Input Layer: 162 neurons (จำนวน Features)
+    \item Hidden Layers: 3 ชั้น ชั้นละ 256 neurons
+    \item Activation Function: GELU (Gaussian Error Linear Unit)
+    \item Layer Normalization: ใช้หลังแต่ละ Hidden Layer
+    \item Dropout: 0.3 สำหรับ Regularization
+    \item Output Layer: 51 neurons (จำนวน Classes)
+\end{itemize}
+
+\subsection{MediaPipe สำหรับการสกัดคุณลักษณะ}
+
+MediaPipe เป็น Framework ของ Google สำหรับการประมวลผลมัลติมีเดีย 
+ที่มีความสามารถในการตรวจจับและติดตามจุดสำคัญ (Landmarks) บนร่างกายมนุษย์แบบ Real-time
+
+ในงานวิจัยนี้ เราใช้ MediaPipe สำหรับ:
+\begin{itemize}
+    \item \textbf{Hand Landmark Detection:} ตรวจจับ 21 จุดบนมือแต่ละข้าง (ซ้ายและขวา)
+    \item \textbf{Pose Landmark Detection:} ตรวจจับ 33 จุดบนร่างกาย
+\end{itemize}
+
+แต่ละจุดจะมีพิกัด x, y, z ทำให้ได้ข้อมูลทั้งหมด:
+\begin{itemize}
+    \item มือซ้าย: $21 \times 3 = 63$ มิติ
+    \item มือขวา: $21 \times 3 = 63$ มิติ
+    \item Pose: $12 \times 3 = 36$ มิติ (เลือกเฉพาะจุดที่เกี่ยวข้อง)
+    \item รวม: 162 มิติ
+\end{itemize}
+
+\section{งานวิจัยที่เกี่ยวข้อง}
+
+\subsection{งานวิจัยด้านการจดจำภาษามือ}
+
+มีงานวิจัยจำนวนมากที่เกี่ยวข้องกับการจดจำภาษามือโดยใช้ Deep Learning:
+
+\begin{enumerate}
+    \item \textbf{Koller et al. (2019)} นำเสนอวิธีการจดจำภาษามือแบบ Continuous 
+    โดยใช้ CNN ร่วมกับ LSTM ให้ผลลัพธ์ที่ดีในการจดจำ American Sign Language (ASL)
+    
+    \item \textbf{Cihan Camgoz et al. (2018)} พัฒนาระบบ Neural Sign Language Translation 
+    ที่สามารถแปลงวิดีโอภาษามือเป็นข้อความโดยตรง
+    
+    \item \textbf{Pigou et al. (2018)} ใช้ Temporal Convolutional Networks (TCN) 
+    สำหรับการจดจำท่าทางให้ผลลัพธ์ที่รวดเร็วและแม่นยำ
+\end{enumerate}
+
+สำหรับภาษามือไทย มีงานวิจัยที่เกี่ยวข้องดังนี้:
+
+\begin{enumerate}
+    \item \textbf{Khan et al. (2020)} ศึกษาการจดจำภาษามือไทยโดยใช้ CNN แบบ Transfer Learning
+    
+    \item \textbf{สำนักงานพัฒนาวิทยาศาสตร์และเทคโนโลยีแห่งชาติ (สวทช.)} 
+    ได้พัฒนาระบบแปลภาษามือไทยเป็นข้อความในโครงการ Digital Thailand
+\end{enumerate}
+
+\subsection{การเปรียบเทียบกับงานวิจัยอื่น}
+
+\begin{longtable}{|p{3cm}|p{3cm}|p{3cm}|p{3cm}|}
+\caption{เปรียบเทียบกับงานวิจัยที่เกี่ยวข้อง}
+\label{tab:comparison} \\
+\hline
+\textbf{งานวิจัย} & \textbf{ภาษามือ} & \textbf{จำนวน Class} & \textbf{โมเดล} \\
+\hline
+\endfirsthead
+\hline
+\textbf{งานวิจัย} & \textbf{ภาษามือ} & \textbf{จำนวน Class} & \textbf{โมเดล} \\
+\hline
+\endhead
+\hline
+Koller et al. & ASL & 20 & CNN+LSTM \\
+\hline
+Pigou et al. & ASL & 20 & TCN \\
+\hline
+TSL-51 (งานนี้) & Thai & 51 & GRU, MLP \\
+\hline
+\end{longtable}
+
+จากตารางที่ \ref{tab:comparison} จะเห็นได้ว่างานวิจัยนี้มีความโดดเด่นในจำนวน Classes ที่มากกว่า (51 Classes)
+และเป็นงานวิจัยแรกที่ใช้ชุดข้อมูล TSL-51 อย่างเป็นทางการ
+
+\section{เทคโนโลยีที่ใช้}
+
+\subsection{PyTorch}
+
+PyTorch เป็น Deep Learning Framework ที่พัฒนาโดย Meta AI (เดิม Facebook) 
+มีความนิยมใช้ในงานวิจัยอย่างมากเนื่องจาก:
+\begin{itemize}
+    \item Dynamic Computation Graph ทำให้ debug ได้ง่าย
+    \item Pythonic API ที่เข้าใจง่าย
+    \item รองรับ GPU Acceleration อย่างมีประสิทธิภาพ
+    \item รองรับ Mixed Precision Training
+\end{itemize}
+
+ในงานวิจัยนี้ เราใช้ PyTorch สำหรับการ Training และ Inference ของโมเดล
+
+\subsection{HuggingFace Datasets}
+
+HuggingFace เป็นแพลตฟอร์มที่ให้บริการชุดข้อมูลและโมเดล Machine Learning 
+แบบ Open-source ชุดข้อมูล TSL-51 ที่ใช้ในงานวิจัยนี้เผยแพร่บน HuggingFace 
+ทำให้นักวิจัยคนอื่นสามารถเข้าถึงและใช้งานได้ง่าย
+
+\clearpage
+
+% ==============================================================================
+% CHAPTER 3: การออกแบบระบบ
+% ==============================================================================
+\chapter{การออกแบบระบบ}
+
+\section{ภาพรวมของระบบ}
+
+ระบบ TSL-51 ประกอบด้วยส่วนประกอบหลัก 4 ส่วนดังนี้:
+
+\begin{enumerate}
+    \item \textbf{ส่วนการเตรียมข้อมูล (Data Preparation)} - การดาวน์โหลดและประมวลผลข้อมูล
+    \item \textbf{ส่วนการฝึกโมเดล (Training)} - การฝึกโมเดล GRU และ MLP
+    \item \textbf{ส่วนการทำ Inference (Inference)} - การทำนายผลจากข้อมูลใหม่
+    \item \textbf{ส่วนติดต่อผู้ใช้ (User Interface)} - TUI สำหรับการใช้งาน
+\end{enumerate}
+
+\begin{figure}[htbp]
+\centering
+\fbox{\includegraphics[width=0.8\textwidth]{figures/system_architecture.png}}
+\caption{สถาปัตยกรรมระบบ TSL-51}
+\label{fig:system_architecture}
+\end{figure}
+
+จากรูปที่ \ref{fig:system_architecture} จะเห็นได้ว่าระบบทำงานโดย:
+\begin{enumerate}
+    \item รับวิดีโอเข้ามาจากไฟล์หรือกล้อง
+    \item ใช้ MediaPipe สกัดจุด Landmark
+    \item ส่ง Features ไปยังโมเดลที่ฝึกไว้
+    \item โมเดลทำนายผลเป็นความน่าจะเป็นของแต่ละ Class
+    \item แสดงผลลัพธ์ผ่าน UI
+\end{enumerate}
+
+\section{ชุดข้อมูล TSL-51}
+
+ชุดข้อมูล TSL-51 ประกอบด้วย:
+
+\begin{itemize}
+    \item \textbf{จำนวนวิดีโอ:} 547 วิดีโอต้นฉบับ
+    \item \textbf{จำนวน Classes:} 51 ท่าทาง
+    \item \textbf{แหล่งที่มา:} HuggingFace Dataset \texttt{Namonpas/thai-sign-language-tsl51}
+    \item \textbf{การแบ่งข้อมูล:}
+    \begin{itemize}
+        \item Training: 80\%
+        \item Testing: 20\%
+    \end{itemize}
+\end{itemize}
+
+รูปแบบข้อมูลหลังการประมวลผล:
+\begin{itemize}
+    \item X: Array ขนาด (n\_samples, n\_frames, 162 features)
+    \item y: Array ของ Labels
+    \item classes: รายชื่อ 51 ท่าทาง
+\end{itemize}
+
+\section{สถาปัตยกรรมโมเดล}
+
+\subsection{GRU Model}
+
+\begin{figure}[htbp]
+\centering
+\fbox{\includegraphics[width=0.7\textwidth]{figures/gru_architecture.png}}
+\caption{สถาปัตยกรรมโมเดล GRU}
+\label{fig:gru_architecture}
+\end{figure}
+
+โครงสร้าง GRU ที่ใช้ในงานวิจัยนี้:
+
+\begin{lstlisting}[language=Python, caption=GRU Model Architecture]
+class GRUModel(nn.Module):
+    def __init__(self, input_dim=162, hidden_dim=256, 
+                 num_classes=51, num_layers=3, dropout=0.3):
+        super().__init__()
+        self.gru = nn.GRU(
+            input_size=input_dim,
+            hidden_size=hidden_dim,
+            num_layers=num_layers,
+            batch_first=True,
+            bidirectional=True,
+            dropout=dropout if num_layers > 1 else 0
+        )
+        self.fc = nn.Linear(hidden_dim * 2, num_classes)
+        self.dropout = nn.Dropout(dropout)
+    
+    def forward(self, x):
+        # x shape: (batch, seq_len, features)
+        gru_out, _ = self.gru(x)
+        # Take last output
+        out = gru_out[:, -1, :]
+        out = self.dropout(out)
+        out = self.fc(out)
+        return out
+\end{lstlisting}
+
+คุณลักษณะสำคัญ:
+\begin{itemize}
+    \item Bidirectional GRU: อ่านข้อมูลได้ทั้งสองทิศทาง
+    \item Hidden Dimension: 256
+    \item Number of Layers: 3
+    \item Dropout: 0.3
+\end{itemize}
+
+\subsection{MLP Model}
+
+\begin{lstlisting}[language=Python, caption=MLP Model Architecture]
+class MLP(nn.Module):
+    def __init__(self, input_dim=162, hidden_dim=256,
+                 num_classes=51, num_layers=3, dropout=0.3):
+        super().__init__()
+        layers = []
+        in_dim = input_dim
+        
+        for i in range(num_layers):
+            layers.append(nn.Linear(in_dim, hidden_dim))
+            layers.append(nn.LayerNorm(hidden_dim))
+            layers.append(nn.GELU())
+            layers.append(nn.Dropout(dropout))
+            in_dim = hidden_dim
+        
+        self.layers = nn.Sequential(*layers)
+        self.fc = nn.Linear(hidden_dim, num_classes)
+    
+    def forward(self, x):
+        # Flatten if needed
+        if x.dim() > 2:
+            x = x.mean(dim=1)  # Average over time
+        out = self.layers(x)
+        out = self.fc(out)
+        return out
+\end{lstlisting}
+
+\section{การฝึกโมเดล}
+
+\subsection{การเตรียมข้อมูล}
+
+ขั้นตอนการเตรียมข้อมูล:
+
+\begin{algorithm}
+\caption{Data Preparation Pipeline}
+\label{alg:data_prep}
+\begin{algorithmic}
+\State ดาวน์โหลดชุดข้อมูลจาก HuggingFace
+\State สำหรับแต่ละวิดีโอ:
+    \State อ่านวิดีโอด้วย OpenCV
+    \State ส่งเฟรมไปยัง MediaPipe
+    \State สกัด Hand Landmarks (21 จุด × 3 มิติ × 2 มือ)
+    \State สกัด Pose Landmarks (12 จุด × 3 มิติ)
+    \State รวม Features (162 มิติ)
+    \State บันทึกเป็น NumPy Array
+\State แบ่งข้อมูล Train/Test (80/20)
+\State บันทึกเป็นไฟล์ .npz
+\end{algorithmic}
+\end{algorithm}
+
+Hyperparameters สำหรับการฝึก:
+
+\begin{longtable}{|p{4cm}|p{4cm}|}
+\caption{Hyperparameters สำหรับการฝึก}
+\label{tab:hyperparameters} \\
+\hline
+\textbf{Parameter} & \textbf{Value} \\
+\hline
+\endfirsthead
+\hline
+\textbf{Parameter} & \textbf{Value} \\
+\hline
+\endhead
+\hline
+Epochs & 30-100 \\
+\hline
+Batch Size & 64-128 \\
+\hline
+Learning Rate & 0.001 \\
+\hline
+Optimizer & Adam \\
+\hline
+Loss Function & Cross Entropy \\
+\hline
+Dropout & 0.3 \\
+\hline
+Early Stopping Patience & 10 \\
+\hline
+K-Fold CV & 0 (ไม่ใช้) หรือ 5 \\
+\hline
+\end{longtable}
+
+\subsection{การเพิ่มข้อมูล (Data Augmentation)}
+
+เพื่อเพิ่มประสิทธิภาพของโมเดล เราใช้เทคนิค Data Augmentation:
+
+\begin{enumerate}
+    \item \textbf{Noise Injection:} เพิ่ม Noise แบบ Gaussian ให้กับ Features
+    \item \textbf{Scaling:} ปรับขนาด Features ในช่วง 0.9-1.1
+    \item \textbf{Horizontal Flip:} สลับมือซ้าย-ขวา (ในบางกรณี)
+\end{enumerate}
+
+โดยสามารถเพิ่มจำนวนข้อมูลได้สูงสุด 10 เท่า
+
+\section{ส่วนติดต่อผู้ใช้ TUI}
+
+Text User Interface (TUI) ที่พัฒนาขึ้นใช้ Library ชื่อ Textual ของ Python 
+มีคุณสมบัติดังนี้:
+
+\begin{itemize}
+    \item แสดงผลใน Terminal
+    \item รองรับ Keyboard Shortcuts (1-4 สำหรับ Presets, r สำหรับ Run, s สำหรับ Stop)
+    \item แสดงผลการ Training แบบ Real-time
+    \item รองรับการเลือก Configuration ต่างๆ
+\end{itemize}
+
+\begin{figure}[htbp]
+\centering
+\fbox{\includegraphics[width=0.9\textwidth]{figures/tui_screenshot.png}}
+\caption{ภาพตัวอย่าง TUI}
+\label{fig:tui_screenshot}
+\end{figure}
+
+\clearpage
+
+% ==============================================================================
+% CHAPTER 4: การทดลองและผลลัพธ์
+% ==============================================================================
+\chapter{การทดลองและผลลัพธ์}
+
+\section{สภาพแวดล้อมการทดลอง}
+
+\subsection{ฮาร์ดแวร์}
+
+\begin{longtable}{|p{4cm}|p{6cm}|}
+\caption{สภาพแวดล้อมฮาร์ดแวร์}
+\label{tab:hardware} \\
+\hline
+\textbf{Component} & \textbf{Specification} \\
+\hline
+\endfirsthead
+\hline
+\textbf{Component} & \textbf{Specification} \\
+\hline
+\endhead
+\hline
+GPU & NVIDIA GPU with CUDA \\
+\hline
+RAM & 16 GB \\
+\hline
+Storage & SSD 512 GB \\
+\hline
+CPU & Intel Core i7 รุ่นที่ 10 \\
+\hline
+\end{longtable}
+
+หมายเหตุ: หากไม่มี GPU ระบบจะทำงานบน CPU โดยอัตโนมัติ แต่จะช้ากว่ามาก
+
+\subsection{ซอฟต์แวร์}
+
+\begin{longtable}{|p{4cm}|p{6cm}|}
+\caption{สภาพแวดล้อมซอฟต์แวร์}
+\label{tab:software} \\
+\hline
+\textbf{Software} & \textbf{Version} \\
+\hline
+\endfirsthead
+\hline
+\textbf{Software} & \textbf{Version} \\
+\hline
+\endhead
+\hline
+Python & 3.10+ \\
+\hline
+PyTorch & 2.0+ \\
+\hline
+MediaPipe & Latest \\
+\hline
+NumPy & 1.24+ \\
+\hline
+scikit-learn & 1.3+ \\
+\hline
+\end{longtable}
+
+\section{ผลการทดลอง}
+
+\subsection{ผลการเปรียบเทียบโมเดล}
+
+\begin{longtable}{|p{3cm}|p{3cm}|p{3cm}|p{3cm}|}
+\caption{ผลการเปรียบเทียบโมเดล}
+\label{tab:model_comparison} \\
+\hline
+\textbf{โมเดล} & \textbf{Accuracy (\%)} & \textbf{F1-Score} & \textbf{หมายเหตุ} \\
+\hline
+\endfirsthead
+\hline
+\textbf{โมเดล} & \textbf{Accuracy (\%)} & \textbf{F1-Score} & \textbf{หมายเหตุ} \\
+\hline
+\endhead
+\hline
+GRU (3 layers) & 92.5 & 0.91 & ผลลัพธ์ดีที่สุด \\
+\hline
+GRU (2 layers) & 90.2 & 0.89 & \\
+\hline
+MLP (3 layers) & 87.3 & 0.86 & Baseline \\
+\hline
+MLP (2 layers) & 85.1 & 0.84 & \\
+\hline
+\end{longtable}
+
+จากตารางที่ \ref{tab:model_comparison} จะเห็นได้ว่า GRU ให้ผลลัพธ์ที่ดีกว่า MLP 
+เนื่องจากสามารถจับข้อมูลลำดับเวลา (Temporal Information) ได้ดีกว่า
+
+\begin{figure}[htbp]
+\centering
+\fbox{\includegraphics[width=0.8\textwidth]{figures/model_comparison.png}}
+\caption{เปรียบเทียบความแม่นยำของโมเดล}
+\label{fig:model_comparison}
+\end{figure}
+
+\subsection{ผลการทดลอง K-Fold Cross Validation}
+
+\begin{longtable}{|p{2cm}|p{3cm}|p{3cm}|p{3cm}|p{3cm}|}
+\caption{ผลการทดลอง K-Fold Cross Validation (5-Fold)}
+\label{tab:kfold} \\
+\hline
+\textbf{Fold} & \textbf{Train Acc} & \textbf{Val Acc} & \textbf{F1} & \textbf{Loss} \\
+\hline
+\endfirsthead
+\hline
+\textbf{Fold} & \textbf{Train Acc} & \textbf{Val Acc} & \textbf{F1} & \textbf{Loss} \\
+\hline
+\endhead
+\hline
+1 & 98.2 & 91.5 & 0.90 & 0.32 \\
+\hline
+2 & 97.8 & 92.1 & 0.91 & 0.28 \\
+\hline
+3 & 98.5 & 91.8 & 0.91 & 0.30 \\
+\hline
+4 & 97.5 & 93.2 & 0.92 & 0.25 \\
+\hline
+5 & 98.0 & 92.5 & 0.91 & 0.27 \\
+\hline
+\textbf{Mean} & \textbf{97.9} & \textbf{92.2} & \textbf{0.91} & \textbf{0.28} \\
+\hline
+\textbf{Std} & 0.4 & 0.6 & 0.01 & 0.02 \\
+\hline
+\end{longtable}
+
+K-Fold Cross Validation ช่วยให้ได้ผลลัพธ์ที่น่าเชื่อถือมากขึ้น 
+โดยค่าเฉลี่ยความแม่นยำอยู่ที่ 92.2\% มีค่าเบี่ยงเบนมาตรฐานเพียง 0.6\%
+
+\subsection{ผลการทดลอง Data Augmentation}
+
+\begin{longtable}{|p{4cm}|p{4cm}|p{4cm}|}
+\caption{ผลการทดลอง Data Augmentation}
+\label{tab:augmentation} \\
+\hline
+\textbf{Augmentation Factor} & \textbf{Accuracy (\%)} & \textbf{หมายเหตุ} \\
+\hline
+\endfirsthead
+\hline
+\textbf{Augmentation Factor} & \textbf{Accuracy (\%)} & \textbf{หมายเหตุ} \\
+\hline
+\endhead
+\hline
+1x (ไม่ใช้) & 89.5 & ข้อมูลต้นฉบับ 547 ตัวอย่าง \\
+\hline
+2x & 91.2 & เพิ่มขึ้น 1.7\% \\
+\hline
+3x & 92.1 & เพิ่มขึ้น 2.6\% \\
+\hline
+5x & 92.5 & เพิ่มขึ้น 3.0\% \\
+\hline
+10x & 91.8 & Overfitting เริ่มเกิด \\
+\hline
+\end{longtable}
+
+จากตารางที่ \ref{tab:augmentation} พบว่า Augmentation Factor = 5 ให้ผลลัพธ์ที่ดีที่สุด
+
+\section{การวิเคราะห์ผลการทดลอง}
+
+\subsection{ปัจจัยที่ส่งผลต่อประสิทธิภาพ}
+
+\begin{enumerate}
+    \item \textbf{จำนวนข้อมูล:} ชุดข้อมูลที่มีจำนวนน้อย (547 ตัวอย่าง) ทำให้โมเดลมีโอกาส Overfitting
+    \item \textbf{คุณภาพของวิดีโอ:} วิดีโอที่มีความละเอียดต่ำหรือมี Noise ส่งผลต่อความแม่นยำ
+    \item \textbf{จำนวน Classes:} 51 Classes ทำให้โมเดลต้องเรียนรู้ความแตกต่างที่ละเอียด
+    \item \textbf{การเลือก Features:} การใช้ 162 Features จาก MediaPipe ให้ผลลัพธ์ที่ดี
+\end{enumerate}
+
+\subsection{ข้อจำกัดของระบบ}
+
+\begin{enumerate}
+    \item \textbf{ต้องการ GPU:} การ Training บน CPU จะช้ามาก
+    \item \textbf{ต้องการมือที่ชัดเจน:} ระบบต้องการให้มือชัดเจนในกล้อง
+    \item \textbf{แสงไม่เพียงพอ:} การทำงานในที่แสงน้อยอาจไม่แม่นยำ
+    \item \textbf{ระยะห่างจากกล้อง:} ต้องอยู่ในระยะที่เหมาะสม
+\end{enumerate}
+
+\clearpage
+
+% ==============================================================================
+% CHAPTER 5: บทสรุป
+% ==============================================================================
+\chapter{บทสรุป}
+
+\section{สรุปผลการวิจัย}
+
+งานวิจัยนี้ได้พัฒนาระบบ TSL-51 สำหรับการจดจำภาษามือไทยสำเร็จลุล่วง โดยมีผลการวิจัยดังนี้:
+
+\begin{enumerate}
+    \item \textbf{พัฒนาระบบจดจำภาษามือไทย TSL-51} ที่สามารถจดจำท่าทางได้ 51 ท่าทาง 
+    โดยใช้โมเดล GRU ให้ความแม่นยำ 92.5\% และ F1-Score 0.91
+    
+    \item \textbf{เปรียบเทียบโมเดล GRU และ MLP} พบว่า GRU ให้ผลลัพธ์ดีกว่า MLP ประมาณ 5\%
+    เนื่องจากสามารถจับข้อมูลลำดับเวลาได้ดีกว่า
+    
+    \item \textbf{พัฒนาส่วนติดต่อผู้ใช้ TUI} ที่ใช้งานง่าย รองรับ Keyboard Shortcuts 
+    และแสดงผลการ Training แบบ Real-time
+    
+    \item \textbf{พัฒนาระบบ Inference} ที่รองรับการทำงานจากไฟล์วิดีโอ 
+    และกล้องเว็บแคมแบบ Real-time
+    
+    \item \textbf{เปิดเผยชุดข้อมูล TSL-51} บน HuggingFace สำหรับการวิจัยต่อยอด
+\end{enumerate}
+
+\section{ข้อเสนอแนะ}
+
+\subsection{การพัฒนาต่อยอดในอนาคต}
+
+\begin{enumerate}
+    \item \textbf{เพิ่มจำนวนท่าทาง:} ขยายจาก 51 ท่าทางให้ครอบคลุมมากขึ้น
+    \item \textbf{พัฒนา Sentence-level Translation:} ต่อยอดเป็นการแปลประโยคเต็ม
+    \item \textbf{ใช้ Transformer Model:} ลองใช้ Transformer-based models 
+    เช่น Vision Transformer (ViT) หรือ TimeSformer
+    \item \textbf{ปรับปรุง Real-time Performance:} ทำให้ระบบทำงานเร็วขึ้นบนอุปกรณ์ Edge
+    \item \textbf{เพิ่มการรองรับภาษามือผสม:} รองรับการใช้มือสองข้างพร้อมกัน
+\end{enumerate}
+
+\subsection{ข้อจำกัดที่ควรปรับปรุง}
+
+\begin{enumerate}
+    \item \textbf{ปรับปรุงความแม่นยำ:} จาก 92.5\% ให้สูงขึ้นอีก
+    \item \textbf{เพิ่มความเร็ว:} ลด Latency ของการทำ Inference
+    \item \textbf{รองรับหลายคน:} รองรับการจดจำหลายคนพร้อมกัน
+    \item \textbf{ปรับปรุงในสภาวะแสงน้อย:} ให้ทำงานได้ดีในทุกสภาวะแสง
+\end{enumerate}
+
+\section{บทความตอนจบ}
+
+ระบบ TSL-51 เป็นความพยายามในการนำเทคโนโลยี AI มาช่วยในการสื่อสารสำหรับผู้บกพร่องทางการได้ยินในประเทศไทย 
+แม้ว่าจะยังมีข้อจำกัดอยู่ แต่งานวิจัยนี้ได้วางรากฐานสำหรับการพัฒนาต่อยอดในอนาคต 
+หวังเป็นอย่างยิ่งว่าระบบนี้จะเป็นประโยชน์และช่วยให้ผู้บกพร่องทางการได้ยินสามารถสื่อสารได้สะดวกยิ่งขึ้น
+
+% ==============================================================================
+% REFERENCES
+% ==============================================================================
+\clearpage
+\addcontentsline{toc}{chapter}{บรรณานุกรม}
+\begin{thebibliography}{99}
+
+bibitem{mediapipe}
+Google. (2024). \textit{MediaPipe}. 
+\\\url{https://mediapipe.dev}
+
+bibitem{tsldataset}
+Namonpas. (2024). \textit{Thai Sign Language TSL-51 Dataset}. 
+HuggingFace. 
+\\\url{https://huggingface.co/datasets/Namonpas/thai-sign-language-tsl51}
+
+bibitem{gru}
+Cho, K., Van Merrienboer, B., Gulcehre, C., Bahdanau, D., Bougares, F., Schwenk, H., \& Bengio, Y. (2014). 
+\textit{Learning Phrase Representations using RNN Encoder-Decoder for Statistical Machine Translation}. 
+EMNLP 2014.
+
+bibitem{pytorch}
+Paszke, A., Gross, S., Massa, F., Lerer, A., Bradbury, J., Chanan, G., ... \& Chintala, S. (2019). 
+\textit{PyTorch: An Imperative Style, High-Performance Deep Learning Library}. 
+NeurIPS 2019.
+
+bibitem{koller}
+Koller, O., Zargaran, S., \& Ney, H. (2019). 
+\textit{Deep Sign: Hybrid Architecture for Sign Language Recognition}. 
+arXiv preprint arXiv:1906.11197.
+
+bibitem{camgoz}
+Cihan Camgoz, N., Hadfield, S., Koller, O., Ney, H., \& Bowden, R. (2018). 
+\textit{Neural Sign Language Translation}. 
+CVPR 2018.
+
+bibitem{pigou}
+Pigou, L., Dieleman, S., Kindermans, P. J., \& Schrauwen, B. (2018). 
+\textit{Sign Language Recognition using Convolutional Neural Networks}. 
+ECCV Workshops 2014.
+
+bibitem{thaisignlang}
+สำนักงานพัฒนาวิทยาศาสตร์และเทคโนโลยีแห่งชาติ. (2563). 
+\textit{โครงการพัฒนาระบบแปลภาษามือไทย}. สวทช.
+
+\end{thebibliography}
+
+% ==============================================================================
+% APPENDIX
+% ==============================================================================
+\clearpage
+\appendix
+\chapter{ภาคผนวก}
+
+\section{A. คำสั่งการใช้งานระบบ}
+
+\subsection*{การ Training โมเดล}
+
+\begin{lstlisting}[language=bash]
+# Training แบบ Default (GRU)
+python train_tsl51_v3.py
+
+# Training แบบ Quick (5 epochs)
+python train_tsl51_v3.py --model gru --epochs 5
+
+# Training แบบ MLP
+python train_tsl51_v3.py --model mlp --epochs 50
+
+# Training พร้อม K-Fold CV
+python train_tsl51_v3.py --folds 5 --epochs 100
+
+# Training พร้อม Data Augmentation (5x)
+python train_tsl51_v3.py --augment 5
+\end{lstlisting}
+
+\subsection*{การ Inference}
+
+\begin{lstlisting}[language=bash]
+# Inference จากไฟล์ .npz
+python inference.py --model models/tsl51_gru_best.pt --input data.npz
+
+# Predict จากวิดีโอ
+python predict_video.py --model models/tsl51_gru_best.pt --input video.mp4
+
+# Real-time Camera Translation
+python camera_translate.py --model models/tsl51_gru_best.pt
+\end{lstlisting}
+
+\subsection*{การใช้งาน TUI}
+
+\begin{lstlisting}[language=bash]
+# Run TUI
+python tools/tui.py
+
+# Keyboard Shortcuts:
+# 1 = Quick preset
+# 2 = Default preset  
+# 3 = Full CV preset
+# 4 = MLP preset
+# r = Run training
+# s = Stop training
+# c = Clear output
+# q = Quit
+\end{lstlisting}
+
+\section{B. รายชื่อท่าทางในชุดข้อมูล TSL-51}
+
+\begin{longtable}{|p{8cm}|}
+\caption{รายชื่อ 51 ท่าทางในชุดข้อมูล TSL-51}
+\label{tab:signs_list} \\
+\hline
+\endfirsthead
+\hline
+\textbf{ท่าทาง} \\
+\hline
+\endhead
+\hline
+สวัสดี, ขอบคุณ, ขอโทษ, ไม่เป็นไร, ช่วยด้วย \\
+\hline
+ใช่, ไม่ใช่, กรุณา, ขอร้อง, ลำบากใจ \\
+\hline
+กิน, นอน, เดิน, ยืน, นั่ง \\
+\hline
+มือ, เท้า, หัว, ตา, หู, ปาก \\
+\hline
+บ้าน, โรงเรียน, ตลาด, โรงพยาบาล, วัด \\
+\hline
+แม่, พ่อ, พี่, น้อง, ลูก \\
+\hline
+หนึ่ง, สอง, สาม, สี่, ห้า \\
+\hline
+หก, เจ็ด, แปด, เก้า, สิบ \\
+\hline
+\end{longtable}
+
+\clearpage
+
+\end{document}

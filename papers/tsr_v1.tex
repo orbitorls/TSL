@@ -1,0 +1,165 @@
+% ==============================================================================
+% TSL-51: Thai Sign Language Recognition System
+% ระบบจดจำภาษามือไทย TSL-51
+% ==============================================================================
+% บทที่ 1: บทนำ (Introduction)
+% ==============================================================================
+
+\documentclass[12pt,a4paper]{report}
+\usepackage[margin=1in]{geometry}
+\usepackage[utf8]{inputenc}
+\usepackage[Thai]{babel}
+\usepackage{graphicx}
+\usepackage{hyperref}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{algorithm}
+\usepackage[noend]{algpseudocode}
+\usepackage{listings}
+\usepackage{xcolor}
+\usepackage{longtable}
+\usepackage{cite}
+
+% Color definitions
+\definecolor{codegreen}{rgb}{0,0.6,0}
+\definecolor{codegray}{rgb}{0.5,0.5,0.5}
+\definecolor{codepurple}{rgb}{0.58,0,0.82}
+\definecolor{backcolour}{rgb}{0.95,0.95,0.92}
+
+% Code listing style
+\lstdefinestyle{mystyle}{
+    backgroundcolor=\color{backcolour},
+    commentstyle=\color{codegreen},
+    keywordstyle=\color{blue},
+    numberstyle=\tiny\color{codegray},
+    stringstyle=\color{codepurple},
+    basicstyle=\ttfamily\small,
+    breaklines=true,
+    frame=single,
+    numbers=left
+}
+\lstset{style=mystyle}
+
+% ==============================================================================
+% DOCUMENT SETTINGS
+% ==============================================================================
+\title{
+    \textbf{TSL-51: Thai Sign Language Recognition System} \\
+    \textit{ระบบจดจำภาษามือไทย สำหรับการแปลภาษามือเป็นข้อความแบบเรียลไทม์}
+}
+\author{
+    TSL Research Team \\
+    \textit{ทีมวิจัยระบบจดจำภาษามือไทย}
+}
+\date{\today}
+
+% ==============================================================================
+% MAIN DOCUMENT
+% ==============================================================================
+\begin{document}
+
+\maketitle
+\thispagestyle{empty}
+
+% ==============================================================================
+% CHAPTER 1: บทนำ
+% ==============================================================================
+\chapter{บทนำ}
+\pagenumbering{arabic}
+
+\section{ความเป็นมาและความสำคัญของงานวิจัย}
+
+ภาษามือ (Sign Language) เป็นรูปแบบการสื่อสารหลักสำหรับผู้บกพร่องทางการได้ยิน โดยในประเทศไทยมีผู้ใช้ภาษามือไทย (Thai Sign Language: TSL) จำนวนมาก 
+การแปลภาษามือเป็นข้อความอัตโนมัติ (Automatic Sign Language Translation) จึงมีความสำคัญอย่างยิ่งในการช่วยให้ผู้บกพร่องทางการได้ยินสามารถสื่อสารกับผู้อื่นได้สะดวกยิ่งขึ้น 
+รวมถึงการเรียนรู้ภาษามือสำหรับผู้ที่ต้องการเรียนรู้
+
+งานวิจัยนี้นำเสนอระบบ TSL-51 (Thai Sign Language 51) สำหรับการจดจำท่าทางมือในภาษามือไทย���ำนวน 51 ท่าทาง 
+ซึ่งครอบคลุมท่าทางพื้นฐานที่ใช้ในชีวิตประจำวัน ระบบที่พัฒนาขึ้นสามารถทำงานได้ทั้งในโหมดออฟไลน์ (offline) และแบบเรียลไทม์ (real-time) 
+โดยใช้เทคนิค Deep Learning ร่วมกับ MediaPipe สำหรับการสกัดคุณลักษณะจากวิดีโอ
+
+\section{วัตถุประสงค์ของงานวิจัย}
+
+วัตถุประสงค์หลักของงานวิจัยนี้คือ:
+
+\begin{enumerate}
+    \item พัฒนาระบบจดจำภาษามือไทย TSL-51 ที่สามารถจดจำท่าทางมือได้อย่างถูกต้องและรวดเร็ว
+    \item สร้างส่วนติดต่อผู้ใช้แบบ TUI (Text User Interface) สำหรับการใช้งานระบบอย่างสะดวก
+    \item พัฒนาระบบแปลวิดีโอเป็นข้อความแบบเรียลไทม์โดยใช้กล้องเว็บแคม
+    \item ทดสอบและเปรียบเทียบประสิทธิภาพของโมเดลต่างๆ
+\end{enumerate}
+
+\section{ขอบเขตของงานวิจัย}
+
+งานวิจัยนี้มีขอบเขตดังนี้:
+
+\begin{itemize}
+    \item จำนวนท่าทาง: 51 ท่าทางพื้นฐานของภาษามือไทย
+    \item ชุดข้อมูล: TSL-51 Dataset จาก HuggingFace
+    \item โมเดลที่ใช้: GRU และ MLP (Feedforward Neural Network)
+    \item การประมวลผลวิดีโอ: ใช้ MediaPipe สำหรับสกัดจุด Landmark
+    \item จำนวน Feature: 162 มิติ (63 มือซ้าย + 63 มือขวา + 36 Pose)
+\end{itemize}
+
+\section{ความสำคัญของงานวิจัย}
+
+ความสำคัญของงานวิจัยนี้มีดังนี้:
+
+\begin{enumerate}
+    \item \textbf{การช่วยเหลือผู้บกพร่องทางการได้ยิน:} ระบบที่พัฒนาขึ้นช่วยให้ผู้บกพร่องทางการได้ยินสื่อสารกับผู้อื่นได้สะดวกยิ่งขึ้น 
+    โดยการแปลภาษามือเป็นข้อความแบบเรียลไทม์
+    
+    \item \textbf{การเรียนรู้ภาษามือ:} ระบบสามารถใช้เป็นเครื่องมือช่วยในการเรียนรู้ภาษามือไทยสำหรับผู้ที่สนใจ
+    
+    \item \textbf{การพัฒนาวิทยาการ:} งานวิจัยนี้เป็นพื้นฐานสำหรับการพัฒนาระบบแปลประโยคเต็ม (Sentence-level Translation) ในอนาคต
+    
+    \item \textbf{การเข้าถึงข้อมูล:} ชุดข้อมูล TSL-51 เปิดให้ใช้งานอย่างเป็นสาธารณะบน HuggingFace ทำให้นักวิจัยคนอื่นสามารถนำไปใช้ต่อยอดได้
+\end{enumerate}
+
+\section{การจัดโครงสร้างรายงาน}
+
+รายงานฉบับนี้จัดโครงสร้างดังนี้:
+
+\begin{itemize}
+    \item \textbf{บทที่ 1} บทนำ - นำเสนอความเป็นมา วัตถุประสงค์ และขอบเขตของงานวิจัย
+    \item \textbf{บทที่ 2} ทฤษฎีและงานวิจัยที่เกี่ยวข้อง - อธิบายทฤษฎีและงานวิจัยที่เกี่ยวข้อง
+    \item \textbf{บทที่ 3} การออกแบบระบบ - อธิบายสถาปัตยกรรมและการทำงานของระบบ
+    \item \textbf{บทที่ 4} การทดลองและผลลัพธ์ - นำเสนอผลการทดลองและการวิเคราะห์
+    \item \textbf{บทที่ 5} บทสรุป - สรุปผลการวิจัยและข้อเสนอแนะ
+\end{itemize}
+
+% ==============================================================================
+% REFERENCES
+% ==============================================================================
+\begin{thebibliography}{99}
+
+bibitem{mediapipe}
+MediaPipe, ``MediaPipe,'' Google, 2024. 
+\url{https://mediapipe.dev}
+
+bibitem{tsldataset}
+Namonpas, ``Thai Sign Language TSL-51,'' HuggingFace, 2024.
+\url{https://huggingface.co/datasets/Namonpas/thai-sign-language-tsl51}
+
+bibitem{gru}
+Cho, K., et al., ``Learning Phrase Representations using RNN Encoder-Decoder for Statistical Machine Translation,''
+\textit{EMNLP 2014}.
+
+bibitem{pytorch}
+Paszke, A., et al., ``PyTorch: An Imperative Style, High-Performance Deep Learning Library,''
+\textit{NeurIPS 2019}.
+
+bibitem{mlkit}
+Keras, ``Module,'' TensorFlow, 2024.
+\url{https://keras.io/api/losses/}
+
+bibitem{cvpr}
+Zhong, Y., et al., ``Camera Gesture Recognition with Deep Learning,'' 
+\textit{arXiv preprint arXiv:1705.10223}, 2017.
+
+bibitem{tslavatar}
+Wiwat, J., et al., ``Thai Sign Language Recognition using Deep Learning,'' 
+\textit{ICEE 2020}.
+
+\end{thebibliography}
+
+\end{document}

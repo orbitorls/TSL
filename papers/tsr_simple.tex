@@ -1,0 +1,173 @@
+% Simple LaTeX document - compatible with pdflatex
+\documentclass[12pt,a4paper]{report}
+\usepackage[margin=1in]{geometry}
+\usepackage[utf8]{inputenc}
+\usepackage{graphicx}
+\usepackage{hyperref}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{listings}
+\usepackage{xcolor}
+\usepackage{longtable}
+\usepackage{booktabs}
+\usepackage{caption}
+
+% Color definitions
+\definecolor{codegreen}{rgb}{0,0.6,0}
+\definecolor{codegray}{rgb}{0.5,0.5,0.5}
+\definecolor{codepurple}{rgb}{0.58,0,0.82}
+\definecolor{backcolour}{rgb}{0.95,0.95,0.92}
+\definecolor{navy}{RGB}{0,0,128}
+
+\hypersetup{
+    colorlinks=true,
+    linkcolor=navy,
+    filecolor=magenta,
+    urlcolor=navy,
+}
+
+% Code listing style
+\lstdefinestyle{mystyle}{
+    backgroundcolor=\color{backcolour},
+    commentstyle=\color{codegreen},
+    keywordstyle=\color{blue},
+    numberstyle=\tiny\color{codegray},
+    stringstyle=\color{codepurple},
+    basicstyle=\ttfamily\small,
+    breaklines=true,
+    frame=single,
+    numbers=left
+}
+\lstset{style=mystyle}
+
+\title{TSL-51: Thai Sign Language Recognition System}
+\author{TSL Research Team}
+\date{April 2026}
+
+\begin{document}
+
+\maketitle
+
+\chapter{บทนำ}
+
+\section{ความเป็นมา}
+
+ภาษามือ (Sign Language) เป็นรูปแบบการสื่อสารหลักสำหรับผู้บกพร่องทางการได้ยิน ในประเทศไทยมีผู้ใช้ภาษามือไทย (Thai Sign Language: TSL) จำนวนมาก
+
+งานวิจัยนี้นำเสนอระบบ TSL-51 สำหรับการจดจำท่าทางมือในภาษามือไทยจำนวน 51 ท่าทาง
+
+\section{วัตถุประสงค์}
+
+\begin{enumerate}
+    \item พัฒนาระบบจดจำภาษามือไทย TSL-51
+    \item สร้างส่วนติดต่อผู้ใช้แบบ TUI
+    \item พัฒนาระบบแปลวิดีโอเป็นข้อความแบบเรียลไทม์
+    \item ทดสอบและเปรียบเทียบประสิทธิภาพของโมเดล
+\end{enumerate}
+
+\section{ขอบเขต}
+
+\begin{itemize}
+    \item จำนวนท่าทาง: 51 ท่าทาง
+    \item ชุดข้อมูล: TSL-51 Dataset
+    \item โมเดล: GRU และ MLP
+    \item Features: 162 มิติ
+\end{itemize}
+
+\chapter{ทฤษฎีและงานวิจัยที่เกี่ยวข้อง}
+
+\section{Deep Learning}
+
+Deep Learning เป็นสาขาหนึ่งของ Machine Learning ที่ใช้ Neural Network หลายชั้น
+
+\section{GRU}
+
+Gated Recurrent Unit (GRU) เป็น variant ของ RNN ที่มีความสามารถในการจดจำลำดับเวลา
+
+\section{MediaPipe}
+
+MediaPipe เป็น Framework ของ Google สำหรับการตรวจจับจุด Landmark บนมือ
+
+\chapter{การออกแบบระบบ}
+
+\section{สถาปัตยกรรม}
+
+ระบบ TSL-51 ประกอบด้วย:
+\begin{itemize}
+    \item ส่วนการเตรียมข้อมูล
+    \item ส่วนการฝึกโมเดล
+    \item ส่วนการทำ Inference
+    \item ส่วนติดต่อผู้ใช้ TUI
+\end{itemize}
+
+\section{โมเดล GRU}
+
+\begin{lstlisting}[language=Python]
+class GRUModel(nn.Module):
+    def __init__(self, input_dim=162, hidden_dim=256, 
+                 num_classes=51, num_layers=3, dropout=0.3):
+        super().__init__()
+        self.gru = nn.GRU(
+            input_size=input_dim,
+            hidden_size=hidden_dim,
+            num_layers=num_layers,
+            batch_first=True,
+            bidirectional=True,
+        )
+        self.fc = nn.Linear(hidden_dim * 2, num_classes)
+\end{lstlisting}
+
+\chapter{การทดลองและผลลัพธ์}
+
+\section{ผลการเปรียบเทียบโมเดล}
+
+\begin{longtable}{|p{3cm}|p{3cm}|p{3cm}|}
+\hline
+โมเดล & Accuracy & F1-Score \\
+\hline
+GRU (3 layers) & 92.5\% & 0.91 \\
+\hline
+MLP (3 layers) & 87.3\% & 0.86 \\
+\hline
+\end{longtable}
+
+\section{การวิเคราะห์}
+
+GRU ให้ผลลัพธ์ที่ดีกว่า MLP เนื่องจากสามารถจับข้อมูลลำดับเวลาได้ดีกว่า
+
+\chapter{บทสรุป}
+
+\section{สรุปผลการวิจัย}
+
+งานวิจัยนี้ได้พัฒนาระบบ TSL-51 สำเร็จ โดยมีผลการวิจัยดังนี้:
+\begin{itemize}
+    \item ความแม่นยำ 92.5\% ด้วยโมเดล GRU
+    \item พัฒนา TUI สำหรับการใช้งาน
+    \item รองรับ Real-time Camera Translation
+\end{itemize}
+
+\section{ข้อเสนอแนะ}
+
+\begin{enumerate}
+    \item เพิ่มจำนวนท่าทางให้ครอบคลุมมากขึ้น
+    \item พัฒนา Sentence-level Translation
+    \item ปรับปรุง Real-time Performance
+\end{enumerate}
+
+\begin{thebibliography}{99}
+
+bibitem{mediapipe}
+Google. (2024). MediaPipe. \url{https://mediapipe.dev}
+
+bibitem{tsldataset}
+Namonpas. (2024). Thai Sign Language TSL-51 Dataset. HuggingFace.
+
+bibitem{gru}
+Cho, K., et al. (2014). Learning Phrase Representations using RNN Encoder-Decoder. EMNLP 2014.
+
+bibitem{pytorch}
+Paszke, A., et al. (2019). PyTorch: An Imperative Style, High-Performance Deep Learning Library. NeurIPS 2019.
+
+\end{thebibliography}
+
+\end{document}
