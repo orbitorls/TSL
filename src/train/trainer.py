@@ -14,7 +14,7 @@ from typing import Optional, Dict, Any
 import logging
 
 from .config import TrainingConfig
-from .models import MODEL_CLASSES
+from src.core.models import MODEL_REGISTRY as MODEL_CLASSES
 
 logger = logging.getLogger(__name__)
 
