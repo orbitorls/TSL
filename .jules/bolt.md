@@ -1,0 +1,3 @@
+## 2024-05-14 - String generation loops in core data pipeline
+**Learning:** In Python data pipelines processing pandas DataFrames per frame (like `extract_features_from_landmark_df`), generating repeated access string keys inside nested loops via f-strings (e.g., `f'lh_{c}{i}'`) rather than caching them creates unnecessary overhead. While individual string interpolations are fast, iterating them thousands of times per sequence is noticeably inefficient.
+**Action:** Identify tight data manipulation loops and check if dynamic property or column string names are predictably determined by configuration parameters (like `feature_level`). Memoize or pre-generate these strings in a module-level dictionary cache or simple closure.
