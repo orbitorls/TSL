@@ -42,6 +42,14 @@ results/*.json
 results/*.txt
 results/*.png
 
+# Docker (keep Dockerfiles and docker-compose, ignore temp files)
+*.log
+.playwright-mcp/
+
+# CI/CD (keep .github/workflows/ versioned)
+!.github/workflows/ci.yml
+!.pre-commit-config.yaml
+
 # Website
 tsl-website/node_modules/
 tsl-website/.next/
