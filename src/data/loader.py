@@ -770,6 +770,37 @@ def validate_dataset(X: np.ndarray, y: np.ndarray, classes: np.ndarray) -> dict:
     return results
 
 
+def stratified_split(
+    X: np.ndarray, y: np.ndarray, classes: np.ndarray,
+    val_size: float = 0.15, test_size: float = 0.15, seed: int = 42
+):
+    """Stratified train/val/test split.
+
+    Args:
+        X: Feature array (n_samples, n_features)
+        y: Label array (n_samples,)
+        classes: Class names array
+        val_size: Fraction of data for validation (default: 0.15)
+        test_size: Fraction of data for test (default: 0.15)
+        seed: Random seed for reproducibility (default: 42)
+
+    Returns:
+        Tuple of (X_train, X_val, X_test, y_train, y_val, y_test)
+    """
+    from sklearn.model_selection import train_test_split
+
+    X_temp, X_test, y_temp, y_test = train_test_split(
+        X, y, test_size=test_size, stratify=y, random_state=seed
+    )
+
+    val_ratio = val_size / (1 - test_size)
+    X_train, X_val, y_train, y_val = train_test_split(
+        X_temp, y_temp, test_size=val_ratio, stratify=y_temp, random_state=seed
+    )
+
+    return X_train, X_val, X_test, y_train, y_val, y_test
+
+
 def print_dataset_quality_report(validation_results: dict):
     """Print formatted dataset quality report.
     
