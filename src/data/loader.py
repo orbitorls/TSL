@@ -379,9 +379,57 @@ def load_tsl51_expert_full(max_samples: Optional[int] = None, force_download: bo
     return X, y, classes
 
 
+def load_tsl51_full(
+    include_augmented: bool = True,
+    max_samples: Optional[int] = None,
+    force_download: bool = False
+) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """Load full TSL-51 dataset including pre-augmented expert data.
+
+    Combines user_sign (~5k samples) with expert data (~45k augmented samples)
+    to create a ~50k sample dataset for training.
+
+    Args:
+        include_augmented: If True, include pre-augmented expert data (default: True)
+        max_samples: Optional limit on number of samples
+        force_download: Force re-download even if cached
+
+    Returns:
+        Tuple of (X, y, classes) arrays
+    """
+    cache_file = CACHE_DIR / "full_dataset.npz"
+
+    if cache_file.exists() and not force_download:
+        print(f"Loading from combined cache: {cache_file}")
+        data = np.load(cache_file, allow_pickle=True)
+        return data['X'], data['y'], data['classes']
+
+    # Load from sources
+    X_user, y_user, _ = load_tsl51_user_sign(force_download=force_download)
+    X_expert, y_expert, classes = load_tsl51_expert_full(
+        max_samples=None if include_augmented else 1155,
+        force_download=force_download
+    )
+
+    # Handle None returns
+    if X_user is None or X_expert is None:
+        print("ERROR: Failed to load one or both datasets")
+        return None, None, None
+
+    # Combine
+    X_full = np.vstack([X_user, X_expert])
+    y_full = np.concatenate([y_user, y_expert])
+
+    # Cache
+    np.savez(cache_file, X=X_full, y=y_full, classes=classes)
+    print(f"Cached combined dataset: {len(X_full)} samples, {len(classes)} classes")
+
+    return X_full, y_full, classes
+
+
 def load_tsl51_combined(max_samples: Optional[int] = None, force_download: bool = False) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
     """Load TSL-51 combining user_sign + expert data.
-    
+
     Returns:
         Combined dataset from both sources (1,700+ samples)
     """
