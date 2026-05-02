@@ -1911,7 +1911,7 @@ EXAMPLES:
         """
     )
     parser.add_argument("--dataset", type=str, default="tsl51_user_sign",
-                       choices=["tsl51_user_sign", "tsl51_expert", "tsl51_expert_full", "tsl51_combined", "local"],
+                       choices=["tsl51_user_sign", "tsl51_expert", "tsl51_expert_full", "tsl51_combined", "tsl51_full", "local"],
                        help="Dataset to use (default: tsl51_user_sign). tsl51_expert_full uses ~45k samples")
     parser.add_argument("--data-path", type=str, default=None,
                        help="Path to local dataset (required for --dataset local)")
@@ -2071,6 +2071,13 @@ EXAMPLES:
         )
     elif args.dataset == "tsl51_combined":
         X, y, classes = load_tsl51_combined(
+            max_samples=args.samples,
+            force_download=args.force_download
+        )
+    elif args.dataset == "tsl51_full":
+        from src.data.loader import load_tsl51_full
+        X, y, classes = load_tsl51_full(
+            include_augmented=True,
             max_samples=args.samples,
             force_download=args.force_download
         )
