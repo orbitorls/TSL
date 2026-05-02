@@ -99,6 +99,43 @@ class GRUModel(nn.Module):
         return sum(p.numel() for p in self.parameters())
 
 
+class SmallGRUModel(nn.Module):
+    """Compact GRU: ~600K params (vs 5.4M full)"""
+    def __init__(
+        self,
+        input_dim: int = 162,
+        num_classes: int = 51,
+        hidden_dim: int = 128,
+        num_layers: int = 2,
+        dropout: float = 0.4
+    ):
+        super().__init__()
+        self.gru = nn.GRU(
+            input_dim,
+            hidden_dim,
+            num_layers,
+            batch_first=True,
+            dropout=dropout if num_layers > 1 else 0,
+            bidirectional=True
+        )
+        self.norm = nn.LayerNorm(hidden_dim * 2)
+        self.fc = nn.Linear(hidden_dim * 2, num_classes)
+        self.dropout = nn.Dropout(dropout)
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        if x.dim() == 2:
+            x = x.unsqueeze(1)
+        out, _ = self.gru(x)
+        out = out[:, -1, :]
+        out = self.norm(out)
+        out = self.dropout(out)
+        return self.fc(out)
+
+    @property
+    def num_params(self) -> int:
+        return sum(p.numel() for p in self.parameters())
+
+
 class MLPModel(nn.Module):
     """Multi-Layer Perceptron with LayerNorm and GELU activation.
 
@@ -382,6 +419,7 @@ class LightweightModel(nn.Module):
 
 MODEL_REGISTRY = {
     'gru': GRUModel,
+    'gru_small': SmallGRUModel,
     'mlp': MLPModel,
     'mopgru': GRUModel,  # Alias for backward compatibility
     'cnn1d': CNN1DModel,
