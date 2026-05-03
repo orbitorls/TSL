@@ -6,8 +6,8 @@ import numpy as np
 import torch
 
 # Paths
-CKPT_PATH = r"D:\TSL\models\tsl51_gru_best.pt"
-CACHE_DIR = Path(r"D:\TSL\.cache\tsl51")
+CKPT_PATH = "models/tsl51_gru_best.pt"
+CACHE_DIR = Path(".cache/tsl51")
 PREFERRED_NPZ = CACHE_DIR / "user_sign_data.npz"
 
 
