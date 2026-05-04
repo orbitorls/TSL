@@ -195,6 +195,9 @@ PRESETS = {
     "full_cv": {"model": "gru", "epochs": "100", "batch": "128", "layers": "3", "hidden": "256", "augment": "10", "k_folds": "5"},
     "mlp": {"model": "mlp", "epochs": "50", "batch": "128", "layers": "3", "hidden": "256", "augment": "5", "k_folds": "5"},
     "large_dataset": {"model": "gru", "epochs": "100", "batch": "256", "layers": "4", "hidden": "512", "augment": "0", "k_folds": "5"},
+    # NEW: Enhanced presets with label smoothing, mixup, gradient clipping
+    "accuracy_focus": {"model": "gru", "epochs": "100", "batch": "64", "layers": "3", "hidden": "256", "augment": "3", "k_folds": "5", "label_smoothing": "0.1", "mixup": "0.2", "gradient_clip": "1.0"},
+    "mlp_fast": {"model": "mlp", "epochs": "50", "batch": "128", "layers": "3", "hidden": "256", "augment": "5", "k_folds": "5"},
 }
 TRAINING_PRESETS = PRESETS  # Alias for compatibility
 
@@ -332,7 +335,9 @@ class TSLApp(App):
         Binding("1", "preset_quick", "Quick"),
         Binding("2", "preset_default", "Default"),
         Binding("3", "preset_full", "Full CV"),
-        Binding("4", "preset_large", "Large Dataset"),
+        Binding("4", "preset_large", "Large"),
+        Binding("5", "preset_mlp", "MLP"),
+        Binding("6", "preset_accuracy", "Accuracy"),
         Binding("r", "run_training", "Run"),
         Binding("s", "stop_training", "Stop"),
         Binding("c", "clear_output", "Clear"),
@@ -368,6 +373,7 @@ class TSLApp(App):
                     yield Button("3. Full K-Fold CV", id="btn-preset-full", classes="preset-btn", variant="success")
                     yield Button("4. MLP Fast", id="btn-preset-mlp", classes="preset-btn", variant="warning")
                     yield Button("5. Large Dataset (~45k)", id="btn-preset-large", classes="preset-btn", variant="primary")
+                    yield Button("6. Accuracy Focus (Enhanced)", id="btn-preset-accuracy", classes="preset-btn", variant="success")
                 
                 # Dataset Selection
                 yield Static("[magenta]DATASET[/magenta]", classes="section-header")
@@ -406,6 +412,16 @@ class TSLApp(App):
                     
                     yield Label("K-Folds (blank=training default):")
                     yield Input(value="5", id="inp-kfolds", classes="config-input")
+
+                    # Enhanced training options
+                    yield Label("Label Smoothing (0=off):")
+                    yield Input(value="0.1", id="inp-label-smoothing", classes="config-input")
+
+                    yield Label("Mixup Alpha (0=off):")
+                    yield Input(value="0.2", id="inp-mixup", classes="config-input")
+
+                    yield Label("Gradient Clip (0=off):")
+                    yield Input(value="1.0", id="inp-gradient-clip", classes="config-input")
                 
                 # Action Buttons
                 yield Static("[green]ACTIONS[/green]", classes="section-header")
@@ -439,7 +455,7 @@ class TSLApp(App):
     
     def on_mount(self) -> None:
         self.title = "TSL TUI - Thai Sign Language Recognition"
-        self.sub_title = "[b]q[/b]=Quit | [b]r[/b]=Run | [b]s[/b]=Stop | [b]1-4[/b]=Presets | [b]d[/b]=Dashboard | [b]v[/b]=Validate | [b]b[/b]=Benchmark"
+        self.sub_title = "[b]q[/b]=Quit | [b]r[/b]=Run | [b]s[/b]=Stop | [b]1-6[/b]=Presets | [b]d[/b]=Dashboard | [b]v[/b]=Validate | [b]b[/b]=Benchmark"
         self._log("[cyan]TSL TUI initialized. Select a preset or configure manually.[/cyan]")
         self._load_preset("default")
     
@@ -471,7 +487,7 @@ class TSLApp(App):
         preset = TRAINING_PRESETS.get(preset_name, {"epochs": "50", "batch": "128", "layers": "3", "hidden": "256", "augment": "5", "k_folds": "0"})
         self.current_preset = preset_name
         self.current_cmd_id = "train_gru"  # Default to training
-        
+
         # Update inputs if they exist in the UI
         try:
             if "epochs" in preset:
@@ -486,6 +502,13 @@ class TSLApp(App):
                 self.query_one("#inp-augment", Input).value = str(preset.get("augment", "5"))
             if "k_folds" in preset:
                 self.query_one("#inp-kfolds", Input).value = str(preset.get("k_folds", "0"))
+            # Enhanced training options
+            if "label_smoothing" in preset:
+                self.query_one("#inp-label-smoothing", Input).value = str(preset.get("label_smoothing", "0"))
+            if "mixup" in preset:
+                self.query_one("#inp-mixup", Input).value = str(preset.get("mixup", "0"))
+            if "gradient_clip" in preset:
+                self.query_one("#inp-gradient-clip", Input).value = str(preset.get("gradient_clip", "0"))
             self._log(f"[green]Preset '{preset_name}' loaded[/green]")
         except Exception:
             # Partial preset load; still usable but surface the issue for debugging
@@ -505,12 +528,23 @@ class TSLApp(App):
             lr = self.query_one("#inp-lr", Input).value
             augment = self.query_one("#inp-augment", Input).value
             kfolds = self.query_one("#inp-kfolds", Input).value
-            
+            label_smoothing = self.query_one("#inp-label-smoothing", Input).value
+            mixup = self.query_one("#inp-mixup", Input).value
+            gradient_clip = self.query_one("#inp-gradient-clip", Input).value
+
             cmd = f"python train_tsl51_v3.py --dataset {dataset} --model {model} --epochs {epochs} --batch {batch} --layers {layers} --hidden {hidden} --lr {lr} --augment {augment}"
-            
+
             if kfolds.strip():
                 cmd += f" --folds {kfolds}"
-            
+
+            # Add enhanced training options
+            if label_smoothing and float(label_smoothing) > 0:
+                cmd += f" --label-smoothing {label_smoothing}"
+            if mixup and float(mixup) > 0:
+                cmd += f" --mixup {mixup}"
+            if gradient_clip and float(gradient_clip) > 0:
+                cmd += f" --gradient-clip {gradient_clip}"
+
             return cmd
         except Exception:
             logger.exception("Failed to build training command")
@@ -590,10 +624,17 @@ class TSLApp(App):
                     lower = text.lower()
                     if any(x in lower for x in ["error", "exception", "traceback"]):
                         self._log(f"[red]{text}[/red]")
+                        # Check for common errors and suggest solutions
+                        if "modulenotfounderror" in lower or "no module named" in lower:
+                            self._log("[yellow]Hint: Check if required dependencies are installed[/yellow]")
+                        if "src.utils" in lower:
+                            self._log("[yellow]Hint: Run 'python -c \"import src; print(src.__file__)\"' to verify src path[/yellow]")
                     elif any(x in lower for x in ["epoch", "loss", "accuracy", "f1"]):
                         self._log(f"[cyan]{text}[/cyan]")
                     elif any(x in lower for x in ["complete", "saved", "best"]):
                         self._log(f"[green]{text}[/green]")
+                    elif any(x in lower for x in ["warning", "deprecated"]):
+                        self._log(f"[yellow]{text}[/yellow]")
                     else:
                         self._log(text)
 
@@ -605,6 +646,11 @@ class TSLApp(App):
             else:
                 self._log(f"\n[bold red]Failed (exit code: {returncode})[/bold red]")
                 self._update_status(f"[red]Failed (code {returncode})[/red]")
+                # Provide error recovery suggestions
+                self._log("\n[yellow]Troubleshooting:[/yellow]")
+                self._log("  1. Check if model file exists: ls models/")
+                self._log("  2. Re-train model: Press '2' for Default preset, then RUN")
+                self._log("  3. Check dependencies: pip install -r requirements.txt")
 
         except asyncio.CancelledError:
             # Worker was cancelled: ensure subprocess is killed
@@ -722,6 +768,18 @@ class TSLApp(App):
         except Exception:
             pass
         self._log("[cyan]Loaded: Large Dataset preset (tsl51_expert_full)[/cyan]")
+
+    def action_preset_accuracy(self) -> None:
+        """Load accuracy-focused preset."""
+        self._load_preset("accuracy_focus")
+        try:
+            # Set enhanced training options
+            self.query_one("#inp-label-smoothing", Input).value = "0.1"
+            self.query_one("#inp-mixup", Input).value = "0.2"
+            self.query_one("#inp-gradient-clip", Input).value = "1.0"
+        except Exception:
+            pass
+        self._log("[cyan]Loaded: Accuracy Focus preset (label smoothing, mixup, gradient clipping enabled)[/cyan]")
     
     def action_show_dashboard(self) -> None:
         """Show dashboard."""
@@ -765,6 +823,9 @@ class TSLApp(App):
             return
         if btn_id == "btn-preset-large":
             self.action_preset_large()
+            return
+        if btn_id == "btn-preset-accuracy":
+            self.action_preset_accuracy()
             return
 
         # navigation

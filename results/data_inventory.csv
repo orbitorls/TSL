@@ -1,0 +1,16 @@
+metric,value
+total_videos,252
+unique_sentence_ids,76
+unique_sentence_texts,62
+words_per_sentence_min,3
+words_per_sentence_max,6
+words_per_sentence_mean,3.4404761904761907
+frames_per_video_min,180
+frames_per_video_max,541
+frames_per_video_mean,264.89285714285717
+recording_variation_no_space,228
+recording_variation_with_space,24
+sample_landmark_path,landmarks/user_sentence/กรุงเทพ_var_1__ฉัน_var_1__เที่ยว_var_1__ชอบ_var_1_no_space_0.csv
+signs_per_sentence_min,3
+signs_per_sentence_max,6
+signs_per_sentence_mean,3.4473684210526314

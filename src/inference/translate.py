@@ -12,16 +12,10 @@ Output:
 
 import argparse
 import json
-import os
 import sys
 from pathlib import Path
 
-# Fix Windows console encoding for Thai characters
-if sys.platform == 'win32':
-    import io
-    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='replace')
-
-os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
+from ..train.compat import setup_mkl_threads, setup_windows_encoding
 
 import torch
 import numpy as np
@@ -166,6 +160,9 @@ def predict(model, features, mean, std, idx_to_label, top_k=3):
 # MAIN
 # =============================================================================
 def main():
+    setup_windows_encoding()
+    setup_mkl_threads()
+
     parser = argparse.ArgumentParser(
         description="Thai Sign Language Translation - Output Thai words",
         formatter_class=argparse.RawDescriptionHelpFormatter,

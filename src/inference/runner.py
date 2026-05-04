@@ -31,16 +31,10 @@ python inference.py --model models/autogluon_tsl51 --input your_data.npz
 
 import argparse
 import sys
-import os
 from pathlib import Path
 
+from ..train.compat import setup_mkl_threads, setup_windows_encoding
 from ..utils.security import validate_file_path
-
-if sys.platform == 'win32':
-    import io
-    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='replace')
-
-os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
 
 import numpy as np
 import torch
@@ -48,6 +42,7 @@ import torch
 from ..data.feature_extraction import extract_features_from_landmark_df, extract_sequence_from_landmark_df, FEATURE_DIMS
 from ..train.models import MLP, GRUModel, MOPGRU, HybridGRUTransformer, MODEL_CLASSES
 from src.core import FEATURE_LEVELS  # Use core as source of truth
+from .utils import InferenceUtils
 
 # Try to import AutoGluon support
 try:
@@ -390,11 +385,63 @@ class TSLPredictor:
             raise ValueError(f"Unknown npz format: {npz_path}. Expected 'X' or 'features' key.")
         return self.predict(features, return_top_k=return_top_k)
 
+    def warmup(self, num_runs=3):
+        """Warm up the model with dummy data."""
+        InferenceUtils.model_warmup(self.model, self.input_dim, self.device, num_runs)
+
+    def predict_with_entropy(self, landmarks, return_top_k=1):
+        """Predict with uncertainty estimation via entropy.
+
+        Returns:
+            tuple: (predictions, entropy) where predictions is (label, confidence)
+                  or list of (label, confidence) tuples if return_top_k > 1
+        """
+        # Validate and normalize input
+        x = self.validate_input(landmarks)
+        if self.mean is not None and self.std is not None:
+            x = (x - self.mean) / self.std
+
+        if self.is_autogluon:
+            probs = self.model.predict_proba(x)
+            if return_top_k == 1:
+                pred = int(probs[0].argmax())
+                prob = float(probs[0].max())
+                entropy = InferenceUtils.get_prediction_entropy(probs[0])
+                return (self.classes[pred], prob), float(entropy)
+            else:
+                top_indices = np.argsort(probs[0])[-return_top_k:][::-1]
+                preds = [(self.classes[idx], float(probs[0][idx])) for idx in top_indices]
+                entropy = InferenceUtils.get_prediction_entropy(probs[0])
+                return preds, float(entropy)
+        else:
+            x = torch.tensor(x, dtype=torch.float32).to(self.device)
+            with torch.no_grad():
+                logits = self.model(x)
+                probs = torch.softmax(logits, dim=1)
+                if return_top_k == 1:
+                    prob, pred = probs[0].max(0)
+                    entropy = InferenceUtils.get_prediction_entropy(probs[0].cpu().numpy())
+                    return (self.classes[pred.item()], prob.item()), float(entropy)
+                else:
+                    top_probs, top_indices = probs[0].topk(return_top_k)
+                    preds = [(self.classes[idx.item()], prob.item())
+                             for idx, prob in zip(top_indices, top_probs)]
+                    entropy = InferenceUtils.get_prediction_entropy(probs[0].cpu().numpy())
+                    return preds, float(entropy)
+
+
+def load_model(model_path, device=None):
+    """Backward-compatible model loader used by tests and legacy code."""
+    return TSLPredictor(model_path, device=device)
+
 
 # ============================================================================
 # MAIN
 # ============================================================================
 def main():
+    setup_windows_encoding()
+    setup_mkl_threads()
+
     parser = argparse.ArgumentParser(
         description="TSL-51 Inference",
         formatter_class=argparse.RawDescriptionHelpFormatter,

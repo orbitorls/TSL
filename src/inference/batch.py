@@ -2,11 +2,12 @@
 
 import sys
 from pathlib import Path
-from typing import List, Tuple, Optional, Dict, Any
+from typing import Any, Dict, List, Optional, Tuple
 
 import numpy as np
 import torch
 
+from src.train.compat import setup_windows_encoding
 from src.train.models import MODEL_CLASSES
 
 
@@ -261,7 +262,5 @@ def main():
 
 
 if __name__ == "__main__":
-    if sys.platform == "win32":
-        import io
-        sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
+    setup_windows_encoding()
     sys.exit(main())

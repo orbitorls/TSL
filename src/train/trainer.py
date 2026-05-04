@@ -70,12 +70,12 @@ class Trainer:
             weight_decay=1e-4,
         )
         
-        # Setup scheduler
+        # Setup scheduler - will update steps_per_epoch when train_loader is available
         self.scheduler = OneCycleLR(
             self.optimizer,
             max_lr=self.config.learning_rate,
             epochs=self.config.epochs,
-            steps_per_epoch=100,  # Will be updated during training
+            steps_per_epoch=1,  # Placeholder, updated in train()
         )
         
         # Setup gradient scaler for mixed precision
@@ -248,6 +248,14 @@ class Trainer:
             shuffle=False,
             num_workers=0,
         )
+
+        # Update scheduler with correct steps_per_epoch based on actual data
+        self.scheduler = OneCycleLR(
+            self.optimizer,
+            max_lr=self.config.learning_rate,
+            epochs=self.config.epochs,
+            steps_per_epoch=len(train_loader),
+        )
         
         # Setup loss function with class weighting
         from sklearn.utils.class_weight import compute_class_weight
@@ -263,6 +271,7 @@ class Trainer:
         self.best_val_acc = 0.0
         self.best_val_f1 = 0.0
         self.patience_counter = 0
+        best_state = None  # Initialize to track best model state
         
         # Training history
         history = {
@@ -310,7 +319,7 @@ class Trainer:
                     break
         
         # Load best model
-        if 'best_state' in locals():
+        if best_state is not None:
             self.model.load_state_dict(best_state['model_state_dict'])
         
         # Final evaluation
@@ -329,7 +338,7 @@ class Trainer:
             'val_f1_score': val_f1,
             'val_precision': val_precision,
             'val_recall': val_recall,
-            'model_state': best_state if 'best_state' in locals() else None,
+            'model_state': best_state,
         }
         
         return results

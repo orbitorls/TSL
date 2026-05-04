@@ -1,14 +1,23 @@
-"""Compatibility shims for optional dependencies (AMP, tqdm, matplotlib) and platform-specific fixes."""
+"""Compatibility shims for optional dependencies and platform-specific fixes."""
 
 import os
 import sys
 
 
 def setup_windows_encoding():
-    """Fix Windows console encoding for Thai characters."""
-    if sys.platform == 'win32':
-        import io
-        sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='replace')
+    """Fix Windows console encoding for Thai characters.
+
+    Reconfigure the active streams in place instead of replacing them.
+    Replacing ``sys.stdout`` breaks pytest capture on Windows.
+    """
+    if sys.platform != "win32":
+        return
+
+    for stream_name in ("stdout", "stderr"):
+        stream = getattr(sys, stream_name, None)
+        reconfigure = getattr(stream, "reconfigure", None)
+        if callable(reconfigure):
+            reconfigure(encoding="utf-8", errors="replace")
 
 
 def setup_mkl_threads():

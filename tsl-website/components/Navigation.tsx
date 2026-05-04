@@ -16,6 +16,7 @@ export default function Navigation() {
             <div className="hidden sm:flex ml-6 space-x-6">
               <Link href="/" className="text-sm font-medium text-gray-700 hover:text-brand-600 transition-colors duration-150 font-body">Home</Link>
               <Link href="/translate" className="text-sm font-medium text-gray-700 hover:text-brand-600 transition-colors duration-150 font-body">Translate</Link>
+              <Link href="/benchmark" className="text-sm font-medium text-gray-700 hover:text-brand-600 transition-colors duration-150 font-body">Benchmark</Link>
             </div>
           </div>
 

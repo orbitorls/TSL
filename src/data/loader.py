@@ -179,11 +179,12 @@ def load_tsl51_user_sign(max_samples: Optional[int] = None, force_download: bool
     # Sample if needed (stratified to maintain class balance)
     if max_samples and len(X_full) > max_samples:
         print(f"Sampling {max_samples} samples (stratified)...")
-        
+
         from sklearn.model_selection import train_test_split
-        
+
         try:
-            _, X_sampled, _, y_sampled = train_test_split(
+            # Fix: Keep train portion (first two), discard test portion (last two)
+            X_sampled, _, y_sampled, _ = train_test_split(
                 X_full, y_full,
                 test_size=max_samples,
                 stratify=y_full,
@@ -193,7 +194,7 @@ def load_tsl51_user_sign(max_samples: Optional[int] = None, force_download: bool
             # If stratification fails, use random sampling
             indices = np.random.choice(len(X_full), max_samples, replace=False)
             X_sampled, y_sampled = X_full[indices], y_full[indices]
-        
+
         X, y = X_sampled, y_sampled
         
         # Cache the sampled version
@@ -446,14 +447,214 @@ def load_cached_dataset(cache_name: str = "user_sign_data.npz") -> Tuple[np.ndar
     return data['X'], data['y']
 
 
-def validate_dataset(X: np.ndarray, y: np.ndarray, classes: np.ndarray) -> dict:
-    """Validate dataset and return quality metrics.
-    
+# ============================================================================
+# Data Validation Functions
+# ============================================================================
+
+def detect_outliers(X, method='iqr', threshold=3.0):
+    """Detect outliers using IQR or Z-score method.
+
+    Args:
+        X: Feature array (n_samples, n_features)
+        method: 'iqr' for Interquartile Range or 'zscore' for Z-score
+        threshold: Multiplier for IQR or Z-score threshold
+
+    Returns:
+        Boolean array indicating outlier samples
+    """
+    if method == 'iqr':
+        q1, q3 = np.percentile(X, [25, 75])
+        iqr = q3 - q1
+        return (X < q1 - threshold * iqr) | (X > q3 + threshold * iqr)
+    else:  # zscore
+        z = np.abs((X - np.mean(X, axis=0)) / np.std(X, axis=0))
+        return z > threshold
+
+
+def compute_feature_statistics(X) -> dict:
+    """Compute per-feature statistics.
+
+    Args:
+        X: Feature array (n_samples, n_features)
+
+    Returns:
+        Dictionary with mean, std, min, max, p25, p75 per feature
+    """
+    return {
+        'mean': np.mean(X, axis=0),
+        'std': np.std(X, axis=0),
+        'min': np.min(X, axis=0),
+        'max': np.max(X, axis=0),
+        'p25': np.percentile(X, 25, axis=0),
+        'p75': np.percentile(X, 75, axis=0),
+    }
+
+
+def analyze_class_balance(y, classes) -> dict:
+    """Analyze class balance.
+
+    Args:
+        y: Label array (n_samples,)
+        classes: Class names array
+
+    Returns:
+        Dictionary with counts, imbalance_ratio, min_class, max_class
+    """
+    counts = np.bincount(y, minlength=len(classes))
+    return {
+        'counts': dict(zip(classes, counts)),
+        'imbalance_ratio': max(counts) / max(min(counts), 1),
+        'min_class': classes[np.argmin(counts)],
+        'max_class': classes[np.argmax(counts)],
+    }
+
+
+# ============================================================================
+# Data Filtering Functions
+# ============================================================================
+
+def compute_quality_scores(X, y) -> np.ndarray:
+    """Compute quality scores for samples (0-1).
+
+    Penalizes:
+    - Samples with many zero values (likely missing landmarks)
+    - Samples with unusually high variance
+
+    Args:
+        X: Feature array (n_samples, n_features)
+        y: Label array (n_samples,)
+
+    Returns:
+        Array of quality scores between 0 and 1
+    """
+    scores = np.ones(len(X))
+    # Penalize zeros
+    scores *= (1 - np.mean(X == 0, axis=1) * 0.5)
+    # Penalize high variance
+    scores *= (1 - np.std(X, axis=1) * 0.1)
+    return np.clip(scores, 0, 1)
+
+
+def filter_by_quality(X, y, classes, min_score=0.5):
+    """Filter samples by quality score.
+
     Args:
         X: Feature array (n_samples, n_features)
         y: Label array (n_samples,)
         classes: Class names array
-        
+        min_score: Minimum quality score threshold (0-1)
+
+    Returns:
+        Tuple of (X_filtered, y_filtered)
+    """
+    scores = compute_quality_scores(X, y)
+    mask = scores >= min_score
+    return X[mask], y[mask]
+
+
+# ============================================================================
+# Data Augmentation
+# ============================================================================
+
+class Augmenter:
+    """Data augmentation for landmark sequences."""
+
+    def __init__(self, noise_level=0.01, scale_range=(0.95, 1.05)):
+        """Initialize augmenter.
+
+        Args:
+            noise_level: Standard deviation for Gaussian noise
+            scale_range: Tuple of (min, max) scale factors
+        """
+        self.noise_level = noise_level
+        self.scale_range = scale_range
+
+    def add_noise(self, X, std=None):
+        """Add Gaussian noise to features.
+
+        Args:
+            X: Feature array
+            std: Noise standard deviation (uses self.noise_level if None)
+
+        Returns:
+            Noisy feature array
+        """
+        std = std or self.noise_level
+        return X + np.random.normal(0, std, X.shape)
+
+    def scale(self, X, factor=None):
+        """Scale features by a random factor.
+
+        Args:
+            X: Feature array
+            factor: Scale factor (random if None)
+
+        Returns:
+            Scaled feature array
+        """
+        factor = factor or np.random.uniform(*self.scale_range)
+        return X * factor
+
+    def flip_hands(self, X):
+        """Mirror left/right hand features.
+
+        Swaps first 63 features (left hand) with next 63 (right hand).
+
+        Args:
+            X: Feature array (162 features: 63 left + 63 right + 36 pose)
+
+        Returns:
+            Feature array with hands mirrored
+        """
+        left = X[0:63].copy()
+        right = X[63:126].copy()
+        return np.concatenate([right, left, X[126:]])
+
+    def rotate(self, X, angle_range=(-15, 15)):
+        """Apply small random rotation in x-y plane.
+
+        Args:
+            X: Feature array
+            angle_range: Tuple of (min, max) angles in degrees
+
+        Returns:
+            Rotated feature array
+        """
+        angle = np.random.uniform(*angle_range) * np.pi / 180
+        cos_a, sin_a = np.cos(angle), np.sin(angle)
+        rotated = X.copy()
+        # Rotate hand features (42 points * 2 coords = first 84 features)
+        for i in range(42):
+            xi, yi = rotated[i * 2], rotated[i * 2 + 1]
+            rotated[i * 2] = xi * cos_a - yi * sin_a
+            rotated[i * 2 + 1] = xi * sin_a + yi * cos_a
+        return rotated
+
+    def compose(self, X, n_augmentations=2):
+        """Compose multiple random augmentations.
+
+        Args:
+            X: Feature array
+            n_augmentations: Number of augmentations to apply
+
+        Returns:
+            Augmented feature array
+        """
+        augmentations = [self.add_noise, self.scale, self.flip_hands, self.rotate]
+        for _ in range(n_augmentations):
+            aug = np.random.choice(augmentations)
+            X = aug(X)
+        return X
+
+
+def validate_dataset(X: np.ndarray, y: np.ndarray, classes: np.ndarray) -> dict:
+    """Validate dataset and return quality metrics.
+
+    Args:
+        X: Feature array (n_samples, n_features)
+        y: Label array (n_samples,)
+        classes: Class names array
+
     Returns:
         Dictionary containing validation results and quality metrics
     """
@@ -464,47 +665,60 @@ def validate_dataset(X: np.ndarray, y: np.ndarray, classes: np.ndarray) -> dict:
         'n_classes': len(classes),
         'issues': []
     }
-    
+
     # Check for NaN/Inf
     if np.isnan(X).any():
         results['valid'] = False
         results['issues'].append(f"Found {np.isnan(X).sum()} NaN values in features")
-    
+
     if np.isinf(X).any():
         results['valid'] = False
         results['issues'].append(f"Found {np.isinf(X).sum()} Inf values in features")
-    
-    # Check for zero variance features
+
+    # Compute and use feature statistics
     if len(X.shape) > 1:
-        feature_var = np.var(X, axis=0)
-        zero_var_features = np.sum(feature_var == 0)
+        feature_stats = compute_feature_statistics(X)
+
+        # Check for zero variance features
+        zero_var_mask = feature_stats['std'] == 0
+        zero_var_features = np.sum(zero_var_mask)
         if zero_var_features > 0:
             results['issues'].append(f"{zero_var_features} features have zero variance")
-    
-    # Check class distribution
-    unique, counts = np.unique(y, return_counts=True)
-    min_count = counts.min()
-    max_count = counts.max()
-    imbalance_ratio = max_count / min_count if min_count > 0 else float('inf')
-    
+
+        # Check feature range
+        results['feature_stats'] = {
+            'min': float(np.min(feature_stats['min'])),
+            'max': float(np.max(feature_stats['max'])),
+            'mean_range': (float(np.min(feature_stats['mean'])), float(np.max(feature_stats['mean']))),
+        }
+
+        if float(np.min(feature_stats['min'])) < -10 or float(np.max(feature_stats['max'])) > 10:
+            min_val = float(np.min(feature_stats['min']))
+            max_val = float(np.max(feature_stats['max']))
+            results['issues'].append(f"Feature values out of normal range: [{min_val:.2f}, {max_val:.2f}]")
+
+    # Analyze class balance using dedicated function
+    class_stats = analyze_class_balance(y, classes)
     results['class_distribution'] = {
-        'min_samples_per_class': int(min_count),
-        'max_samples_per_class': int(max_count),
-        'imbalance_ratio': float(imbalance_ratio)
+        'counts': class_stats['counts'],
+        'min_samples_per_class': int(min(class_stats['counts'].values())),
+        'max_samples_per_class': int(max(class_stats['counts'].values())),
+        'imbalance_ratio': float(class_stats['imbalance_ratio']),
+        'min_class': class_stats['min_class'],
+        'max_class': class_stats['max_class'],
     }
-    
-    if imbalance_ratio > 10:
-        results['issues'].append(f"High class imbalance: ratio {imbalance_ratio:.1f}:1")
-    
-    # Check feature range
-    if len(X.shape) > 1:
-        feature_min = X.min()
-        feature_max = X.max()
-        results['feature_range'] = {'min': float(feature_min), 'max': float(feature_max)}
-        
-        if feature_min < -10 or feature_max > 10:
-            results['issues'].append(f"Feature values out of normal range: [{feature_min:.2f}, {feature_max:.2f}]")
-    
+
+    if class_stats['imbalance_ratio'] > 10:
+        results['issues'].append(f"High class imbalance: ratio {class_stats['imbalance_ratio']:.1f}:1")
+
+    # Compute quality scores
+    quality_scores = compute_quality_scores(X, y)
+    results['quality_stats'] = {
+        'mean_score': float(np.mean(quality_scores)),
+        'min_score': float(np.min(quality_scores)),
+        'low_quality_count': int(np.sum(quality_scores < 0.5)),
+    }
+
     return results
 
 
