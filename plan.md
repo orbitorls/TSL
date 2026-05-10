@@ -1,0 +1,8 @@
+1. **Analyze the performance bottleneck**: In `src/inference/camera_translate.py`, `ImageFont.truetype` is being called repeatedly in the real-time hot loops (`_draw_thai_text` and `run` loops). This creates severe performance issues because disk I/O and font parsing block the main thread and reduce the overall FPS.
+2. **Implement font caching**: As per memory: "To avoid performance bottlenecks in real-time rendering loops across the codebase, ensure that redundant file I/O operations (like loading PIL fonts or images from disk) are removed from the hot loop. Instead, cache these assets using an instance-level dictionary initialized in `__init__`." and "In `camera_translate.py`, the `ThaiSignTranslator` class implements a font caching mechanism using `self._font_cache` and the `_get_cached_font` method to avoid redundant disk I/O when rendering text." We need to:
+   - Add `self._font_cache = {}` to `ThaiSignTranslator.__init__`.
+   - Add a method `_get_cached_font(self, font_paths, font_size)` which takes a tuple of font paths and size, checks the cache, tries loading fonts sequentially, and caches the successfully loaded font (or default).
+   - Update `_draw_thai_text` and `run` to use `_get_cached_font` instead of calling `ImageFont.truetype` and `ImageFont.load_default` directly.
+3. **Verify the change**: Run the codebase test suite or create a mock test to verify the caching logic works properly and performance impact is noted.
+4. **Pre-commit checks**: Run standard pre-commit scripts.
+5. **Submit PR**: Title `⚡ Bolt: [Font rendering optimization]` with the required formatting.
