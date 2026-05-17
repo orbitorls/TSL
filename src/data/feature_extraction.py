@@ -25,9 +25,15 @@ _POSE_LANDMARK_NAMES = [
     'rbrow_inner', 'rbrow_outer', 'mouth_right', 'mouth_left'
 ]
 
+# Cache to avoid regenerating column names with nested loops/formatting
+_FEATURE_COLUMN_CACHE: dict[str, list[str]] = {}
+
 
 def _build_column_list(feature_level: str = 'basic') -> list:
     """Build the ordered list of column names for a given feature level."""
+    if feature_level in _FEATURE_COLUMN_CACHE:
+        return _FEATURE_COLUMN_CACHE[feature_level]
+
     cols = []
     for i in range(21):
         for c in ['x', 'y', 'z']:
@@ -54,7 +60,8 @@ def _build_column_list(feature_level: str = 'basic') -> list:
         # But we still need to return a consistent feature_dim
         pass
     feature_dim = FEATURE_DIMS.get(feature_level, 162)
-    return cols[:feature_dim]
+    _FEATURE_COLUMN_CACHE[feature_level] = cols[:feature_dim]
+    return _FEATURE_COLUMN_CACHE[feature_level]
 
 
 def extract_features_from_landmark_df(lm_df, feature_level='basic'):
@@ -64,56 +71,15 @@ def extract_features_from_landmark_df(lm_df, feature_level='basic'):
     averaged across all frames. Use ``extract_sequence_from_landmark_df`` when
     per-frame temporal information is needed.
     """
+    # Use cached column list to avoid redundant string formatting overhead
+    cols = _build_column_list(feature_level)
+
     features = []
-
-    # ===== 1. BASIC: Hand + Pose (162) =====
-    # Left hand (21 * 3 = 63)
-    for i in range(21):
-        for c in ['x', 'y', 'z']:
-            col = f'lh_{c}{i}'
-            if col in lm_df.columns:
-                features.append(safe_mean(lm_df[col]))
-            else:
-                features.append(0.0)
-
-    # Right hand (21 * 3 = 63)
-    for i in range(21):
-        for c in ['x', 'y', 'z']:
-            col = f'rh_{c}{i}'
-            if col in lm_df.columns:
-                features.append(safe_mean(lm_df[col]))
-            else:
-                features.append(0.0)
-
-    # Pose landmarks (12 * 3 = 36)
-    for base in _POSE_LANDMARK_NAMES:
-        for c in ['x', 'y', 'z']:
-            col = f'{base}_{c}'
-            if col in lm_df.columns:
-                features.append(safe_mean(lm_df[col]))
-            else:
-                features.append(0.0)
-
-    if feature_level in ['finger', 'full', 'face']:
-        finger_names = ['thumb', 'index', 'middle', 'ring', 'pinky']
-        for hand_prefix in ['lh_', 'rh_']:
-            for finger in finger_names:
-                for c in ['x', 'y', 'z']:
-                    for joint in ['mcp', 'pip', 'dip']:
-                        col = f'{hand_prefix}{finger}_{joint}_{c}'
-                        if col in lm_df.columns:
-                            features.append(safe_mean(lm_df[col]))
-                        else:
-                            features.append(0.0)
-
-    if feature_level in ['full', 'face']:
-        for i in range(478):
-            for c in ['x', 'y', 'z']:
-                col = f'face_{c}{i}'
-                if col in lm_df.columns:
-                    features.append(safe_mean(lm_df[col]))
-                else:
-                    features.append(0.0)
+    for col in cols:
+        if col in lm_df.columns:
+            features.append(safe_mean(lm_df[col]))
+        else:
+            features.append(0.0)
 
     feature_dim = FEATURE_DIMS.get(feature_level, 162)
     return np.array(features[:feature_dim], dtype=np.float32)
