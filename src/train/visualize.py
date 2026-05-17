@@ -22,6 +22,43 @@ def _to_float(val):
     return val
 
 
+def _pct(val):
+    """Normalize a metric to a percentage (0-100).
+
+    If the value looks like a fraction (<= 1.0) it is scaled up;
+    otherwise it is returned as-is.  Strings are passed through.
+    """
+    val = _to_float(val)
+    if isinstance(val, (int, float)) and 0.0 <= val <= 1.0:
+        return val * 100
+    return val
+
+
+def _fold_metric(fold, key, default=0.0):
+    """Safely extract a metric from a fold dict with legacy fallbacks."""
+    if key in fold:
+        return _pct(fold[key])
+    legacy = {
+        "val_acc": "accuracy",
+        "val_f1_score": "f1_score",
+        "val_precision": "precision",
+        "val_recall": "recall",
+        "val_top3_acc": "top3_accuracy",
+        "val_top5_acc": "top5_accuracy",
+    }
+    old_key = legacy.get(key, key)
+    if old_key in fold:
+        return _pct(fold[old_key])
+    return default
+
+
+def _result_metric(results, key, default=0.0):
+    """Safely extract a metric from the aggregated results dict."""
+    if key in results:
+        return _pct(results[key])
+    return default
+
+
 def save_visualizations(
     results: dict[str, Any], fold_results: list[dict[str, Any]], output_dir: str | Path, args: Any
 ) -> None:
@@ -32,26 +69,21 @@ def save_visualizations(
     if plt is None:
         return
 
-    for k in [
-        "average_accuracy",
-        "std_accuracy",
-        "overall_accuracy",
-        "precision",
-        "recall",
-        "f1_score",
-        "num_classes",
-        "num_samples",
-        "test_samples",
-        "input_dim",
-    ]:
-        if k in results:
-            results[k] = _to_float(results[k])
-    if "test_results" in results and isinstance(results["test_results"], dict):
-        for k in results["test_results"]:
-            results["test_results"][k] = _to_float(results["test_results"][k])
-    for fr in fold_results:
-        if "accuracy" in fr:
-            fr["accuracy"] = _to_float(fr["accuracy"])
+    # Normalize all known scalar metrics to percentages (0-100)
+    def _normalize(obj):
+        if isinstance(obj, dict):
+            for k, v in obj.items():
+                obj[k] = _normalize(v)
+            return obj
+        if isinstance(obj, list):
+            return [_normalize(v) for v in obj]
+        val = _to_float(obj)
+        if isinstance(val, (int, float)):
+            return _pct(val)
+        return val
+
+    results = _normalize(results)
+    fold_results = _normalize(fold_results)
 
     plt.style.use("seaborn-v0_8-whitegrid")
     fig = plt.figure(figsize=(22, 18))
@@ -64,12 +96,14 @@ def save_visualizations(
         y=0.98,
     )
 
-    all_accs = [float(r["accuracy"]) * 100 for r in fold_results]
+    all_accs = [_fold_metric(r, "val_acc") for r in fold_results]
     all_metrics = [
-        float(results["overall_accuracy"]) * 100,
-        float(results["precision"]) * 100,
-        float(results["recall"]) * 100,
-        float(results["f1_score"]) * 100,
+        _result_metric(results, "overall_accuracy"),
+        _result_metric(results, "top3_accuracy"),
+        _result_metric(results, "top5_accuracy"),
+        _result_metric(results, "precision"),
+        _result_metric(results, "recall"),
+        _result_metric(results, "f1_score"),
     ]
     min_acc = min(min(all_accs), min(all_metrics)) - 15
     max_acc = max(max(all_accs), max(all_metrics)) + 10
@@ -89,7 +123,7 @@ def save_visualizations(
     ax1 = fig.add_subplot(2, 3, 1)
     ax1.set_facecolor("#ffffff")
     folds = [r["fold"] for r in fold_results]
-    accs = [r["accuracy"] * 100 for r in fold_results]
+    accs = [_fold_metric(r, "val_acc") for r in fold_results]
     bars = ax1.bar(
         folds,
         accs,
@@ -111,11 +145,11 @@ def save_visualizations(
             color=colors["dark"],
         )
     ax1.axhline(
-        y=results["average_accuracy"] * 100,
+        y=_result_metric(results, "average_accuracy"),
         color=colors["secondary"],
         linestyle="--",
         linewidth=3,
-        label=f"CV Average: {results['average_accuracy'] * 100:.2f}%",
+        label=f"CV Average: {_result_metric(results, 'average_accuracy'):.2f}%",
         alpha=0.8,
     )
     ax1.set_xlabel("Fold", fontsize=14, fontweight="bold")
@@ -129,17 +163,26 @@ def save_visualizations(
 
     ax2 = fig.add_subplot(2, 3, 2)
     ax2.set_facecolor("#ffffff")
-    metrics = ["Accuracy", "Precision", "Recall", "F1-Score"]
+    metrics = ["Accuracy", "Top-3 Acc", "Top-5 Acc", "Precision", "Recall", "F1-Score"]
     values = [
-        results["overall_accuracy"],
-        results["precision"],
-        results["recall"],
-        results["f1_score"],
+        _result_metric(results, "overall_accuracy"),
+        _result_metric(results, "top3_accuracy"),
+        _result_metric(results, "top5_accuracy"),
+        _result_metric(results, "precision"),
+        _result_metric(results, "recall"),
+        _result_metric(results, "f1_score"),
     ]
-    metric_colors = [colors["primary"], colors["warning"], colors["success"], colors["info"]]
+    metric_colors = [
+        colors["primary"],
+        colors["warning"],
+        colors["success"],
+        colors["info"],
+        colors["secondary"],
+        colors["dark"],
+    ]
     bars2 = ax2.bar(
         metrics,
-        [v * 100 for v in values],
+        values,
         color=metric_colors,
         edgecolor=colors["dark"],
         linewidth=2,
@@ -150,7 +193,7 @@ def save_visualizations(
         ax2.text(
             bar.get_x() + bar.get_width() / 2.0,
             bar.get_height() + 1,
-            f"{v * 100:.2f}%",
+            f"{v:.2f}%",
             ha="center",
             va="bottom",
             fontsize=12,
@@ -171,12 +214,12 @@ def save_visualizations(
     avg_per_class = num_samples / num_classes if num_classes > 0 else 0
     fold_table = "PER-FOLD RESULTS\n" + "-" * 40 + "\n"
     for fold in fold_results:
-        fold_table += f"  Fold {fold['fold']}: {fold['accuracy'] * 100:>6.2f}%\n"
+        fold_table += f"  Fold {fold['fold']}: {_fold_metric(fold, 'val_acc'):>6.2f}%\n"
     fold_table += "-" * 40 + "\n"
-    fold_table += f"  Best Fold: Fold {np.argmax([r['accuracy'] for r in fold_results]) + 1}\n"
-    fold_table += f"  Std Dev:   {results['std_accuracy'] * 100:>6.2f}%\n"
-    fold_table += f"  Best Acc:  {max([r['accuracy'] for r in fold_results]) * 100:>6.2f}%\n"
-    fold_table += f"  Worst Acc: {min([r['accuracy'] for r in fold_results]) * 100:>6.2f}%\n"
+    fold_table += f"  Best Fold: Fold {np.argmax([_fold_metric(r, 'val_acc') for r in fold_results]) + 1}\n"
+    fold_table += f"  Std Dev:   {_result_metric(results, 'std_accuracy'):>6.2f}%\n"
+    fold_table += f"  Best Acc:  {max([_fold_metric(r, 'val_acc') for r in fold_results]):>6.2f}%\n"
+    fold_table += f"  Worst Acc: {min([_fold_metric(r, 'val_acc') for r in fold_results]):>6.2f}%\n"
     fold_table += "-" * 40 + "\n"
     fold_table += f"  Classes:   {num_classes} signs\n"
     fold_table += f"  Avg/Class: {avg_per_class:>6.1f} samples\n"
@@ -303,19 +346,21 @@ def save_visualizations(
     if "test_results" in results:
         tr = results["test_results"]
         test_line = (
-            f"  Test Accuracy:  {tr['test_accuracy'] * 100:>6.2f}%\n"
-            f"  Test Precision: {tr['test_precision'] * 100:>6.2f}%\n"
-            f"  Test Recall:    {tr['test_recall'] * 100:>6.2f}%\n"
-            f"  Test F1-Score:  {tr['test_f1_score'] * 100:>6.2f}%\n"
+            f"  Test Accuracy:  {_pct(tr.get('test_accuracy', 0.0)):>6.2f}%\n"
+            f"  Test Precision: {_pct(tr.get('test_precision', 0.0)):>6.2f}%\n"
+            f"  Test Recall:    {_pct(tr.get('test_recall', 0.0)):>6.2f}%\n"
+            f"  Test F1-Score:  {_pct(tr.get('test_f1_score', 0.0)):>6.2f}%\n"
             f"{'-' * 40}\n"
         )
     results_text = (
         f"FINAL RESULTS\n{'-' * 40}\n"
-        f"  CV Average:       {results['average_accuracy'] * 100:>6.2f}% (+/-{results['std_accuracy'] * 100:.2f}%)\n"
-        f"  Overall Accuracy: {results['overall_accuracy'] * 100:>6.2f}%\n"
-        f"  Precision:        {results['precision'] * 100:>6.2f}%\n"
-        f"  Recall:           {results['recall'] * 100:>6.2f}%\n"
-        f"  F1-Score:         {results['f1_score'] * 100:>6.2f}%\n"
+        f"  CV Average:       {_result_metric(results, 'average_accuracy'):>6.2f}% (+/-{_result_metric(results, 'std_accuracy'):.2f}%)\n"
+        f"  Overall Accuracy: {_result_metric(results, 'overall_accuracy'):>6.2f}%\n"
+        f"  Top-3 Accuracy:   {_result_metric(results, 'top3_accuracy'):>6.2f}%\n"
+        f"  Top-5 Accuracy:   {_result_metric(results, 'top5_accuracy'):>6.2f}%\n"
+        f"  Precision:        {_result_metric(results, 'precision'):>6.2f}%\n"
+        f"  Recall:           {_result_metric(results, 'recall'):>6.2f}%\n"
+        f"  F1-Score:         {_result_metric(results, 'f1_score'):>6.2f}%\n"
         f"{test_line}"
         f"{'-' * 40}\n"
         f"  TRAINING ENVIRONMENT\n"
@@ -401,25 +446,27 @@ def save_visualizations(
         f.write("\nPER-FOLD RESULTS\n")
         f.write("-" * 70 + "\n")
         for fold in fold_results:
-            f.write(f"  Fold {fold['fold']}: {fold['accuracy'] * 100:.2f}%\n")
-        f.write(f"\n  Best Fold: Fold {np.argmax([r['accuracy'] for r in fold_results]) + 1}\n")
-        f.write(f"  Std Dev: {results['std_accuracy'] * 100:.2f}%\n")
+            f.write(f"  Fold {fold['fold']}: {_fold_metric(fold, 'val_acc'):.2f}%\n")
+        f.write(f"\n  Best Fold: Fold {np.argmax([_fold_metric(r, 'val_acc') for r in fold_results]) + 1}\n")
+        f.write(f"  Std Dev: {_result_metric(results, 'std_accuracy'):.2f}%\n")
         f.write("\nOVERALL METRICS\n")
         f.write("-" * 70 + "\n")
         f.write(
-            f"  CV Average: {results['average_accuracy'] * 100:.2f}% (±{results['std_accuracy'] * 100:.2f}%)\n"
+            f"  CV Average: {_result_metric(results, 'average_accuracy'):.2f}% (±{_result_metric(results, 'std_accuracy'):.2f}%)\n"
         )
-        f.write(f"  Overall Accuracy: {results['overall_accuracy'] * 100:.2f}%\n")
-        f.write(f"  Precision: {results['precision'] * 100:.2f}%\n")
-        f.write(f"  Recall: {results['recall'] * 100:.2f}%\n")
-        f.write(f"  F1-Score: {results['f1_score'] * 100:.2f}%\n")
+        f.write(f"  Overall Accuracy: {_result_metric(results, 'overall_accuracy'):.2f}%\n")
+        f.write(f"  Top-3 Accuracy:   {_result_metric(results, 'top3_accuracy'):.2f}%\n")
+        f.write(f"  Top-5 Accuracy:   {_result_metric(results, 'top5_accuracy'):.2f}%\n")
+        f.write(f"  Precision: {_result_metric(results, 'precision'):.2f}%\n")
+        f.write(f"  Recall: {_result_metric(results, 'recall'):.2f}%\n")
+        f.write(f"  F1-Score: {_result_metric(results, 'f1_score'):.2f}%\n")
         if "test_results" in results:
             f.write("\nTEST SET RESULTS\n")
             f.write("-" * 70 + "\n")
             tr = results["test_results"]
-            f.write(f"  Test Accuracy: {tr['test_accuracy'] * 100:.2f}%\n")
-            f.write(f"  Test Precision: {tr['test_precision'] * 100:.2f}%\n")
-            f.write(f"  Test Recall: {tr['test_recall'] * 100:.2f}%\n")
-            f.write(f"  Test F1-Score: {tr['test_f1_score'] * 100:.2f}%\n")
+            f.write(f"  Test Accuracy: {_pct(tr.get('test_accuracy', 0.0)):.2f}%\n")
+            f.write(f"  Test Precision: {_pct(tr.get('test_precision', 0.0)):.2f}%\n")
+            f.write(f"  Test Recall: {_pct(tr.get('test_recall', 0.0)):.2f}%\n")
+            f.write(f"  Test F1-Score: {_pct(tr.get('test_f1_score', 0.0)):.2f}%\n")
         f.write("\n" + "=" * 70 + "\n")
     print(f"Text Report: {text_report_path}")
