@@ -24,7 +24,7 @@ pip install -r requirements.txt
 
 **Dependencies**: torch, numpy, pandas, matplotlib, scikit-learn, tqdm, huggingface_hub, opencv-python, mediapipe, pillow, textual
 
-**GPU Requirement**: Training requires CUDA GPU. The script will exit if GPU is unavailable.
+**GPU**: Training prefers CUDA GPU but falls back to CPU with a warning. Use `--smoke` for CPU-only quick validation.
 
 ### Train a Model
 
@@ -65,10 +65,11 @@ python inference.py --model models/tsl51_gru_best.pt --input data.npz
 | `tsl51_combined` | 1,702 | 51 | user_sign + expert original |
 | `local` | Custom | Custom | CSV or NumPy format |
 
-**Feature Format**: 162-dimensional vector
-- Left hand: 63 features (21 points × 3 coordinates)
-- Right hand: 63 features (21 points × 3 coordinates)
-- Pose: 36 features (12 points × 3 coordinates)
+**Feature Format**: Configurable feature levels
+- `basic` (162): Left hand 63 + Right hand 63 + Pose 36
+- `finger` (252): Basic 162 + Finger joints 90
+- `full` (1596): All landmarks including face mesh
+- `face` (1434): Face mesh only
 
 ## Model Architectures
 
@@ -85,6 +86,10 @@ python inference.py --model models/tsl51_gru_best.pt --input data.npz
 ```
 TSL/
 ├── src/
+│   ├── core/           # Single source of truth for models & features
+│   │   ├── models.py          # All model architectures
+│   │   ├── features.py        # Feature dimension constants & extraction
+│   │   └── normalizer.py      # Data normalization
 │   ├── data/           # Data loading and preprocessing
 │   │   ├── loader.py          # Dataset loading functions
 │   │   ├── loader_expert.py   # Full expert dataset loader
@@ -94,14 +99,17 @@ TSL/
 │   │   ├── config.py          # Training configuration
 │   │   ├── trainer.py         # Core training logic
 │   │   ├── evaluator.py       # Evaluation metrics
-│   │   ├── models.py          # Model definitions
+│   │   ├── models.py          # Re-exports from src.core.models
 │   │   ├── augment.py         # Data augmentation
 │   │   └── visualize.py       # Training visualization
-│   └── inference/      # Inference modules
-│       ├── runner.py          # General inference script
-│       ├── predict_video.py   # Video prediction
-│       ├── camera_translate.py # Real-time camera translation
-│       └── translate.py       # JSON translation
+│   ├── inference/      # Inference modules
+│   │   ├── runner.py          # General inference script
+│   │   ├── predict_video.py   # Video prediction
+│   │   ├── camera_translate.py # Real-time camera translation
+│   │   └── translate.py       # JSON translation
+│   └── utils/          # Shared utility functions
+│       ├── dataset_utils.py   # safe_mean, safe_std, validation
+│       └── security.py        # File path validation
 ├── train_tsl51_v3.py  # Main training script (CLI entry point)
 ├── tests/             # Unit and integration tests
 ├── models/            # Saved model checkpoints (.pt)
@@ -157,7 +165,7 @@ mean = np.array(checkpoint['mean'])
 std = np.array(checkpoint['std'])
 
 # Load model architecture
-from src.train.models import GRUModel
+from src.core.models import GRUModel
 model = GRUModel(input_dim=162, num_classes=51)
 model.load_state_dict(checkpoint['state_dict'])
 model.eval()
@@ -194,7 +202,7 @@ black src/
 ## Known Issues
 
 - **Windows Fonts**: Matplotlib does not support emojis on Windows; plain text is used instead
-- **GPU Required**: Training script exits if CUDA GPU is unavailable
+- **GPU Preferred**: Training prefers CUDA GPU but falls back to CPU with a warning
 - **Initial Download**: First dataset download from HuggingFace takes time (cached in `.cache/tsl51/`)
 
 ## License

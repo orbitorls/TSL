@@ -20,7 +20,7 @@ from ..train.compat import setup_mkl_threads, setup_windows_encoding
 import torch
 import numpy as np
 
-from ..train.models import MLP, GRUModel, MOPGRU, HybridGRUTransformer
+from src.core.models import MLP, GRUModel, MOPGRU, HybridGRUTransformer
 
 from ..data.extractor import (
     FEATURE_DIMS,

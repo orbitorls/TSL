@@ -2,13 +2,11 @@
 
 import sys
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
 
 import numpy as np
 import torch
 
-from src.train.compat import setup_windows_encoding
-from src.train.models import MODEL_CLASSES
+from src.core.models import MODEL_REGISTRY as MODEL_CLASSES
 
 
 class BatchInference:
@@ -18,7 +16,7 @@ class BatchInference:
         self,
         model_path: str,
         model_type: str = "gru",
-        device: Optional[str] = None,
+        device: str | None = None,
         batch_size: int = 64,
     ):
         """
@@ -67,7 +65,7 @@ class BatchInference:
         features: np.ndarray,
         return_probs: bool = False,
         top_k: int = 1,
-    ) -> Tuple[List[str], Optional[np.ndarray]]:
+    ) -> tuple[list[str] | list[list[str]], np.ndarray | None]:
         """
         Predict signs for a batch of features.
 
@@ -101,8 +99,7 @@ class BatchInference:
                 if top_k > 1:
                     top_probs, top_indices = torch.topk(probs, top_k, dim=1)
                     batch_preds = [
-                        [self.classes[idx.item()] for idx in indices]
-                        for indices in top_indices
+                        [self.classes[idx.item()] for idx in indices] for indices in top_indices
                     ]
                     batch_probs = top_probs.cpu().numpy()
                 else:
@@ -124,7 +121,7 @@ class BatchInference:
         npz_path: str,
         return_probs: bool = False,
         top_k: int = 1,
-    ) -> Tuple[List[str], Optional[np.ndarray]]:
+    ) -> tuple[list[str] | list[list[str]], np.ndarray | None]:
         """
         Predict from NumPy archive.
 
@@ -145,7 +142,7 @@ class BatchInference:
         csv_path: str,
         return_probs: bool = False,
         top_k: int = 1,
-    ) -> Tuple[List[str], Optional[np.ndarray]]:
+    ) -> tuple[list[str] | list[list[str]], np.ndarray | None]:
         """
         Predict from CSV file (assumes first column is label, rest are features).
 
@@ -166,9 +163,9 @@ class BatchInference:
 
     def save_results(
         self,
-        predictions: List[str],
-        output_path: str,
-        probs: Optional[np.ndarray] = None,
+        predictions: list[str],
+        output_path: str | Path,
+        probs: np.ndarray | None = None,
     ):
         """
         Save predictions to file.
@@ -262,5 +259,8 @@ def main():
 
 
 if __name__ == "__main__":
-    setup_windows_encoding()
+    if sys.platform == "win32":
+        import io
+
+        sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
     sys.exit(main())

@@ -9,6 +9,11 @@ Thai Sign Language (TSL-51) recognition system using PyTorch. Supports training 
 ### Modular Structure
 The project has been refactored with a clean modular architecture:
 
+- **`src/core/`** - Single source of truth for models and features
+  - `models.py` - All model architectures (GRU, MLP, MOPGRU, HybridGRUTransformer, CTC)
+  - `features.py` - Feature dimension constants and extraction
+  - `normalizer.py` - Data normalization utilities
+
 - **`src/data/`** - Data loading and processing
   - `loader.py` - Dataset loading functions (user_sign, expert, combined, full expert ~45k)
   - `loader_expert.py` - Full expert dataset loader
@@ -19,7 +24,7 @@ The project has been refactored with a clean modular architecture:
   - `config.py` - Training configuration and presets
   - `trainer.py` - Core training logic (Trainer class)
   - `evaluator.py` - Evaluation metrics and reporting
-  - `models.py` - Model definitions (GRU, MLP, MOPGRU, HybridGRUTransformer, CTC)
+  - `models.py` - Re-exports from src.core.models for backward compatibility
   - `augment.py` - Data augmentation
   - `visualize.py` - Training visualization
 
@@ -28,6 +33,10 @@ The project has been refactored with a clean modular architecture:
   - `predict_video.py` - Video prediction
   - `camera_translate.py` - Real-time camera translation
   - `translate.py` - JSON translation
+
+- **`src/utils/`** - Shared utility functions
+  - `dataset_utils.py` - safe_mean, safe_std, validation helpers
+  - `security.py` - File path validation for security
 
 ### Legacy Shims (Root Level)
 
@@ -129,11 +138,13 @@ python camera_translate.py --model models/tsl51_gru_best.pt
 ## Important Conventions
 
 ### GPU Requirement
-The training script **requires CUDA GPU**. It exits immediately if GPU unavailable:
+Training script prefers CUDA GPU but falls back to CPU with a warning:
 ```python
 if not torch.cuda.is_available():
-    sys.exit(1)
+    print("WARNING: CUDA GPU not available. Falling back to CPU.")
+    DEVICE = torch.device("cpu")
 ```
+Use `--smoke` flag for CPU-only quick validation (epochs=1, folds=1, samples=10).
 
 ### Windows Encoding
 All scripts include Windows UTF-8 fix for Thai characters:
@@ -157,11 +168,11 @@ results/
 
 ## Gotchas
 
-1. **No requirements.txt** - Install dependencies manually (see Dependencies section above)
-2. **No emojis in matplotlib** - Windows fonts don't support emojis; use plain text only
+1. **No emojis in matplotlib** - Windows fonts don't support emojis; use plain text only
 2. **Cache first run** - Initial dataset download from HuggingFace takes time
 3. **MediaPipe dependency** - Video prediction requires `mediapipe` and `opencv-python`
 4. **Sentence vs Sign** - Project supports both isolated sign (current) and sentence-level (planned)
+5. **Feature dimension consistency** - `src.core.features.FEATURE_LEVELS` and `src.data.feature_extraction.FEATURE_DIMS` are kept in sync as single source of truth
 
 ## Feature Format
 Model expects 162 features in order:

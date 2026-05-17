@@ -157,20 +157,28 @@ x = (features - mean) / std
 
 ## Module Structure
 
+### src/core/
+
+Single source of truth for models, features, and normalization:
+
+- `models.py` - All model architectures (GRU, MLP, MOPGRU, HybridGRUTransformer, CTC)
+- `features.py` - Feature dimension constants and extraction
+- `normalizer.py` - Data normalization utilities
+
 ### src/data/
 
 - `loader.py` - Dataset loading functions
 - `loader_expert.py` - Full expert dataset loader
 - `feature_extraction.py` - Feature extraction utilities
 - `extractor.py` - MediaPipe landmark extractor
-- `preprocessing.py` - Data preprocessing
+- `preprocessing.py` - Data preprocessing (backward compatibility redirects)
 
 ### src/train/
 
 - `config.py` - Training configuration and presets
 - `trainer.py` - Core training logic (Trainer class)
 - `evaluator.py` - Evaluation metrics and reporting
-- `models.py` - Model definitions
+- `models.py` - Re-exports from `src.core.models` for backward compatibility
 - `augment.py` - Data augmentation
 - `visualize.py` - Training visualization
 - `compat.py` - Compatibility shims (Windows UTF-8, AMP)
@@ -184,13 +192,19 @@ x = (features - mean) / std
 - `camera_translate.py` - Real-time camera translation
 - `translate.py` - JSON translation
 
+### src/utils/
+
+- `dataset_utils.py` - `safe_mean`, `safe_std`, validation helpers
+- `security.py` - File path validation for security
+
 ## Performance Considerations
 
 ### GPU Requirements
 
-- Training requires CUDA GPU
+- Training prefers CUDA GPU (falls back to CPU with a warning)
 - Minimum 4GB VRAM for default model
 - 8GB+ VRAM for larger models
+- Use `--smoke` for CPU-only quick validation
 
 ### Memory Optimization
 
@@ -207,6 +221,6 @@ x = (features - mean) / std
 ## Known Limitations
 
 1. **Single Sign Recognition**: Current system recognizes isolated signs, not continuous sentences
-2. **GPU Required**: Training script exits if CUDA unavailable
+2. **GPU Preferred**: Training script warns and falls back to CPU if CUDA unavailable
 3. **Windows Encoding**: Thai characters require UTF-8 fix on Windows
 4. **Dataset Size**: User sign dataset is small (547 samples)

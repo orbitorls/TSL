@@ -157,7 +157,7 @@ def extract_features(frames: list, feature_level: str = 'basic') -> np.ndarray |
 
     Args:
         frames: List of per-frame landmark dicts (from MediaPipe extraction).
-        feature_level: One of 'basic' (162), 'finger' (258), 'full' (1596).
+        feature_level: One of 'basic' (162), 'finger' (252), 'full' (1596).
 
     Returns:
         Float32 array of shape (feature_dim,), or *None* if *frames* is empty.

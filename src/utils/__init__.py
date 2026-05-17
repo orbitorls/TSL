@@ -1,5 +1,11 @@
-"""Security and utility functions for TSL-51."""
+"""Utility modules for TSL-51."""
 
-from .security import validate_file_path, sanitize_filename, safe_path_join
+from src.utils.dataset_utils import safe_mean, safe_std, validate_feature_vector
+from src.utils.security import validate_file_path
 
-__all__ = ['validate_file_path', 'sanitize_filename', 'safe_path_join']
+__all__ = [
+    "safe_mean",
+    "safe_std",
+    "validate_feature_vector",
+    "validate_file_path",
+]

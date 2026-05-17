@@ -8,7 +8,7 @@ from typing import Any
 
 import numpy as np
 
-from utils.dataset_utils import safe_mean
+from src.utils.dataset_utils import safe_mean
 
 FEATURE_DIMS = {
     'basic': 162,

@@ -17,7 +17,7 @@ import numpy as np
 import torch
 from PIL import Image as PILImage, ImageDraw, ImageFont
 
-from ..train.models import MLP, GRUModel, MOPGRU, HybridGRUTransformer
+from src.core.models import MLP, GRUModel, MOPGRU, HybridGRUTransformer
 
 from ..data.extractor import (
     FEATURE_DIMS,

@@ -16,7 +16,7 @@ from pathlib import Path
 import torch
 import numpy as np
 
-from ..train.models import MLP, GRUModel, MOPGRU, HybridGRUTransformer
+from src.core.models import MLP, GRUModel, MOPGRU, HybridGRUTransformer
 
 from ..data.extractor import (
     FEATURE_DIMS,

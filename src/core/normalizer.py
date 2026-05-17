@@ -1,13 +1,12 @@
 """Core normalization utilities for TSL-51."""
 
 import numpy as np
-from typing import Optional
 
 
 class Normalizer:
     """Z-score normalizer with statistics tracking."""
 
-    def __init__(self, mean: Optional[np.ndarray] = None, std: Optional[np.ndarray] = None):
+    def __init__(self, mean: np.ndarray | None = None, std: np.ndarray | None = None):
         self.mean = mean
         self.std = std
 
@@ -42,13 +41,13 @@ class Normalizer:
     def to_dict(self) -> dict:
         """Serialize to dict for checkpoint."""
         return {
-            'mean': self.mean.tolist() if self.mean is not None else None,
-            'std': self.std.tolist() if self.std is not None else None,
+            "mean": self.mean.tolist() if self.mean is not None else None,
+            "std": self.std.tolist() if self.std is not None else None,
         }
 
     @classmethod
     def from_dict(cls, data: dict) -> "Normalizer":
         """Deserialize from dict."""
-        mean = np.array(data['mean']) if data.get('mean') is not None else None
-        std = np.array(data['std']) if data.get('std') is not None else None
+        mean = np.array(data["mean"]) if data.get("mean") is not None else None
+        std = np.array(data["std"]) if data.get("std") is not None else None
         return cls(mean=mean, std=std)

@@ -6,7 +6,7 @@ Use this script to run inference with trained model.
 FEATURE LEVELS:
 ===============
 - basic: 162 features (hand + pose)
-- finger: 258 features (hand + pose + finger)
+- finger: 252 features (hand + pose + finger)
 - full: 1596 features (hand + pose + face)
 - face: 1434 features (face only)
 
@@ -40,7 +40,7 @@ import numpy as np
 import torch
 # NEW: Use core module for shared functionality
 from ..data.feature_extraction import extract_features_from_landmark_df, extract_sequence_from_landmark_df, FEATURE_DIMS
-from ..train.models import MLP, GRUModel, MOPGRU, HybridGRUTransformer, MODEL_CLASSES
+from src.core.models import MLP, GRUModel, MOPGRU, HybridGRUTransformer, MODEL_REGISTRY as MODEL_CLASSES
 from src.core import FEATURE_LEVELS  # Use core as source of truth
 from .utils import InferenceUtils
 

@@ -6,7 +6,7 @@ import numpy as np
 import zipfile
 import logging
 
-from utils.dataset_utils import safe_mean
+from src.utils.dataset_utils import safe_mean
 from .feature_extraction import FEATURE_DIMS, extract_features_from_landmark_df
 
 logger = logging.getLogger(__name__)

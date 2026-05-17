@@ -2,18 +2,15 @@
 
 import sys
 from pathlib import Path
-from typing import Optional
 
-import numpy as np
 import torch
 
-from src.train.compat import setup_windows_encoding
-from src.train.models import MODEL_CLASSES
+from src.core.models import MODEL_REGISTRY as MODEL_CLASSES
 
 
 def export_to_onnx(
     model_path: str,
-    output_path: Optional[str] = None,
+    output_path: str | None = None,
     model_type: str = "gru",
     input_dim: int = 162,
     num_classes: int = 51,
@@ -41,10 +38,10 @@ def export_to_onnx(
     """
     # Load checkpoint
     checkpoint = torch.load(model_path, map_location="cpu")
-    
+
     # Get model class
     model_class = MODEL_CLASSES.get(model_type, MODEL_CLASSES["gru"])
-    
+
     # Create model
     model = model_class(
         input_dim=input_dim,
@@ -55,18 +52,18 @@ def export_to_onnx(
     )
     model.load_state_dict(checkpoint["state_dict"])
     model.eval()
-    
+
     # Determine output path
     if output_path is None:
         output_path = str(Path(model_path).with_suffix(".onnx"))
-    
+
     # Create dummy input
     dummy_input = torch.randn(1, input_dim)
-    
+
     # Export to ONNX
     torch.onnx.export(
         model,
-        dummy_input,
+        dummy_input,  # type: ignore[arg-type]
         output_path,
         export_params=True,
         opset_version=opset_version,
@@ -78,24 +75,25 @@ def export_to_onnx(
             "output": {0: "batch_size"},
         },
     )
-    
+
     print(f"Model exported to: {output_path}")
-    
+
     # Verify export
     try:
         import onnx
+
         onnx_model = onnx.load(output_path)
         onnx.checker.check_model(onnx_model)
         print("ONNX model verification passed")
     except ImportError:
         print("Warning: onnx not installed, skipping verification")
-    
+
     return output_path
 
 
 def quantize_onnx_model(
     onnx_path: str,
-    output_path: Optional[str] = None,
+    output_path: str | None = None,
     quantization_mode: str = "int8",
 ) -> str:
     """
@@ -110,23 +108,22 @@ def quantize_onnx_model(
         Path to quantized ONNX model
     """
     try:
-        import onnx
         from onnxruntime.quantization import quantize_dynamic
     except ImportError:
         print("Error: onnx and onnxruntime required for quantization")
         return onnx_path
-    
+
     # Determine output path
     if output_path is None:
         output_path = str(Path(onnx_path).with_suffix(f".quant.{quantization_mode}.onnx"))
-    
+
     # Quantize
     quantize_dynamic(
         onnx_path,
         output_path,
         weight_type=quantization_mode,
     )
-    
+
     print(f"Quantized model saved to: {output_path}")
     return output_path
 
@@ -169,5 +166,8 @@ def main():
 
 
 if __name__ == "__main__":
-    setup_windows_encoding()
+    if sys.platform == "win32":
+        import io
+
+        sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
     main()

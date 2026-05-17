@@ -11,7 +11,7 @@ import pandas as pd
 import zipfile
 import logging
 
-from utils.dataset_utils import safe_mean
+from src.utils.dataset_utils import safe_mean
 
 logger = logging.getLogger(__name__)
 

@@ -10,7 +10,7 @@ def test_feature_levels():
     """Test FEATURE_LEVELS dictionary."""
     assert FEATURE_LEVELS['basic'] == 162
     assert FEATURE_LEVELS['enhanced'] == 249
-    assert FEATURE_LEVELS['finger'] == 258
+    assert FEATURE_LEVELS['finger'] == 252
     assert FEATURE_LEVELS['full'] == 1596
     assert FEATURE_LEVELS['face'] == 1434
 
