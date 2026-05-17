@@ -4,15 +4,15 @@
 
 from src.train.config import TrainingConfig
 from src.train.models import (
-    GRUModel,
-    SmallGRUModel,
-    MLPModel,
     MLP,
-    MOPGRU,
-    HybridGRUTransformer,
-    CTCModel,
-    MODEL_REGISTRY,
     MODEL_CLASSES,
+    MODEL_REGISTRY,
+    MOPGRU,
+    CTCModel,
+    GRUModel,
+    HybridGRUTransformer,
+    MLPModel,
+    SmallGRUModel,
     get_model,
 )
 

@@ -3,9 +3,7 @@
 import numpy as np
 
 
-def augment_data(
-    X, y, classes, augmentation_factor=2, noise_level=0.01, scale_range=(0.95, 1.05)
-):
+def augment_data(X, y, _classes, augmentation_factor=2, noise_level=0.01, scale_range=(0.95, 1.05)):
     """Augment data by applying transformations.
 
     Args:
@@ -53,9 +51,7 @@ def augment_data(
                 if seq_mode:
                     left_hand = features[:, 0:63].copy()
                     right_hand = features[:, 63:126].copy()
-                    X_aug[i] = np.concatenate(
-                        [right_hand, left_hand, features[:, 126:]], axis=1
-                    )
+                    X_aug[i] = np.concatenate([right_hand, left_hand, features[:, 126:]], axis=1)
                 else:
                     left_hand = features[0:63].copy()
                     right_hand = features[63:126].copy()

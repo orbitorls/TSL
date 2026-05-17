@@ -35,7 +35,7 @@ def safe_mean(series: Any, default: float = 0.0) -> float:
 def validate_feature_vector(vec, expected_length=162) -> bool:
     try:
         arr = np.asarray(vec)
-        return arr.size == expected_length
+        return arr.size == expected_length  # type: ignore[no-any-return]
     except Exception:
         logger.debug("Feature vector validation failed", exc_info=True)
         return False

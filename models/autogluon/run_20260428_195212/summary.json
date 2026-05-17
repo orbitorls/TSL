@@ -1,0 +1,17 @@
+{
+  "dataset": "tsl51_user_sign",
+  "num_samples": 547,
+  "num_classes": 51,
+  "test_accuracy": 0.9636363636363636,
+  "best_model": "WeightedEnsemble_L2",
+  "timestamp": "20260428_195212",
+  "config": {
+    "dataset": "tsl51_user_sign",
+    "samples": null,
+    "preset": "medium_quality",
+    "time_limit": 60,
+    "test_split": 0.2,
+    "output_dir": "models/autogluon",
+    "seed": 42
+  }
+}

@@ -13,21 +13,23 @@ from __future__ import annotations
 import argparse
 from pathlib import Path
 
-import torch
 import numpy as np
+import torch
 
-from src.core.models import MLP, GRUModel, MOPGRU, HybridGRUTransformer
+from src.core.models import MLP, MOPGRU, GRUModel, HybridGRUTransformer
 
 from ..data.extractor import (
     FEATURE_DIMS,
     MediaPipeTasksLandmarkExtractor,
-    adapt_features_to_model,
-    build_enhanced_sequence,
     extract_features,
     extract_sequence_features,
     extract_video_landmarks,
     normalize_features,
     report_extractor_compatibility,
+)
+from ..data.feature_extraction import (
+    adapt_features_to_model,
+    build_enhanced_sequence,
     resolve_feature_level_for_inference,
 )
 
@@ -44,7 +46,7 @@ def _detect_feature_level_from_dim(input_dim: int) -> str:
     return "basic"
 
 
-def load_model(model_path):
+def load_model(model_path: str | Path):
     """Load model from checkpoint with feature dimension validation."""
     checkpoint = torch.load(model_path, map_location="cpu", weights_only=False)
     report_extractor_compatibility(checkpoint)
@@ -55,7 +57,7 @@ def load_model(model_path):
         idx_to_label = {idx: label for label, idx in checkpoint["label_to_idx"].items()}
     elif "classes" in checkpoint:
         labels = [str(x) for x in checkpoint["classes"]]
-        idx_to_label = {idx: label for idx, label in enumerate(labels)}
+        idx_to_label = dict(enumerate(labels))
     else:
         raise KeyError("Checkpoint missing labels/classes metadata")
 
@@ -81,7 +83,9 @@ def load_model(model_path):
         input_dim = len(mean)
 
     if input_dim != expected_dim:
-        print(f"WARNING: Feature level '{feature_level}' expects {expected_dim} features but model has {input_dim}")
+        print(
+            f"WARNING: Feature level '{feature_level}' expects {expected_dim} features but model has {input_dim}"
+        )
         print(f"Available feature levels: {FEATURE_DIMS}")
         # Auto-correct feature_level based on actual input_dim
         feature_level = _detect_feature_level_from_dim(input_dim)
@@ -177,19 +181,23 @@ def process_video(
     min_frames = target_frames if seq_mode else 1
     if len(frames) < min_frames:
         if verbose:
-            warning = f"  Warning: Too few frames with landmarks detected ({len(frames)} < {min_frames})"
+            warning = (
+                f"  Warning: Too few frames with landmarks detected ({len(frames)} < {min_frames})"
+            )
             print(warning)
         return None, 0.0, []
 
     if seq_mode:
-        if feature_level == 'enhanced':
+        if feature_level == "enhanced":
             features = build_enhanced_sequence(
                 frames,
-                feature_level='enhanced',
+                feature_level="enhanced",
                 target_frames=target_frames,
             )
         else:
-            features = extract_sequence_features(frames, feature_level=feature_level, target_frames=target_frames)
+            features = extract_sequence_features(
+                frames, feature_level=feature_level, target_frames=target_frames
+            )
         if features is None:
             return None, 0.0, []
     else:
@@ -242,11 +250,17 @@ Examples:
 """,
     )
     parser.add_argument("--input", type=Path, required=True, help="Input video file")
-    parser.add_argument("--model", type=Path, default=Path("models/tsl_model.pt"), help="Model checkpoint")
+    parser.add_argument(
+        "--model", type=Path, default=Path("models/tsl_model.pt"), help="Model checkpoint"
+    )
     parser.add_argument("--top-k", type=int, default=3, help="Number of top predictions")
-    parser.add_argument("--feature-level", type=str, default=None,
-                        choices=['basic', 'finger', 'enhanced', 'full'],
-                        help="Override feature level for inference (default: auto-detect from model)")
+    parser.add_argument(
+        "--feature-level",
+        type=str,
+        default=None,
+        choices=["basic", "finger", "enhanced", "full"],
+        help="Override feature level for inference (default: auto-detect from model)",
+    )
     args = parser.parse_args()
 
     if not args.input.exists():
@@ -259,7 +273,9 @@ Examples:
         return 1
 
     print(f"Loading model from: {args.model}")
-    model, labels, idx_to_label, mean, std, seq_mode, target_frames, feature_level = load_model(args.model)
+    model, labels, idx_to_label, mean, std, seq_mode, target_frames, feature_level = load_model(
+        args.model
+    )
     resolved_level, warn_msg = resolve_feature_level_for_inference(
         args.feature_level,
         model_input_dim=len(mean),

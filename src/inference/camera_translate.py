@@ -15,22 +15,24 @@ from pathlib import Path
 import cv2
 import numpy as np
 import torch
-from PIL import Image as PILImage, ImageDraw, ImageFont
+from PIL import Image as PILImage
+from PIL import ImageDraw, ImageFont
 
-from src.core.models import MLP, GRUModel, MOPGRU, HybridGRUTransformer
+from src.core.models import MLP, MOPGRU, GRUModel, HybridGRUTransformer
 
 from ..data.extractor import (
     FEATURE_DIMS,
     LANDMARK_VECTOR_DIM,
     MediaPipeTasksLandmarkExtractor,
-    adapt_features_to_model,
-    build_enhanced_sequence,
-    compute_enhanced_frame_features,
     draw_debug_overlay,
     extract_features,
     extract_sequence_features,
     normalize_features,
     report_extractor_compatibility,
+)
+from ..data.feature_extraction import (
+    adapt_features_to_model,
+    build_enhanced_sequence,
     resolve_feature_level_for_inference,
 )
 
@@ -50,7 +52,7 @@ def _detect_feature_level_from_dim(input_dim: int) -> str:
     return "basic"
 
 
-def load_model(model_path):
+def load_model(model_path: str | Path):
     """Load model from checkpoint with feature dimension validation."""
     checkpoint = torch.load(model_path, map_location="cpu", weights_only=False)
     report_extractor_compatibility(checkpoint)
@@ -61,7 +63,7 @@ def load_model(model_path):
         idx_to_label = {idx: label for label, idx in checkpoint["label_to_idx"].items()}
     elif "classes" in checkpoint:
         labels = [str(x) for x in checkpoint["classes"]]
-        idx_to_label = {idx: label for idx, label in enumerate(labels)}
+        idx_to_label = dict(enumerate(labels))
     else:
         raise KeyError("Checkpoint missing labels/classes metadata")
 
@@ -87,7 +89,9 @@ def load_model(model_path):
         input_dim = len(mean)
 
     if input_dim != expected_dim:
-        print(f"WARNING: Feature level '{feature_level}' expects {expected_dim} features but model has {input_dim}")
+        print(
+            f"WARNING: Feature level '{feature_level}' expects {expected_dim} features but model has {input_dim}"
+        )
         print(f"Available feature levels: {FEATURE_DIMS}")
         # Auto-correct feature_level based on actual input_dim
         feature_level = _detect_feature_level_from_dim(input_dim)
@@ -167,11 +171,13 @@ class ThaiSignTranslator:
             print(f"[WARN] {warn_msg}")
         self.feature_level = resolved_level
         if feature_level is not None and feature_level != resolved_level:
-            print(f"[INFO] Auto-adjusted feature level to '{resolved_level}' for model compatibility")
+            print(
+                f"[INFO] Auto-adjusted feature level to '{resolved_level}' for model compatibility"
+            )
         print(f"Using feature level: {self.feature_level}")
 
         # Enhanced features support
-        self.use_enhanced = (self.feature_level == 'enhanced')
+        self.use_enhanced = self.feature_level == "enhanced"
         self.enhanced_frame_buffer = deque(maxlen=100)  # stores landmark dicts
 
         self.extractor: MediaPipeTasksLandmarkExtractor | None = None
@@ -225,7 +231,9 @@ class ThaiSignTranslator:
 
         for index, frame in enumerate(frames):
             if len(frame) != LANDMARK_VECTOR_DIM:
-                print(f"ERROR: Frame {index} has {len(frame)} values (expected {LANDMARK_VECTOR_DIM})")
+                print(
+                    f"ERROR: Frame {index} has {len(frame)} values (expected {LANDMARK_VECTOR_DIM})"
+                )
                 return None, 0.0
 
         min_frames = self.target_frames if self.seq_mode else 1
@@ -239,7 +247,7 @@ class ThaiSignTranslator:
         if self.use_enhanced and self.seq_mode:
             features = build_enhanced_sequence(
                 frames,
-                feature_level='enhanced',
+                feature_level="enhanced",
                 target_frames=self.target_frames,
             )
         elif self.seq_mode:
@@ -256,7 +264,6 @@ class ThaiSignTranslator:
         if features is None:
             return None, 0.0
 
-        feature_dim = features.shape[-1] if isinstance(features, np.ndarray) and features.ndim >= 2 else len(features)
         tensor_input = normalize_features(features, self.mean, self.std)
 
         if self.seq_mode:
@@ -435,26 +442,52 @@ class ThaiSignTranslator:
                 warning_text = "Show your hand/face to camera"
                 cv2.rectangle(frame, (w - 350, 8), (w - 8, 55), (50, 0, 0), -1)
                 cv2.rectangle(frame, (w - 350, 8), (w - 8, 55), (0, 0, 255), 2)
-                cv2.putText(frame, warning_text, (w - 340, 35), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), 2)
+                cv2.putText(
+                    frame,
+                    warning_text,
+                    (w - 340, 35),
+                    cv2.FONT_HERSHEY_SIMPLEX,
+                    0.5,
+                    (0, 0, 255),
+                    2,
+                )
             else:
                 if len(self.sequence_buffer) < min_frames:
                     status_text = f"Collecting: {len(self.sequence_buffer)}/{display_target}"
                     cv2.rectangle(frame, (w - 220, 8), (w - 8, 55), (50, 50, 0), -1)
                     cv2.rectangle(frame, (w - 220, 8), (w - 8, 55), (0, 200, 255), 2)
-                    cv2.putText(frame, status_text, (w - 210, 35), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 200, 255), 2)
+                    cv2.putText(
+                        frame,
+                        status_text,
+                        (w - 210, 35),
+                        cv2.FONT_HERSHEY_SIMPLEX,
+                        0.5,
+                        (0, 200, 255),
+                        2,
+                    )
                 else:
                     cv2.rectangle(frame, (w - 200, 8), (w - 8, 55), (0, 50, 0), -1)
                     cv2.rectangle(frame, (w - 200, 8), (w - 8, 55), (0, 255, 0), 2)
-                    cv2.putText(frame, "Ready", (w - 190, 35), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
+                    cv2.putText(
+                        frame, "Ready", (w - 190, 35), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2
+                    )
 
             cv2.rectangle(frame, (w - 200, h - 50), (w - 8, h - 8), (30, 30, 30), -1)
-            cv2.putText(frame, "q: Quit | c: Clear", (w - 195, h - 18), cv2.FONT_HERSHEY_SIMPLEX, 0.45, (180, 180, 180), 1)
+            cv2.putText(
+                frame,
+                "q: Quit | c: Clear",
+                (w - 195, h - 18),
+                cv2.FONT_HERSHEY_SIMPLEX,
+                0.45,
+                (180, 180, 180),
+                1,
+            )
 
             if len(self.sequence_buffer) >= min_frames:
                 if self.use_enhanced and self.seq_mode:
                     features = build_enhanced_sequence(
                         list(self.sequence_buffer),
-                        feature_level='enhanced',
+                        feature_level="enhanced",
                         target_frames=self.target_frames,
                     )
                 elif self.seq_mode:
@@ -464,16 +497,23 @@ class ThaiSignTranslator:
                         target_frames=self.target_frames,
                     )
                 else:
-                    features = extract_features(list(self.sequence_buffer), feature_level=self.feature_level)
+                    features = extract_features(
+                        list(self.sequence_buffer), feature_level=self.feature_level
+                    )
 
                 # Adapt features to model's expected dimension (handles mismatches gracefully)
                 features = adapt_features_to_model(features, len(self.mean), self.feature_level)
-                feature_dim = features.shape[-1] if isinstance(features, np.ndarray) else len(features) if features is not None else -1
-                normalized = normalize_features(features, self.mean, self.std) if features is not None else None
+                normalized = (
+                    normalize_features(features, self.mean, self.std)
+                    if features is not None
+                    else None
+                )
                 tensor = (
                     torch.tensor(normalized[None, ...], dtype=torch.float32)
                     if normalized is not None and self.seq_mode
-                    else torch.tensor([normalized], dtype=torch.float32) if normalized is not None else None
+                    else torch.tensor([normalized], dtype=torch.float32)
+                    if normalized is not None
+                    else None
                 )
 
                 if features is not None and normalized is not None and tensor is not None:
@@ -487,15 +527,41 @@ class ThaiSignTranslator:
                     sidebar_x = w - 220
                     sidebar_y = 70
                     sidebar_h = 120
-                    cv2.rectangle(frame, (sidebar_x, sidebar_y), (w - 8, sidebar_y + sidebar_h), (20, 20, 40), -1)
-                    cv2.rectangle(frame, (sidebar_x, sidebar_y), (w - 8, sidebar_y + sidebar_h), (100, 100, 150), 1)
+                    cv2.rectangle(
+                        frame,
+                        (sidebar_x, sidebar_y),
+                        (w - 8, sidebar_y + sidebar_h),
+                        (20, 20, 40),
+                        -1,
+                    )
+                    cv2.rectangle(
+                        frame,
+                        (sidebar_x, sidebar_y),
+                        (w - 8, sidebar_y + sidebar_h),
+                        (100, 100, 150),
+                        1,
+                    )
 
-                    for index, (label_index, conf) in enumerate(zip(top3_idx, top3_conf)):
+                    for index, (label_index, conf) in enumerate(
+                        zip(top3_idx, top3_conf, strict=False)
+                    ):
                         word = self.idx_to_label[label_index]
                         bar_w = int(150 * conf)
                         y_pos = sidebar_y + 15 + index * 38
-                        cv2.rectangle(frame, (sidebar_x + 10, y_pos + 18), (sidebar_x + 10 + bar_w, y_pos + 28), (40, 40, 60), -1)
-                        cv2.rectangle(frame, (sidebar_x + 10, y_pos + 18), (sidebar_x + 10 + bar_w, y_pos + 28), (0, 200, 100), -1)
+                        cv2.rectangle(
+                            frame,
+                            (sidebar_x + 10, y_pos + 18),
+                            (sidebar_x + 10 + bar_w, y_pos + 28),
+                            (40, 40, 60),
+                            -1,
+                        )
+                        cv2.rectangle(
+                            frame,
+                            (sidebar_x + 10, y_pos + 18),
+                            (sidebar_x + 10 + bar_w, y_pos + 28),
+                            (0, 200, 100),
+                            -1,
+                        )
 
                         pil_img = PILImage.fromarray(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
                         draw = ImageDraw.Draw(pil_img)
@@ -507,8 +573,15 @@ class ThaiSignTranslator:
                             except Exception:
                                 font = ImageFont.load_default(size=18)
 
-                        draw.text((sidebar_x + 12, y_pos), f"{index + 1}. {word}", font=font, fill=(255, 255, 255))
-                        draw.text((sidebar_x + 170, y_pos), f"{conf:.0%}", font=font, fill=(200, 255, 200))
+                        draw.text(
+                            (sidebar_x + 12, y_pos),
+                            f"{index + 1}. {word}",
+                            font=font,
+                            fill=(255, 255, 255),
+                        )
+                        draw.text(
+                            (sidebar_x + 170, y_pos), f"{conf:.0%}", font=font, fill=(200, 255, 200)
+                        )
                         frame = cv2.cvtColor(np.array(pil_img), cv2.COLOR_RGB2BGR)
 
             cv2.imshow("Thai Sign Language Translation", frame)
@@ -539,9 +612,13 @@ def main():
 
     parser = argparse.ArgumentParser(description="Thai Sign Language Real-Time Camera Translation")
     parser.add_argument("--model", type=str, default="models/tsl_model.pt")
-    parser.add_argument("--feature-level", type=str, default=None,
-                        choices=['basic', 'finger', 'enhanced', 'full'],
-                        help="Override feature level for inference (default: auto-detect from model)")
+    parser.add_argument(
+        "--feature-level",
+        type=str,
+        default=None,
+        choices=["basic", "finger", "enhanced", "full"],
+        help="Override feature level for inference (default: auto-detect from model)",
+    )
     args = parser.parse_args()
 
     if not Path(args.model).exists():

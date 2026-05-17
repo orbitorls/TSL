@@ -30,23 +30,40 @@ python inference.py --model models/autogluon_tsl51 --input your_data.npz
 """
 
 import argparse
+import os
 import sys
 from pathlib import Path
 
-from ..train.compat import setup_mkl_threads, setup_windows_encoding
 from ..utils.security import validate_file_path
+
+if sys.platform == "win32":
+    import io
+
+    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
+
+os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
 
 import numpy as np
 import torch
+
+from src.core.models import (
+    MLP,
+)
+from src.core.models import (
+    MODEL_REGISTRY as MODEL_CLASSES,
+)
+
 # NEW: Use core module for shared functionality
-from ..data.feature_extraction import extract_features_from_landmark_df, extract_sequence_from_landmark_df, FEATURE_DIMS
-from src.core.models import MLP, GRUModel, MOPGRU, HybridGRUTransformer, MODEL_REGISTRY as MODEL_CLASSES
-from src.core import FEATURE_LEVELS  # Use core as source of truth
-from .utils import InferenceUtils
+from ..data.feature_extraction import (
+    FEATURE_DIMS,
+    extract_features_from_landmark_df,
+    extract_sequence_from_landmark_df,
+)
 
 # Try to import AutoGluon support
 try:
     from ..train.autogluon_model import AutoGluonModel
+
     _has_autogluon = True
 except ImportError:
     _has_autogluon = False
@@ -61,21 +78,21 @@ PROJECT_DIR = Path(__file__).resolve().parent.parent.parent
 class TSLPredictor:
     """
     Thai Sign Language Predictor
-    
+
     Usage:
         predictor = TSLPredictor('models/tsl51_xxx.pt')
         label, confidence = predictor.predict(landmarks)
-    
+
     Supports both PyTorch models (.pt files) and AutoGluon models (directories).
     """
-    
+
     FEATURE_LEVELS = FEATURE_DIMS
-    
+
     def __init__(self, model_path, device=None):
         self.device = device or torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.model_path = Path(model_path)
         self.is_autogluon = False
-        
+
         # Initialize instance variables
         self.model = None
         self.classes = []
@@ -83,15 +100,15 @@ class TSLPredictor:
         self.num_classes = 51
         self.mean = None
         self.std = None
-        self.model_name = 'unknown'
+        self.model_name = "unknown"
         self.accuracy = 0.0
-        self.feature_level = 'basic'
+        self.feature_level = "basic"
         self.seq_mode = False
         self.target_frames = 30
-        
+
         if not self.model_path.exists():
             raise FileNotFoundError(f"Model not found: {model_path}")
-        
+
         # Detect model type: AutoGluon (directory) or PyTorch (.pt file)
         if self.model_path.is_dir():
             # AutoGluon model (saved as directory)
@@ -101,113 +118,127 @@ class TSLPredictor:
                     "Install with: pip install autogluon.tabular[all]"
                 )
             self._load_autogluon_model()
-        elif self.model_path.suffix == '.pt':
+        elif self.model_path.suffix == ".pt":
             # PyTorch model
             self._load_pytorch_model()
         else:
-            raise ValueError(f"Unknown model format: {model_path}. Expected .pt file or AutoGluon directory.")
-    
+            raise ValueError(
+                f"Unknown model format: {model_path}. Expected .pt file or AutoGluon directory."
+            )
+
     def _load_autogluon_model(self):
         """Load AutoGluon model from directory."""
         self.is_autogluon = True
-        
+
         # Load AutoGluon model
         if AutoGluonModel is not None:
             self.model = AutoGluonModel.load(str(self.model_path))
-        
+
         # Get metadata from AutoGluon model
         if self.model is not None:
-            if hasattr(self.model, 'classes_'):
+            if hasattr(self.model, "classes_"):
                 self.classes = [str(c) for c in self.model.classes_]
-            if hasattr(self.model, 'input_dim'):
+            if hasattr(self.model, "input_dim"):
                 self.input_dim = self.model.input_dim
-            if hasattr(self.model, 'num_classes'):
+            if hasattr(self.model, "num_classes"):
                 self.num_classes = self.model.num_classes
-            
+
             # Get normalization stats
-            if hasattr(self.model, 'mean_') and hasattr(self.model, 'std_'):
+            if hasattr(self.model, "mean_") and hasattr(self.model, "std_"):
                 if self.model.mean_ is not None and self.model.std_ is not None:
                     self.mean = self.model.mean_
                     self.std = self.model.std_
                 else:
                     # Try to load from metadata file
-                    metadata_path = Path(str(self.model_path) + '.pkl')
+                    metadata_path = Path(str(self.model_path) + ".pkl")
                     if metadata_path.exists():
                         import pickle
+
                         # Safe pickle loading with validation
-                        with open(metadata_path, 'rb') as f:
+                        with open(metadata_path, "rb") as f:
                             try:
                                 metadata = pickle.load(f)
                                 # Validate metadata structure before using
                                 if not isinstance(metadata, dict):
-                                    raise ValueError('Invalid metadata: expected dict')
-                                allowed_keys = {'normalization_mean', 'normalization_std', 'fold_idx', 'val_acc', 'val_f1', 'classes', 'model_path'}
+                                    raise ValueError("Invalid metadata: expected dict")
+                                allowed_keys = {
+                                    "normalization_mean",
+                                    "normalization_std",
+                                    "fold_idx",
+                                    "val_acc",
+                                    "val_f1",
+                                    "classes",
+                                    "model_path",
+                                }
                                 unexpected_keys = set(metadata.keys()) - allowed_keys
                                 if unexpected_keys:
-                                    raise ValueError(f'Invalid metadata keys: {unexpected_keys}')
-                                if 'normalization_mean' in metadata and 'normalization_std' in metadata:
-                                    self.mean = np.array(metadata['normalization_mean'])
-                                    self.std = np.array(metadata['normalization_std'])
+                                    raise ValueError(f"Invalid metadata keys: {unexpected_keys}")
+                                if (
+                                    "normalization_mean" in metadata
+                                    and "normalization_std" in metadata
+                                ):
+                                    self.mean = np.array(metadata["normalization_mean"])
+                                    self.std = np.array(metadata["normalization_std"])
                                 else:
-                                    raise KeyError('AutoGluon model missing normalization stats')
+                                    raise KeyError("AutoGluon model missing normalization stats")
                             except (pickle.PickleError, ValueError) as e:
-                                raise ValueError(f'Invalid or corrupted metadata file: {e}')
+                                raise ValueError(f"Invalid or corrupted metadata file: {e}")
                     else:
-                        raise KeyError('AutoGluon model missing normalization stats (mean/std)')
-        
-        self.model_name = 'autogluon'
+                        raise KeyError("AutoGluon model missing normalization stats (mean/std)")
+
+        self.model_name = "autogluon"
         self.accuracy = 0.0  # AutoGluon doesn't store this in wrapper
-        self.feature_level = 'basic'  # Default for AutoGluon
+        self.feature_level = "basic"  # Default for AutoGluon
         self.seq_mode = False
         self.target_frames = 30
-        
-        print(f"Model loaded: AutoGluon (TabularPredictor)")
+
+        print("Model loaded: AutoGluon (TabularPredictor)")
         print(f"Feature level: {self.feature_level}")
         print(f"Input dim: {self.input_dim}")
         print(f"Classes: {len(self.classes)}")
         print(f"Device: {self.device}")
-        
+
         # Show leaderboard if available
         try:
-            if self.model is not None and hasattr(self.model, 'get_model_summary'):
+            if self.model is not None and hasattr(self.model, "get_model_summary"):
                 leaderboard = self.model.get_model_summary()
                 print(f"\nAutoGluon Leaderboard:\n{leaderboard}")
         except Exception:
             pass
-    
+
     def _load_pytorch_model(self):
         """Load PyTorch model from .pt file."""
         checkpoint = torch.load(self.model_path, map_location=self.device, weights_only=True)
-        
+
         # Load metadata with legacy schema support
-        if 'classes' in checkpoint:
-            self.classes = [str(c) for c in checkpoint['classes']]
-        elif 'labels' in checkpoint and 'label_to_idx' in checkpoint:
-            label_to_idx = checkpoint['label_to_idx']
+        if "classes" in checkpoint:
+            self.classes = [str(c) for c in checkpoint["classes"]]
+        elif "labels" in checkpoint and "label_to_idx" in checkpoint:
+            label_to_idx = checkpoint["label_to_idx"]
             self.classes = [None] * len(label_to_idx)
             for label, idx in label_to_idx.items():
                 if 0 <= idx < len(self.classes):
                     self.classes[idx] = str(label)
             self.classes = [c if c is not None else str(i) for i, c in enumerate(self.classes)]
         else:
-            raise KeyError('Checkpoint missing classes/labels metadata')
+            raise KeyError("Checkpoint missing classes/labels metadata")
 
-        mean_val = checkpoint.get('normalization_mean', checkpoint.get('mean'))
-        std_val = checkpoint.get('normalization_std', checkpoint.get('std'))
+        mean_val = checkpoint.get("normalization_mean", checkpoint.get("mean"))
+        std_val = checkpoint.get("normalization_std", checkpoint.get("std"))
         if mean_val is None or std_val is None:
-            raise KeyError('Checkpoint missing normalization stats (mean/std)')
+            raise KeyError("Checkpoint missing normalization stats (mean/std)")
         self.mean = np.array(mean_val)
         self.std = np.array(std_val)
 
-        self.input_dim = checkpoint.get('input_dim', int(self.mean.shape[0]))
-        self.num_classes = checkpoint.get('num_classes', len(self.classes))
-        self.model_name = checkpoint.get('model', checkpoint.get('config', {}).get('model', 'gru'))
-        self.accuracy = checkpoint.get('accuracy', 0.0)
-        
+        self.input_dim = checkpoint.get("input_dim", int(self.mean.shape[0]))
+        self.num_classes = checkpoint.get("num_classes", len(self.classes))
+        self.model_name = checkpoint.get("model", checkpoint.get("config", {}).get("model", "gru"))
+        self.accuracy = checkpoint.get("accuracy", 0.0)
+
         # Get feature level and sequence mode from checkpoint
-        self.feature_level = checkpoint.get('config', {}).get('feature_level', 'basic')
-        self.seq_mode = checkpoint.get('seq_mode', False)
-        self.target_frames = checkpoint.get('target_frames', 30)
+        self.feature_level = checkpoint.get("config", {}).get("feature_level", "basic")
+        self.seq_mode = checkpoint.get("seq_mode", False)
+        self.target_frames = checkpoint.get("target_frames", 30)
 
         if self.seq_mode:
             print(f"Sequence mode: ON (target_frames={self.target_frames})")
@@ -216,33 +247,33 @@ class TSLPredictor:
         expected_dim = FEATURE_DIMS.get(self.feature_level, 162)
         if self.input_dim != expected_dim:
             print(f"WARNING: Model has {self.input_dim} features but expected {expected_dim}")
-        
+
         # Create model based on type
         model_class = MODEL_CLASSES.get(self.model_name, MLP)
-        
-        config = checkpoint.get('config', {})
+
+        config = checkpoint.get("config", {})
         self.model = model_class(
-            self.input_dim, 
+            self.input_dim,
             self.num_classes,
-            hidden_dim=config.get('hidden_dim', 256),
-            num_layers=config.get('num_layers', 3),
-            dropout=config.get('dropout', 0.3)
+            hidden_dim=config.get("hidden_dim", 256),
+            num_layers=config.get("num_layers", 3),
+            dropout=config.get("dropout", 0.3),
         )
-        
+
         # Load weights with legacy fallback
-        state_dict = checkpoint.get('state_dict')
+        state_dict = checkpoint.get("state_dict")
         if state_dict is None:
-            raise KeyError('Checkpoint missing state_dict')
+            raise KeyError("Checkpoint missing state_dict")
         try:
             self.model.load_state_dict(state_dict)
         except RuntimeError:
-            if self.model_name == 'gru':
+            if self.model_name == "gru":
                 fallback = MLP(
                     self.input_dim,
                     self.num_classes,
-                    hidden_dim=config.get('hidden_dim', 256),
-                    num_layers=config.get('num_layers', 3),
-                    dropout=config.get('dropout', 0.3),
+                    hidden_dim=config.get("hidden_dim", 256),
+                    num_layers=config.get("num_layers", 3),
+                    dropout=config.get("dropout", 0.3),
                 )
                 fallback.load_state_dict(state_dict)
                 self.model = fallback
@@ -250,14 +281,14 @@ class TSLPredictor:
                 raise
         self.model.to(self.device)
         self.model.eval()
-        
+
         print(f"Model loaded: {self.model_name}")
         print(f"Feature level: {self.feature_level}")
         print(f"Input dim: {self.input_dim}")
         print(f"Classes: {len(self.classes)}")
-        print(f"Training accuracy: {self.accuracy*100:.2f}%")
+        print(f"Training accuracy: {self.accuracy * 100:.2f}%")
         print(f"Device: {self.device}")
-    
+
     def validate_input(self, x):
         """Validate and fix input dimensions.
 
@@ -293,39 +324,41 @@ class TSLPredictor:
                     if x.shape[0] == self.input_dim:
                         x = x.reshape(1, -1)
                     else:
-                        raise ValueError(f"Expected features dimension {self.input_dim}, got {x.shape[1]}")
+                        raise ValueError(
+                            f"Expected features dimension {self.input_dim}, got {x.shape[1]}"
+                        )
 
         return x
-    
+
     def predict(self, landmarks, return_top_k=1):
         """
         Predict sign from landmarks.
-        
+
         Args:
             landmarks: numpy array of shape (features,) or (batch, features)
             return_top_k: number of top predictions to return
-            
+
         Returns:
             If return_top_k=1: (label, confidence)
             If return_top_k>1: [(label, confidence), ...]
         """
         # Validate and fix input
         x = self.validate_input(landmarks)
-        
+
         # Normalize (using training statistics)
         if self.mean is not None and self.std is not None:
             x = (x - self.mean) / self.std
-        
+
         if self.is_autogluon:
             # AutoGluon prediction
             # AutoGluon expects 2D input (batch, features)
             if x.ndim == 1:
                 x = x.reshape(1, -1)
-            
+
             # Get probability predictions
-            if self.model is not None and hasattr(self.model, 'predict_proba'):
+            if self.model is not None and hasattr(self.model, "predict_proba"):
                 probs = self.model.predict_proba(x)
-                
+
                 # Get top k predictions
                 if return_top_k == 1:
                     prob = float(probs[0].max())
@@ -334,30 +367,31 @@ class TSLPredictor:
                 else:
                     # Get top k indices and probabilities
                     top_indices = np.argsort(probs[0])[-return_top_k:][::-1]
-                    return [(self.classes[idx], float(probs[0][idx])) 
-                            for idx in top_indices]
+                    return [(self.classes[idx], float(probs[0][idx])) for idx in top_indices]
         else:
             # PyTorch prediction
             # Convert to tensor
             x = torch.tensor(x, dtype=torch.float32).to(self.device)
-            
+
             # Predict
             with torch.no_grad():
                 if self.model is not None:
                     logits = self.model(x)
                     probs = torch.softmax(logits, dim=1)
-                
+
                     # Get top k predictions
                     if return_top_k == 1:
                         prob, pred = probs[0].max(0)
                         return (self.classes[pred.item()], prob.item())
                     else:
                         top_probs, top_indices = probs[0].topk(return_top_k)
-                        return [(self.classes[idx.item()], prob.item()) 
-                                for idx, prob in zip(top_indices, top_probs)]
-        
+                        return [
+                            (self.classes[idx.item()], prob.item())
+                            for idx, prob in zip(top_indices, top_probs, strict=False)
+                        ]
+
         return (self.classes[0], 0.0) if return_top_k == 1 else [(self.classes[0], 0.0)]
-    
+
     def predict_from_csv(self, csv_path, feature_level=None, return_top_k=1):
         """Predict from CSV file containing landmarks.
 
@@ -365,6 +399,7 @@ class TSLPredictor:
         with ``--seq-mode``, otherwise falls back to mean-aggregated features.
         """
         import pandas as pd
+
         df = pd.read_csv(csv_path)
         level = feature_level or self.feature_level
         if self.seq_mode:
@@ -373,75 +408,23 @@ class TSLPredictor:
         else:
             features = extract_features_from_landmark_df(df, level)
         return self.predict(features, return_top_k=return_top_k)
-    
+
     def predict_from_npz(self, npz_path, return_top_k=1):
         """Predict from NumPy archive file."""
         data = np.load(npz_path)
-        if 'X' in data:
-            features = data['X']
-        elif 'features' in data:
-            features = data['features']
+        if "X" in data:
+            features = data["X"]
+        elif "features" in data:
+            features = data["features"]
         else:
             raise ValueError(f"Unknown npz format: {npz_path}. Expected 'X' or 'features' key.")
         return self.predict(features, return_top_k=return_top_k)
-
-    def warmup(self, num_runs=3):
-        """Warm up the model with dummy data."""
-        InferenceUtils.model_warmup(self.model, self.input_dim, self.device, num_runs)
-
-    def predict_with_entropy(self, landmarks, return_top_k=1):
-        """Predict with uncertainty estimation via entropy.
-
-        Returns:
-            tuple: (predictions, entropy) where predictions is (label, confidence)
-                  or list of (label, confidence) tuples if return_top_k > 1
-        """
-        # Validate and normalize input
-        x = self.validate_input(landmarks)
-        if self.mean is not None and self.std is not None:
-            x = (x - self.mean) / self.std
-
-        if self.is_autogluon:
-            probs = self.model.predict_proba(x)
-            if return_top_k == 1:
-                pred = int(probs[0].argmax())
-                prob = float(probs[0].max())
-                entropy = InferenceUtils.get_prediction_entropy(probs[0])
-                return (self.classes[pred], prob), float(entropy)
-            else:
-                top_indices = np.argsort(probs[0])[-return_top_k:][::-1]
-                preds = [(self.classes[idx], float(probs[0][idx])) for idx in top_indices]
-                entropy = InferenceUtils.get_prediction_entropy(probs[0])
-                return preds, float(entropy)
-        else:
-            x = torch.tensor(x, dtype=torch.float32).to(self.device)
-            with torch.no_grad():
-                logits = self.model(x)
-                probs = torch.softmax(logits, dim=1)
-                if return_top_k == 1:
-                    prob, pred = probs[0].max(0)
-                    entropy = InferenceUtils.get_prediction_entropy(probs[0].cpu().numpy())
-                    return (self.classes[pred.item()], prob.item()), float(entropy)
-                else:
-                    top_probs, top_indices = probs[0].topk(return_top_k)
-                    preds = [(self.classes[idx.item()], prob.item())
-                             for idx, prob in zip(top_indices, top_probs)]
-                    entropy = InferenceUtils.get_prediction_entropy(probs[0].cpu().numpy())
-                    return preds, float(entropy)
-
-
-def load_model(model_path, device=None):
-    """Backward-compatible model loader used by tests and legacy code."""
-    return TSLPredictor(model_path, device=device)
 
 
 # ============================================================================
 # MAIN
 # ============================================================================
 def main():
-    setup_windows_encoding()
-    setup_mkl_threads()
-
     parser = argparse.ArgumentParser(
         description="TSL-51 Inference",
         formatter_class=argparse.RawDescriptionHelpFormatter,
@@ -451,75 +434,74 @@ Examples:
     python inference.py --model models/autogluon_tsl51 --input data.csv
     """,
     )
-    parser.add_argument("--model", type=Path, required=True, help="Model checkpoint file or directory")
+    parser.add_argument(
+        "--model", type=Path, required=True, help="Model checkpoint file or directory"
+    )
     parser.add_argument("--input", type=Path, required=True, help="Input file (.npz or .csv)")
     parser.add_argument("--top-k", type=int, default=1, help="Number of top predictions")
     args = parser.parse_args()
-    
+
     # Validate file paths for security
     try:
-        validate_file_path(args.model, allowed_extensions={'.pt', '.pkl'})
+        validate_file_path(args.model, allowed_extensions={".pt", ".pkl"})
     except ValueError as e:
         print(f"Error validating model path: {e}")
         return 1
-    
+
     try:
-        validate_file_path(args.input, allowed_extensions={'.npz', '.csv'})
+        validate_file_path(args.input, allowed_extensions={".npz", ".csv"})
     except ValueError as e:
         print(f"Error validating input path: {e}")
         return 1
-    
-    print("="*60)
+
+    print("=" * 60)
     print("TSL-51 INFERENCE")
-    print("="*60)
-    
+    print("=" * 60)
+
     # Load predictor
     predictor = TSLPredictor(args.model)
-    
+
     # Load input
     input_path = Path(args.input)
     print(f"\nInput: {input_path}")
-    
+
     if not input_path.exists():
         print(f"ERROR: File not found: {input_path}")
         return 1
-    
+
     # Determine file type and predict
-    if input_path.suffix == '.npz':
+    if input_path.suffix == ".npz":
         data = np.load(input_path)
-        if 'X' in data:
-            landmarks = data['X']
-        else:
-            landmarks = data[data.files[0]]
+        landmarks = data["X"] if "X" in data else data[data.files[0]]
         preds = predictor.predict(landmarks, return_top_k=args.top_k)
-    elif input_path.suffix == '.csv':
+    elif input_path.suffix == ".csv":
         preds = predictor.predict_from_csv(input_path, return_top_k=args.top_k)
     else:
         print("ERROR: Unsupported file format. Use .npz or .csv")
         return 1
-    
+
     # Show results
-    print("\n" + "="*60)
+    print("\n" + "=" * 60)
     print("PREDICTIONS")
-    print("="*60)
+    print("=" * 60)
     if isinstance(preds, list):
         for i, (label, conf) in enumerate(preds):
-            print(f"{i+1}. {label}: {conf*100:.2f}%")
+            print(f"{i + 1}. {label}: {conf * 100:.2f}%")
     else:
         label, conf = preds
-        print(f"1. {label}: {conf*100:.2f}%")
-    
-    print("\n" + "="*60)
+        print(f"1. {label}: {conf * 100:.2f}%")
+
+    print("\n" + "=" * 60)
     print("MODEL INFO")
-    print("="*60)
+    print("=" * 60)
     print(f"Model type: {predictor.model_name}")
     print(f"Classes: {len(predictor.classes)}")
     print(f"Feature level: {predictor.feature_level}")
     print(f"Input features: {predictor.input_dim}")
-    
+
     if not predictor.is_autogluon:
-        print(f"Model accuracy: {predictor.accuracy*100:.2f}%")
-    
+        print(f"Model accuracy: {predictor.accuracy * 100:.2f}%")
+
     return 0
 
 

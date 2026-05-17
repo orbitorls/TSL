@@ -23,10 +23,7 @@ def _coerce_dataset_arrays(X: Any, y: Any, classes: Any):
     X_np = _to_numpy_array(X, dtype=np.float32)
     y_np = _to_numpy_array(y)
     classes_np = _to_numpy_array(classes)
-    if getattr(X_np, "ndim", 1) >= 2:
-        input_dim = int(X_np.shape[-1])
-    else:
-        input_dim = 0
+    input_dim = int(X_np.shape[-1]) if getattr(X_np, "ndim", 1) >= 2 else 0
     return X_np, y_np, classes_np, input_dim
 
 
@@ -56,7 +53,9 @@ def _serialize_for_json(obj: Any) -> Any:
         return None
 
 
-def estimate_params(model_type, hidden_dim, num_layers, input_dim, num_classes):
+def estimate_params(
+    model_type: str, hidden_dim: int, num_layers: int, input_dim: int, num_classes: int
+) -> int:
     """Estimate number of parameters in the model."""
     if model_type in ["gru", "mopgru"]:
         return hidden_dim * hidden_dim * 4 * 3 * num_layers + hidden_dim * input_dim * 2

@@ -12,24 +12,17 @@ Requirements:
 
 from __future__ import annotations
 
-import sys
-import warnings
 from typing import Any
 
 import numpy as np
 
 from .feature_extraction import (
     FEATURE_DIMS,
-    adapt_features_to_model,
-    build_enhanced_sequence,
-    compute_enhanced_frame_features,
-    compute_sequence_dynamic_features,
     pad_or_truncate,
-    resolve_feature_level_for_inference,
     sample_frames_uniform,
 )
 
-LANDMARK_VECTOR_DIM = FEATURE_DIMS['basic']
+LANDMARK_VECTOR_DIM = FEATURE_DIMS["basic"]
 
 # Normalization std floor — must match training pipeline
 NORMALIZATION_STD_FLOOR = 1e-8
@@ -37,6 +30,7 @@ NORMALIZATION_STD_FLOOR = 1e-8
 # ─────────────────────────────────────────────────────────────
 # Normalization helpers
 # ─────────────────────────────────────────────────────────────
+
 
 def normalize_features(features: np.ndarray, mean: np.ndarray, std: np.ndarray) -> np.ndarray:
     """Z-score normalize features using pre-computed statistics.
@@ -50,10 +44,10 @@ def normalize_features(features: np.ndarray, mean: np.ndarray, std: np.ndarray) 
         Normalized features with the same shape as input.
     """
     mean = np.asarray(mean, dtype=np.float32)
-    std  = np.asarray(std,  dtype=np.float32)
+    std = np.asarray(std, dtype=np.float32)
     # Same floor used in training normalization
-    std  = np.where(std == 0, 1.0, std) + NORMALIZATION_STD_FLOOR
-    return (np.asarray(features, dtype=np.float32) - mean) / std
+    std = np.where(std == 0, 1.0, std) + NORMALIZATION_STD_FLOOR
+    return (np.asarray(features, dtype=np.float32) - mean) / std  # type: ignore[no-any-return]
 
 
 def report_extractor_compatibility(checkpoint: dict) -> None:
@@ -66,9 +60,11 @@ def report_extractor_compatibility(checkpoint: dict) -> None:
     is_legacy = "labels" in checkpoint and "label_to_idx" in checkpoint
     schema = "legacy (labels/label_to_idx)" if is_legacy else "current (classes)"
     model_type = checkpoint.get("model", checkpoint.get("config", {}).get("model", "unknown"))
-    accuracy = checkpoint.get("accuracy", None)
+    accuracy = checkpoint.get("accuracy")
     acc_str = f"{accuracy * 100:.2f}%" if accuracy is not None else "unknown"
-    print(f"[tsl_tasks_extractor] checkpoint schema={schema}, model={model_type}, accuracy={acc_str}")
+    print(
+        f"[tsl_tasks_extractor] checkpoint schema={schema}, model={model_type}, accuracy={acc_str}"
+    )
 
 
 # ─────────────────────────────────────────────────────────────
@@ -76,23 +72,32 @@ def report_extractor_compatibility(checkpoint: dict) -> None:
 # ─────────────────────────────────────────────────────────────
 
 _POSE_BASES = [
-    'l_shoulder', 'r_shoulder', 'l_elbow', 'r_elbow',
-    'l_wrist', 'r_wrist', 'lbrow_outer', 'lbrow_inner',
-    'rbrow_inner', 'rbrow_outer', 'mouth_right', 'mouth_left',
+    "l_shoulder",
+    "r_shoulder",
+    "l_elbow",
+    "r_elbow",
+    "l_wrist",
+    "r_wrist",
+    "lbrow_outer",
+    "lbrow_inner",
+    "rbrow_inner",
+    "rbrow_outer",
+    "mouth_right",
+    "mouth_left",
 ]
 
 
 def _basic_feature_keys() -> list[str]:
     keys: list[str] = []
     for i in range(21):
-        for c in ('x', 'y', 'z'):
-            keys.append(f'lh_{c}{i}')
+        for c in ("x", "y", "z"):
+            keys.append(f"lh_{c}{i}")
     for i in range(21):
-        for c in ('x', 'y', 'z'):
-            keys.append(f'rh_{c}{i}')
+        for c in ("x", "y", "z"):
+            keys.append(f"rh_{c}{i}")
     for base in _POSE_BASES:
-        for c in ('x', 'y', 'z'):
-            keys.append(f'{base}_{c}')
+        for c in ("x", "y", "z"):
+            keys.append(f"{base}_{c}")
     return keys
 
 
@@ -101,7 +106,7 @@ _BASIC_KEYS = _basic_feature_keys()
 
 def extract_sequence_features(
     frames: list,
-    feature_level: str = 'basic',
+    feature_level: str = "basic",
     target_frames: int = 30,
 ) -> np.ndarray | None:
     """Build a fixed-length temporal sequence from per-frame landmarks.
@@ -134,14 +139,14 @@ class FrameExtractionResult:
         self.detected = detected
 
 
-def draw_debug_overlay(frame, result: FrameExtractionResult):
+def draw_debug_overlay(frame: np.ndarray, result: FrameExtractionResult) -> np.ndarray:
     """Draw a minimal detection status overlay and return frame."""
     try:
         import cv2
     except Exception:
         return frame
 
-    text = 'Landmarks: ON' if result and result.detected else 'Landmarks: OFF'
+    text = "Landmarks: ON" if result and result.detected else "Landmarks: OFF"
     color = (0, 220, 0) if result and result.detected else (0, 0, 220)
     cv2.rectangle(frame, (8, 60), (180, 88), (20, 20, 20), -1)
     cv2.rectangle(frame, (8, 60), (180, 88), color, 1)
@@ -149,7 +154,7 @@ def draw_debug_overlay(frame, result: FrameExtractionResult):
     return frame
 
 
-def extract_features(frames: list, feature_level: str = 'basic') -> np.ndarray | None:
+def extract_features(frames: list, feature_level: str = "basic") -> np.ndarray | None:
     """Compute mean-aggregated features from a list of landmark dicts.
 
     Each element of *frames* must be a dict with keys like ``lh_x0``, ``rh_y3``,
@@ -180,24 +185,24 @@ def extract_features(frames: list, feature_level: str = 'basic') -> np.ndarray |
     return (accumulator / count).astype(np.float32)
 
 
-def _frame_dict_to_vector(frame: dict, feature_level: str, feature_dim: int) -> np.ndarray | None:
+def _frame_dict_to_vector(frame: dict, _feature_level: str, feature_dim: int) -> np.ndarray | None:
     """Convert a single landmark dict to a feature vector."""
     feats: list[float] = []
 
     # Left hand (63)
     for i in range(21):
-        for c in ('x', 'y', 'z'):
-            feats.append(float(frame.get(f'lh_{c}{i}', 0.0)))
+        for c in ("x", "y", "z"):
+            feats.append(float(frame.get(f"lh_{c}{i}", 0.0)))
 
     # Right hand (63)
     for i in range(21):
-        for c in ('x', 'y', 'z'):
-            feats.append(float(frame.get(f'rh_{c}{i}', 0.0)))
+        for c in ("x", "y", "z"):
+            feats.append(float(frame.get(f"rh_{c}{i}", 0.0)))
 
     # Pose (36)
     for base in _POSE_BASES:
-        for c in ('x', 'y', 'z'):
-            feats.append(float(frame.get(f'{base}_{c}', 0.0)))
+        for c in ("x", "y", "z"):
+            feats.append(float(frame.get(f"{base}_{c}", 0.0)))
 
     if len(feats) < feature_dim:
         feats.extend([0.0] * (feature_dim - len(feats)))
@@ -209,9 +214,10 @@ def _frame_dict_to_vector(frame: dict, feature_level: str, feature_dim: int) -> 
 # Video landmark extraction
 # ─────────────────────────────────────────────────────────────
 
+
 def extract_video_landmarks(
     video_path: str,
-    extractor: 'MediaPipeTasksLandmarkExtractor',
+    extractor: MediaPipeTasksLandmarkExtractor,
     verbose: bool = True,
 ) -> tuple[list, dict]:
     """Extract per-frame landmarks from a video file.
@@ -252,13 +258,15 @@ def extract_video_landmarks(
     cap.release()
 
     stats = {
-        'total_frames': total_frames,
-        'detected_frames': detected_frames,
-        'detection_rate': detected_frames / max(total_frames, 1),
+        "total_frames": total_frames,
+        "detected_frames": detected_frames,
+        "detection_rate": detected_frames / max(total_frames, 1),
     }
 
     if verbose:
-        print(f"  {detected_frames}/{total_frames} frames with landmarks ({stats['detection_rate']*100:.1f}%)")
+        print(
+            f"  {detected_frames}/{total_frames} frames with landmarks ({stats['detection_rate'] * 100:.1f}%)"
+        )
 
     return frames, stats
 
@@ -266,6 +274,7 @@ def extract_video_landmarks(
 # ─────────────────────────────────────────────────────────────
 # MediaPipe Tasks landmark extractor
 # ─────────────────────────────────────────────────────────────
+
 
 class MediaPipeTasksLandmarkExtractor:
     """Extracts 162-dim hand + pose landmarks from BGR frames using MediaPipe.
@@ -310,56 +319,63 @@ class MediaPipeTasksLandmarkExtractor:
             Dict of landmark values, or *None* if no hands/pose detected.
         """
         import cv2
+
         rgb = cv2.cvtColor(frame_bgr, cv2.COLOR_BGR2RGB)
         result = self._holistic.process(rgb)
 
         # Build dense basic feature dict so downstream code sees consistent length.
-        landmarks: dict[str, float] = {k: 0.0 for k in _BASIC_KEYS}
+        landmarks: dict[str, float] = dict.fromkeys(_BASIC_KEYS, 0.0)
         detected = False
 
         # Left hand
         if result.left_hand_landmarks:
             detected = True
             for i, lm in enumerate(result.left_hand_landmarks.landmark):
-                landmarks[f'lh_x{i}'] = lm.x
-                landmarks[f'lh_y{i}'] = lm.y
-                landmarks[f'lh_z{i}'] = lm.z
+                landmarks[f"lh_x{i}"] = lm.x
+                landmarks[f"lh_y{i}"] = lm.y
+                landmarks[f"lh_z{i}"] = lm.z
 
         # Right hand
         if result.right_hand_landmarks:
             detected = True
             for i, lm in enumerate(result.right_hand_landmarks.landmark):
-                landmarks[f'rh_x{i}'] = lm.x
-                landmarks[f'rh_y{i}'] = lm.y
-                landmarks[f'rh_z{i}'] = lm.z
+                landmarks[f"rh_x{i}"] = lm.x
+                landmarks[f"rh_y{i}"] = lm.y
+                landmarks[f"rh_z{i}"] = lm.z
 
         # Pose (subset of 12 key points)
         _POSE_IDX = {
-            'l_shoulder': 11, 'r_shoulder': 12,
-            'l_elbow': 13,    'r_elbow': 14,
-            'l_wrist': 15,    'r_wrist': 16,
+            "l_shoulder": 11,
+            "r_shoulder": 12,
+            "l_elbow": 13,
+            "r_elbow": 14,
+            "l_wrist": 15,
+            "r_wrist": 16,
         }
         if result.pose_landmarks:
             detected = True
             lms = result.pose_landmarks.landmark
             for name, idx in _POSE_IDX.items():
-                landmarks[f'{name}_x'] = lms[idx].x
-                landmarks[f'{name}_y'] = lms[idx].y
-                landmarks[f'{name}_z'] = lms[idx].z
+                landmarks[f"{name}_x"] = lms[idx].x
+                landmarks[f"{name}_y"] = lms[idx].y
+                landmarks[f"{name}_z"] = lms[idx].z
 
         # Face landmarks for brow/mouth (approximate indices)
         _FACE_IDX = {
-            'lbrow_outer': 70, 'lbrow_inner': 107,
-            'rbrow_inner': 336, 'rbrow_outer': 300,
-            'mouth_right': 61, 'mouth_left': 291,
+            "lbrow_outer": 70,
+            "lbrow_inner": 107,
+            "rbrow_inner": 336,
+            "rbrow_outer": 300,
+            "mouth_right": 61,
+            "mouth_left": 291,
         }
         if result.face_landmarks:
             flms = result.face_landmarks.landmark
             for name, idx in _FACE_IDX.items():
                 if idx < len(flms):
-                    landmarks[f'{name}_x'] = flms[idx].x
-                    landmarks[f'{name}_y'] = flms[idx].y
-                    landmarks[f'{name}_z'] = flms[idx].z
+                    landmarks[f"{name}_x"] = flms[idx].x
+                    landmarks[f"{name}_y"] = flms[idx].y
+                    landmarks[f"{name}_z"] = flms[idx].z
 
         return landmarks if detected else None
 

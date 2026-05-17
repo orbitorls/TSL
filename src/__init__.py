@@ -10,17 +10,17 @@
 
 __version__ = "0.1.0"
 
+from src.core.features import FEATURE_LEVELS, extract_features
 from src.core.models import (
-    GRUModel,
-    SmallGRUModel,
-    MLPModel,
-    MOPGRU,
-    HybridGRUTransformer,
-    CTCModel,
     MODEL_REGISTRY,
+    MOPGRU,
+    CTCModel,
+    GRUModel,
+    HybridGRUTransformer,
+    MLPModel,
+    SmallGRUModel,
     get_model,
 )
-from src.core.features import FEATURE_LEVELS, extract_features
 
 __all__ = [
     "__version__",

@@ -1,8 +1,12 @@
 """Training visualizations and report generation."""
+
 from datetime import datetime
 from pathlib import Path
+from typing import Any
+
 import numpy as np
 import torch
+
 from src.train.compat import HAS_MATPLOTLIB, plt
 from src.train.utils import estimate_params
 
@@ -18,8 +22,11 @@ def _to_float(val):
     return val
 
 
-def save_visualizations(results, fold_results, output_dir, args):
+def save_visualizations(
+    results: dict[str, Any], fold_results: list[dict[str, Any]], output_dir: str | Path, args: Any
+) -> None:
     """Save comprehensive training visualizations."""
+    output_dir = Path(output_dir)
     if not HAS_MATPLOTLIB:
         return
     if plt is None:
@@ -49,7 +56,13 @@ def save_visualizations(results, fold_results, output_dir, args):
     plt.style.use("seaborn-v0_8-whitegrid")
     fig = plt.figure(figsize=(22, 18))
     fig.patch.set_facecolor("#f8f9fa")
-    fig.suptitle("TSL-51 Thai Sign Language Training Report", fontsize=24, fontweight="bold", color="#2c3e50", y=0.98)
+    fig.suptitle(
+        "TSL-51 Thai Sign Language Training Report",
+        fontsize=24,
+        fontweight="bold",
+        color="#2c3e50",
+        y=0.98,
+    )
 
     all_accs = [float(r["accuracy"]) * 100 for r in fold_results]
     all_metrics = [
@@ -77,10 +90,34 @@ def save_visualizations(results, fold_results, output_dir, args):
     ax1.set_facecolor("#ffffff")
     folds = [r["fold"] for r in fold_results]
     accs = [r["accuracy"] * 100 for r in fold_results]
-    bars = ax1.bar(folds, accs, color=colors["primary"], edgecolor=colors["dark"], linewidth=2, width=0.7, alpha=0.85)
-    for bar, acc in zip(bars, accs):
-        ax1.text(bar.get_x() + bar.get_width() / 2.0, bar.get_height() + 1, f"{acc:.1f}%", ha="center", va="bottom", fontsize=12, fontweight="bold", color=colors["dark"])
-    ax1.axhline(y=results["average_accuracy"] * 100, color=colors["secondary"], linestyle="--", linewidth=3, label=f"CV Average: {results['average_accuracy'] * 100:.2f}%", alpha=0.8)
+    bars = ax1.bar(
+        folds,
+        accs,
+        color=colors["primary"],
+        edgecolor=colors["dark"],
+        linewidth=2,
+        width=0.7,
+        alpha=0.85,
+    )
+    for bar, acc in zip(bars, accs, strict=False):
+        ax1.text(
+            bar.get_x() + bar.get_width() / 2.0,
+            bar.get_height() + 1,
+            f"{acc:.1f}%",
+            ha="center",
+            va="bottom",
+            fontsize=12,
+            fontweight="bold",
+            color=colors["dark"],
+        )
+    ax1.axhline(
+        y=results["average_accuracy"] * 100,
+        color=colors["secondary"],
+        linestyle="--",
+        linewidth=3,
+        label=f"CV Average: {results['average_accuracy'] * 100:.2f}%",
+        alpha=0.8,
+    )
     ax1.set_xlabel("Fold", fontsize=14, fontweight="bold")
     ax1.set_ylabel("Accuracy (%)", fontsize=14, fontweight="bold")
     ax1.set_title("Cross-Validation Accuracy by Fold", fontsize=16, fontweight="bold", pad=15)
@@ -100,9 +137,26 @@ def save_visualizations(results, fold_results, output_dir, args):
         results["f1_score"],
     ]
     metric_colors = [colors["primary"], colors["warning"], colors["success"], colors["info"]]
-    bars2 = ax2.bar(metrics, [v * 100 for v in values], color=metric_colors, edgecolor=colors["dark"], linewidth=2, width=0.65, alpha=0.85)
-    for bar, v in zip(bars2, values):
-        ax2.text(bar.get_x() + bar.get_width() / 2.0, bar.get_height() + 1, f"{v * 100:.2f}%", ha="center", va="bottom", fontsize=12, fontweight="bold", color=colors["dark"])
+    bars2 = ax2.bar(
+        metrics,
+        [v * 100 for v in values],
+        color=metric_colors,
+        edgecolor=colors["dark"],
+        linewidth=2,
+        width=0.65,
+        alpha=0.85,
+    )
+    for bar, v in zip(bars2, values, strict=False):
+        ax2.text(
+            bar.get_x() + bar.get_width() / 2.0,
+            bar.get_height() + 1,
+            f"{v * 100:.2f}%",
+            ha="center",
+            va="bottom",
+            fontsize=12,
+            fontweight="bold",
+            color=colors["dark"],
+        )
     ax2.set_ylabel("Score (%)", fontsize=14, fontweight="bold")
     ax2.set_title("Overall Performance Metrics", fontsize=16, fontweight="bold", pad=15)
     ax2.set_ylim((y_min, y_max))
@@ -126,7 +180,23 @@ def save_visualizations(results, fold_results, output_dir, args):
     fold_table += "-" * 40 + "\n"
     fold_table += f"  Classes:   {num_classes} signs\n"
     fold_table += f"  Avg/Class: {avg_per_class:>6.1f} samples\n"
-    ax3.text(0.5, 0.95, fold_table, transform=ax3.transAxes, fontsize=11, verticalalignment="top", fontfamily="monospace", ha="center", bbox=dict(boxstyle="round,pad=0.5", facecolor="#e8f6f3", alpha=0.9, edgecolor="#1abc9c", linewidth=2))
+    ax3.text(
+        0.5,
+        0.95,
+        fold_table,
+        transform=ax3.transAxes,
+        fontsize=11,
+        verticalalignment="top",
+        fontfamily="monospace",
+        ha="center",
+        bbox={
+            "boxstyle": "round,pad=0.5",
+            "facecolor": "#e8f6f3",
+            "alpha": 0.9,
+            "edgecolor": "#1abc9c",
+            "linewidth": 2,
+        },
+    )
     ax3.axis("off")
 
     ax4 = fig.add_subplot(2, 3, 4)
@@ -138,7 +208,9 @@ def save_visualizations(results, fold_results, output_dir, args):
         params = float(results["actual_parameters"])
         params_note = " (actual)"
     else:
-        params = estimate_params(args.model, args.hidden, args.layers, input_dim, results.get("num_classes", 51))
+        params = estimate_params(
+            args.model, args.hidden, args.layers, input_dim, results.get("num_classes", 51)
+        )
         params_note = " (estimated)"
     config_text = (
         f"MODEL CONFIGURATION\n{'-' * 40}\n"
@@ -163,7 +235,22 @@ def save_visualizations(results, fold_results, output_dir, args):
         f"  Augmentation: {augment_val}x\n"
         f"  Test Split: {test_split_val * 100:.0f}%\n"
     )
-    ax4.text(0.02, 0.98, config_text, transform=ax4.transAxes, fontsize=9, verticalalignment="top", fontfamily="monospace", bbox=dict(boxstyle="round,pad=0.5", facecolor="#fef9e7", alpha=0.9, edgecolor="#f39c12", linewidth=2))
+    ax4.text(
+        0.02,
+        0.98,
+        config_text,
+        transform=ax4.transAxes,
+        fontsize=9,
+        verticalalignment="top",
+        fontfamily="monospace",
+        bbox={
+            "boxstyle": "round,pad=0.5",
+            "facecolor": "#fef9e7",
+            "alpha": 0.9,
+            "edgecolor": "#f39c12",
+            "linewidth": 2,
+        },
+    )
     ax4.axis("off")
 
     ax5 = fig.add_subplot(2, 3, 5)
@@ -191,7 +278,22 @@ def save_visualizations(results, fold_results, output_dir, args):
         f"    2. Random Scale (0.95-1.05)\n"
         f"    3. Left-Right Hand Flip\n"
     )
-    ax5.text(0.02, 0.98, dataset_text, transform=ax5.transAxes, fontsize=9, verticalalignment="top", fontfamily="monospace", bbox=dict(boxstyle="round,pad=0.5", facecolor="#e8f6f3", alpha=0.9, edgecolor="#1abc9c", linewidth=2))
+    ax5.text(
+        0.02,
+        0.98,
+        dataset_text,
+        transform=ax5.transAxes,
+        fontsize=9,
+        verticalalignment="top",
+        fontfamily="monospace",
+        bbox={
+            "boxstyle": "round,pad=0.5",
+            "facecolor": "#e8f6f3",
+            "alpha": 0.9,
+            "edgecolor": "#1abc9c",
+            "linewidth": 2,
+        },
+    )
     ax5.axis("off")
 
     ax6 = fig.add_subplot(2, 3, 6)
@@ -226,7 +328,22 @@ def save_visualizations(results, fold_results, output_dir, args):
         f"  Model:    tsl51_{args.model}_{results['timestamp'].replace('-', '').replace(':', '')[:12]}.pt\n"
         f"  Report:   cv_{results['timestamp'].replace('-', '').replace(':', '')[:12]}.json\n"
     )
-    ax6.text(0.02, 0.98, results_text, transform=ax6.transAxes, fontsize=9, verticalalignment="top", fontfamily="monospace", bbox=dict(boxstyle="round,pad=0.5", facecolor="#fdedec", alpha=0.9, edgecolor="#e74c3c", linewidth=2))
+    ax6.text(
+        0.02,
+        0.98,
+        results_text,
+        transform=ax6.transAxes,
+        fontsize=9,
+        verticalalignment="top",
+        fontfamily="monospace",
+        bbox={
+            "boxstyle": "round,pad=0.5",
+            "facecolor": "#fdedec",
+            "alpha": 0.9,
+            "edgecolor": "#e74c3c",
+            "linewidth": 2,
+        },
+    )
     ax6.axis("off")
 
     plt.tight_layout(rect=(0, 0, 1, 0.96))
@@ -257,7 +374,9 @@ def save_visualizations(results, fold_results, output_dir, args):
         f.write(f"  Dropout Rate: {args.dropout}\n")
         f.write(f"  Input Features: {results['input_dim']}\n")
         f.write(f"  Output Classes: {results['num_classes']}\n")
-        params = estimate_params(args.model, args.hidden, args.layers, results["input_dim"], results["num_classes"])
+        params = estimate_params(
+            args.model, args.hidden, args.layers, results["input_dim"], results["num_classes"]
+        )
         f.write(f"  Est. Parameters: ~{params / 1e6:.2f}M\n")
         f.write("\nTRAINING CONFIGURATION\n")
         f.write("-" * 70 + "\n")
@@ -287,7 +406,9 @@ def save_visualizations(results, fold_results, output_dir, args):
         f.write(f"  Std Dev: {results['std_accuracy'] * 100:.2f}%\n")
         f.write("\nOVERALL METRICS\n")
         f.write("-" * 70 + "\n")
-        f.write(f"  CV Average: {results['average_accuracy'] * 100:.2f}% (±{results['std_accuracy'] * 100:.2f}%)\n")
+        f.write(
+            f"  CV Average: {results['average_accuracy'] * 100:.2f}% (±{results['std_accuracy'] * 100:.2f}%)\n"
+        )
         f.write(f"  Overall Accuracy: {results['overall_accuracy'] * 100:.2f}%\n")
         f.write(f"  Precision: {results['precision'] * 100:.2f}%\n")
         f.write(f"  Recall: {results['recall'] * 100:.2f}%\n")

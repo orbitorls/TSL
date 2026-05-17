@@ -1,23 +1,15 @@
-"""Compatibility shims for optional dependencies and platform-specific fixes."""
+"""Compatibility shims for optional dependencies (AMP, tqdm, matplotlib) and platform-specific fixes."""
 
 import os
 import sys
 
 
 def setup_windows_encoding():
-    """Fix Windows console encoding for Thai characters.
+    """Fix Windows console encoding for Thai characters."""
+    if sys.platform == "win32":
+        import io
 
-    Reconfigure the active streams in place instead of replacing them.
-    Replacing ``sys.stdout`` breaks pytest capture on Windows.
-    """
-    if sys.platform != "win32":
-        return
-
-    for stream_name in ("stdout", "stderr"):
-        stream = getattr(sys, stream_name, None)
-        reconfigure = getattr(stream, "reconfigure", None)
-        if callable(reconfigure):
-            reconfigure(encoding="utf-8", errors="replace")
+        sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
 
 
 def setup_mkl_threads():
@@ -37,24 +29,24 @@ class _noop_context:
 
 
 HAS_AMP = False
-GradScaler = None  # type: ignore[misc]
-autocast = _noop_context  # type: ignore[assignment]
+GradScaler = None  # type: ignore[misc,assignment]
+autocast = _noop_context  # type: ignore[assignment,misc]
 
 # Prefer torch.amp API (PyTorch >= 2.0) for mixed precision.
 # torch.cuda.amp is deprecated in PyTorch 2.6+ in favour of torch.amp.
 try:
-    from torch.amp.grad_scaler import GradScaler
-    from torch.amp.autocast_mode import autocast
+    from torch.amp.autocast_mode import autocast  # type: ignore[assignment,misc,no-redef]
+    from torch.amp.grad_scaler import GradScaler  # type: ignore[assignment,misc,no-redef]
 
     HAS_AMP = True
 except Exception:
     try:
-        from torch.cuda.amp import GradScaler, autocast  # type: ignore[no-redef]
+        from torch.cuda.amp import GradScaler, autocast  # type: ignore[no-redef,assignment,misc]
 
         HAS_AMP = True
     except Exception:
-        GradScaler = None
-        autocast = _noop_context  # type: ignore[assignment]
+        GradScaler = None  # type: ignore[assignment,misc]
+        autocast = _noop_context  # type: ignore[assignment,misc]
         HAS_AMP = False
 
 try:
@@ -67,8 +59,8 @@ except ImportError:
     tqdm = None  # type: ignore[assignment]
 
 try:
-    import matplotlib.pyplot as plt
     import matplotlib
+    import matplotlib.pyplot as plt
 
     matplotlib.use("Agg")
     HAS_MATPLOTLIB = True

@@ -25,7 +25,7 @@ class Normalizer:
         """Transform features using fitted statistics."""
         if not self.is_fitted:
             raise ValueError("Normalizer must be fitted before transform")
-        return (features - self.mean) / self.std
+        return (features - self.mean) / self.std  # type: ignore[no-any-return]
 
     def fit_transform(self, features: np.ndarray) -> np.ndarray:
         """Fit and transform in one step."""
@@ -36,7 +36,7 @@ class Normalizer:
         """Reverse normalization."""
         if not self.is_fitted:
             raise ValueError("Normalizer must be fitted before inverse_transform")
-        return normalized * self.std + self.mean
+        return normalized * self.std + self.mean  # type: ignore[no-any-return]
 
     def to_dict(self) -> dict:
         """Serialize to dict for checkpoint."""

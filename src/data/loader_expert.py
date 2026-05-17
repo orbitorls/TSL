@@ -1,12 +1,12 @@
 """Fixed expert data loader that extracts all files from zip without metadata matching."""
 
-from pathlib import Path
-from typing import Optional, Tuple
-import numpy as np
-import zipfile
 import logging
+import zipfile
+from pathlib import Path
+from typing import Any
 
-from src.utils.dataset_utils import safe_mean
+import numpy as np
+
 from .feature_extraction import FEATURE_DIMS, extract_features_from_landmark_df
 
 logger = logging.getLogger(__name__)
@@ -17,9 +17,9 @@ CACHE_DIR.mkdir(parents=True, exist_ok=True)
 
 def load_all_expert_landmarks(
     feature_level: str = "basic",
-    max_samples: Optional[int] = None,
+    max_samples: int | None = None,
     force_download: bool = False,
-) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     """Load ALL expert data directly from zip files without metadata matching.
 
     This extracts all CSV files from the expert zip archives and uses the
@@ -45,9 +45,8 @@ def load_all_expert_landmarks(
         ("landmarks/expert_primary_03.zip", "primary_03"),
     ]
 
-    X_list = []
-    y_list = []
-    processed_signs = set()
+    X_list: list[Any] = []
+    y_list: list[Any] = []
 
     for zip_filename, source_name in zip_files:
         print(f"Processing {source_name}...")
@@ -62,7 +61,7 @@ def load_all_expert_landmarks(
                 csv_files = [f for f in z.namelist() if f.endswith(".csv")]
                 print(f"  Found {len(csv_files)} CSV files")
 
-                for i, csv_file in enumerate(csv_files):
+                for _i, csv_file in enumerate(csv_files):
                     if max_samples and len(X_list) >= max_samples:
                         break
 
@@ -73,9 +72,7 @@ def load_all_expert_landmarks(
                             lm_df = pd.read_csv(f)
 
                         # Extract features
-                        features = extract_features_from_landmark_df(
-                            lm_df, feature_level
-                        )
+                        features = extract_features_from_landmark_df(lm_df, feature_level)
 
                         # Validate feature dimension
                         expected_dim = FEATURE_DIMS.get(feature_level, 162)
@@ -103,11 +100,7 @@ def load_all_expert_landmarks(
 
                         # Extract first two parts: prefix (pdt/kpp/vid) + classname (xxx)
                         parts = base_name.split("_")
-                        if len(parts) >= 2:
-                            # e.g., pdt_xxx or kpp_noon
-                            sign_name = f"{parts[0]}_{parts[1]}"
-                        else:
-                            sign_name = parts[0]
+                        sign_name = f"{parts[0]}_{parts[1]}" if len(parts) >= 2 else parts[0]
 
                         X_list.append(features)
                         y_list.append(sign_name)
@@ -115,7 +108,7 @@ def load_all_expert_landmarks(
                         if len(X_list) % 1000 == 0:
                             print(f"    Processed {len(X_list)} samples...")
 
-                    except Exception as e:
+                    except Exception:
                         continue
 
             print(f"  Total from {source_name}: {len(X_list)}")

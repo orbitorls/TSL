@@ -3,12 +3,19 @@
 from typing import Any
 
 import torch
-import torch.nn as nn
 
-from src.train.compat import autocast, GradScaler
+from src.train.compat import autocast
 
 
-def train_epoch(model, loader, criterion, optimizer, scaler, device, use_amp):
+def train_epoch(
+    model: torch.nn.Module,
+    loader: torch.utils.data.DataLoader,
+    criterion: torch.nn.Module,
+    optimizer: torch.optim.Optimizer,
+    scaler: Any,
+    device: torch.device,
+    use_amp: bool,
+) -> tuple[float, float]:
     model.train()
     total_loss, correct, total = 0, 0, 0
     for X, y in loader:
@@ -37,7 +44,12 @@ def train_epoch(model, loader, criterion, optimizer, scaler, device, use_amp):
     return total_loss / len(loader), correct / total
 
 
-def evaluate(model, loader, criterion, device):
+def evaluate(
+    model: torch.nn.Module,
+    loader: torch.utils.data.DataLoader,
+    criterion: torch.nn.Module,
+    device: torch.device,
+) -> tuple[float, float, list[int], list[int]]:
     model.eval()
     total_loss, correct, total = 0, 0, 0
     preds, targets = [], []
