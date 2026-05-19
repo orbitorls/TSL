@@ -3,12 +3,8 @@
 Shared code for training and inference to ensure identical feature
 processing across scripts.
 """
-from pathlib import Path
-from typing import Any
 
 import numpy as np
-
-from utils.dataset_utils import safe_mean
 
 FEATURE_DIMS = {
     'basic': 162,
@@ -25,6 +21,8 @@ _POSE_LANDMARK_NAMES = [
     'rbrow_inner', 'rbrow_outer', 'mouth_right', 'mouth_left'
 ]
 
+
+_FEATURE_COLUMN_CACHE = {}
 
 def _build_column_list(feature_level: str = 'basic') -> list:
     """Build the ordered list of column names for a given feature level."""
@@ -64,59 +62,25 @@ def extract_features_from_landmark_df(lm_df, feature_level='basic'):
     averaged across all frames. Use ``extract_sequence_from_landmark_df`` when
     per-frame temporal information is needed.
     """
-    features = []
+    if feature_level not in _FEATURE_COLUMN_CACHE:
+        _FEATURE_COLUMN_CACHE[feature_level] = _build_column_list(feature_level)
 
-    # ===== 1. BASIC: Hand + Pose (162) =====
-    # Left hand (21 * 3 = 63)
-    for i in range(21):
-        for c in ['x', 'y', 'z']:
-            col = f'lh_{c}{i}'
-            if col in lm_df.columns:
-                features.append(safe_mean(lm_df[col]))
-            else:
-                features.append(0.0)
+    col_list = _FEATURE_COLUMN_CACHE[feature_level]
+    features = np.zeros(len(col_list), dtype=np.float32)
 
-    # Right hand (21 * 3 = 63)
-    for i in range(21):
-        for c in ['x', 'y', 'z']:
-            col = f'rh_{c}{i}'
-            if col in lm_df.columns:
-                features.append(safe_mean(lm_df[col]))
-            else:
-                features.append(0.0)
+    if len(lm_df) == 0:
+        return features
 
-    # Pose landmarks (12 * 3 = 36)
-    for base in _POSE_LANDMARK_NAMES:
-        for c in ['x', 'y', 'z']:
-            col = f'{base}_{c}'
-            if col in lm_df.columns:
-                features.append(safe_mean(lm_df[col]))
-            else:
-                features.append(0.0)
+    df_cols = set(lm_df.columns)
+    existing_cols = [c for c in col_list if c in df_cols]
 
-    if feature_level in ['finger', 'full', 'face']:
-        finger_names = ['thumb', 'index', 'middle', 'ring', 'pinky']
-        for hand_prefix in ['lh_', 'rh_']:
-            for finger in finger_names:
-                for c in ['x', 'y', 'z']:
-                    for joint in ['mcp', 'pip', 'dip']:
-                        col = f'{hand_prefix}{finger}_{joint}_{c}'
-                        if col in lm_df.columns:
-                            features.append(safe_mean(lm_df[col]))
-                        else:
-                            features.append(0.0)
+    if existing_cols:
+        means = lm_df[existing_cols].mean().fillna(0.0).to_dict()
+        for i, col in enumerate(col_list):
+            if col in means:
+                features[i] = means[col]
 
-    if feature_level in ['full', 'face']:
-        for i in range(478):
-            for c in ['x', 'y', 'z']:
-                col = f'face_{c}{i}'
-                if col in lm_df.columns:
-                    features.append(safe_mean(lm_df[col]))
-                else:
-                    features.append(0.0)
-
-    feature_dim = FEATURE_DIMS.get(feature_level, 162)
-    return np.array(features[:feature_dim], dtype=np.float32)
+    return features
 
 
 class FeatureExtractor:
@@ -433,7 +397,7 @@ def build_enhanced_sequence(
 
     # Build base sequence (162 dims)
     # Local import to avoid circular dependency (extractor imports from this module)
-    from .extractor import _frame_dict_to_vector, _BASIC_KEYS
+    from .extractor import _frame_dict_to_vector
     feature_dim = FEATURE_DIMS.get(feature_level, 249)
     base_dim = 162
 
