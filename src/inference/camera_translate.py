@@ -170,6 +170,8 @@ class ThaiSignTranslator:
             print(f"[INFO] Auto-adjusted feature level to '{resolved_level}' for model compatibility")
         print(f"Using feature level: {self.feature_level}")
 
+        self._font_cache = {}
+
         # Enhanced features support
         self.use_enhanced = (self.feature_level == 'enhanced')
         self.enhanced_frame_buffer = deque(maxlen=100)  # stores landmark dicts
@@ -195,6 +197,28 @@ class ThaiSignTranslator:
             print("  pip install --upgrade mediapipe")
             print("  pip install opencv-python")
             self.mediapipe_available = False
+
+    def _get_cached_font(self, font_size, font_paths, default_size=None):
+        """
+        ⚡ Bolt Optimization: Font Caching
+        Avoids redundant disk I/O when rendering text in the hot loop by caching PIL fonts.
+        Expected Impact: Significant reduction in per-frame rendering time, boosting FPS.
+        """
+        key = (font_size, tuple(font_paths), default_size)
+        if key in self._font_cache:
+            return self._font_cache[key]
+
+        font = None
+        for font_path in font_paths:
+            try:
+                font = ImageFont.truetype(font_path, font_size)
+                break
+            except Exception:
+                continue
+        if font is None:
+            font = ImageFont.load_default(size=default_size or font_size)
+        self._font_cache[key] = font
+        return font
 
     def process_frame(self, frame):
         """Process a single frame and return dense landmarks dict (162 values)."""
@@ -293,15 +317,7 @@ class ThaiSignTranslator:
                 "C:/Windows/Fonts/FONTA.TTF",
                 "C:/Windows/Fonts/FONTB.TTF",
             ]
-            font = None
-            for font_path in font_paths:
-                try:
-                    font = ImageFont.truetype(font_path, font_size)
-                    break
-                except Exception:
-                    continue
-            if font is None:
-                font = ImageFont.load_default(size=font_size)
+            font = self._get_cached_font(font_size, font_paths)
         except Exception:
             font = ImageFont.load_default(size=font_size)
 
@@ -376,16 +392,8 @@ class ThaiSignTranslator:
 
                 pil_img = PILImage.fromarray(cv2.cvtColor(frame, cv2.COLOR_RGB2BGR))
                 draw = ImageDraw.Draw(pil_img)
-                try:
-                    font = ImageFont.truetype("C:/Windows/Fonts/tahoma.ttf", 80)
-                    conf_font = ImageFont.truetype("C:/Windows/Fonts/tahoma.ttf", 30)
-                except Exception:
-                    try:
-                        font = ImageFont.truetype("C:/Windows/Fonts/phagspa.ttf", 80)
-                        conf_font = ImageFont.truetype("C:/Windows/Fonts/phagspa.ttf", 30)
-                    except Exception:
-                        font = ImageFont.load_default(size=60)
-                        conf_font = ImageFont.load_default(size=25)
+                font = self._get_cached_font(80, ["C:/Windows/Fonts/tahoma.ttf", "C:/Windows/Fonts/phagspa.ttf"], default_size=60)
+                conf_font = self._get_cached_font(30, ["C:/Windows/Fonts/tahoma.ttf", "C:/Windows/Fonts/phagspa.ttf"], default_size=25)
 
                 bbox = draw.textbbox((0, 0), text, font=font)
                 text_w = bbox[2] - bbox[0]
@@ -499,13 +507,7 @@ class ThaiSignTranslator:
 
                         pil_img = PILImage.fromarray(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
                         draw = ImageDraw.Draw(pil_img)
-                        try:
-                            font = ImageFont.truetype("C:/Windows/Fonts/tahoma.ttf", 22)
-                        except Exception:
-                            try:
-                                font = ImageFont.truetype("C:/Windows/Fonts/phagspa.ttf", 22)
-                            except Exception:
-                                font = ImageFont.load_default(size=18)
+                        font = self._get_cached_font(22, ["C:/Windows/Fonts/tahoma.ttf", "C:/Windows/Fonts/phagspa.ttf"], default_size=18)
 
                         draw.text((sidebar_x + 12, y_pos), f"{index + 1}. {word}", font=font, fill=(255, 255, 255))
                         draw.text((sidebar_x + 170, y_pos), f"{conf:.0%}", font=font, fill=(200, 255, 200))
