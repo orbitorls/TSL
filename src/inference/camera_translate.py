@@ -15,9 +15,8 @@ from pathlib import Path
 import cv2
 import numpy as np
 import torch
-from PIL import Image as PILImage, ImageDraw, ImageFont
-
-from ..train.models import MLP, GRUModel, MOPGRU, HybridGRUTransformer
+from PIL import Image as PILImage
+from PIL import ImageDraw, ImageFont
 
 from ..data.extractor import (
     FEATURE_DIMS,
@@ -25,7 +24,6 @@ from ..data.extractor import (
     MediaPipeTasksLandmarkExtractor,
     adapt_features_to_model,
     build_enhanced_sequence,
-    compute_enhanced_frame_features,
     draw_debug_overlay,
     extract_features,
     extract_sequence_features,
@@ -33,6 +31,7 @@ from ..data.extractor import (
     report_extractor_compatibility,
     resolve_feature_level_for_inference,
 )
+from ..train.models import MLP, MOPGRU, GRUModel, HybridGRUTransformer
 
 os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"
 os.environ["TF_ENABLE_ONEDNN_OPTS"] = "0"
@@ -182,6 +181,7 @@ class ThaiSignTranslator:
         self.current_prediction = ""
         self.confidence = 0.0
         self.consecutive_missing = 0
+        self._font_cache = {}
 
         try:
             print("Initializing MediaPipe Tasks landmarkers...")
@@ -195,6 +195,24 @@ class ThaiSignTranslator:
             print("  pip install --upgrade mediapipe")
             print("  pip install opencv-python")
             self.mediapipe_available = False
+
+    def _get_cached_font(self, font_size, default_size):
+        """Get cached font to avoid disk I/O in the hot loop."""
+        cache_key = font_size
+        if cache_key in self._font_cache:
+            return self._font_cache[cache_key]
+
+        font = None
+        try:
+            font = ImageFont.truetype("C:/Windows/Fonts/tahoma.ttf", font_size)
+        except Exception:
+            try:
+                font = ImageFont.truetype("C:/Windows/Fonts/phagspa.ttf", font_size)
+            except Exception:
+                font = ImageFont.load_default(size=default_size)
+
+        self._font_cache[cache_key] = font
+        return font
 
     def process_frame(self, frame):
         """Process a single frame and return dense landmarks dict (162 values)."""
@@ -376,16 +394,8 @@ class ThaiSignTranslator:
 
                 pil_img = PILImage.fromarray(cv2.cvtColor(frame, cv2.COLOR_RGB2BGR))
                 draw = ImageDraw.Draw(pil_img)
-                try:
-                    font = ImageFont.truetype("C:/Windows/Fonts/tahoma.ttf", 80)
-                    conf_font = ImageFont.truetype("C:/Windows/Fonts/tahoma.ttf", 30)
-                except Exception:
-                    try:
-                        font = ImageFont.truetype("C:/Windows/Fonts/phagspa.ttf", 80)
-                        conf_font = ImageFont.truetype("C:/Windows/Fonts/phagspa.ttf", 30)
-                    except Exception:
-                        font = ImageFont.load_default(size=60)
-                        conf_font = ImageFont.load_default(size=25)
+                font = self._get_cached_font(80, 60)
+                conf_font = self._get_cached_font(30, 25)
 
                 bbox = draw.textbbox((0, 0), text, font=font)
                 text_w = bbox[2] - bbox[0]
@@ -499,13 +509,7 @@ class ThaiSignTranslator:
 
                         pil_img = PILImage.fromarray(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
                         draw = ImageDraw.Draw(pil_img)
-                        try:
-                            font = ImageFont.truetype("C:/Windows/Fonts/tahoma.ttf", 22)
-                        except Exception:
-                            try:
-                                font = ImageFont.truetype("C:/Windows/Fonts/phagspa.ttf", 22)
-                            except Exception:
-                                font = ImageFont.load_default(size=18)
+                        font = self._get_cached_font(22, 18)
 
                         draw.text((sidebar_x + 12, y_pos), f"{index + 1}. {word}", font=font, fill=(255, 255, 255))
                         draw.text((sidebar_x + 170, y_pos), f"{conf:.0%}", font=font, fill=(200, 255, 200))
