@@ -89,6 +89,22 @@ def _resolve_split_strategy(config: Any) -> str:
     return strategy
 
 
+def _validate_primary_metric(config: Any) -> None:
+    requested_metric = str(_cfg(config, "primary_metric", PRIMARY_METRIC_NAME)).strip().lower()
+    if requested_metric == PRIMARY_METRIC_NAME:
+        return
+
+    real_world_mode = bool(_cfg(config, "real_world_mode", True))
+    if real_world_mode:
+        raise PipelineConfigError(
+            "real-world mode currently supports only primary_metric='macro_f1'; "
+            f"got {requested_metric!r}"
+        )
+    raise PipelineConfigError(
+        f"Unsupported primary_metric={requested_metric!r}; canonical pipeline currently supports only {PRIMARY_METRIC_NAME!r}"
+    )
+
+
 def _training_config_from(config: Any) -> TrainingConfig:
     fields = TrainingConfig.__dataclass_fields__
     values = {name: _cfg(config, name, field.default) for name, field in fields.items()}
@@ -275,6 +291,7 @@ def run_training_pipeline(config: Any, *, dataset: Any | None = None) -> dict[st
     if torch.cuda.is_available():
         torch.cuda.manual_seed(training_config.seed)
 
+    _validate_primary_metric(config)
     requested_split_strategy = _resolve_split_strategy(config)
 
     dataset_obj = dataset if dataset is not None else _load_dataset(config)

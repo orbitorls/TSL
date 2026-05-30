@@ -50,7 +50,7 @@ dev = [
 ]
 
 [project.scripts]
-tsl-train = "train_tsl51_v3:main"
+tsl-train = "src.cli.train:main"
 tsl-inference = "inference:main"
 tsl-predict-video = "predict_video:main"
 tsl-camera-translate = "camera_translate:main"

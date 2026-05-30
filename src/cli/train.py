@@ -12,6 +12,9 @@ from src.train.config import get_config_from_args
 from src.train.pipeline import run_training_pipeline
 
 
+SUPPORTED_PRIMARY_METRICS = ("macro_f1",)
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="TSL-51 Thai Sign Language Training")
     parser.add_argument(
@@ -59,6 +62,25 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--smoke", action="store_true", help="Fast CPU smoke run")
     parser.add_argument("--test-split", type=float, default=0.15, help="Grouped test holdout fraction")
     parser.add_argument("--val-size", type=float, default=0.15, help="Grouped validation holdout fraction")
+    parser.add_argument(
+        "--split-strategy",
+        type=str,
+        default="video_family_holdout",
+        choices=["video_family_holdout", "video_family_grouped", "random"],
+        help="Split strategy for canonical training orchestration",
+    )
+    parser.add_argument(
+        "--primary-metric",
+        type=str,
+        default="macro_f1",
+        help="Primary selection metric for canonical training (default: macro_f1)",
+    )
+    parser.add_argument(
+        "--real-world-mode",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help="Require grouped video-family splitting safeguards (default: enabled)",
+    )
     parser.add_argument("--output-dir", type=Path, default=None, help="Directory for canonical artifacts")
     return parser
 
@@ -83,6 +105,18 @@ def main(argv: list[str] | None = None) -> int:
         if args.samples is None or args.samples > 10:
             args.samples = 10
 
+    args.primary_metric = str(args.primary_metric).strip().lower()
+    if args.primary_metric not in SUPPORTED_PRIMARY_METRICS:
+        supported = ", ".join(SUPPORTED_PRIMARY_METRICS)
+        if args.real_world_mode:
+            parser.error(
+                "real-world mode currently supports only "
+                f"--primary-metric {supported}; got {args.primary_metric!r}"
+            )
+        parser.error(
+            f"unsupported --primary-metric {args.primary_metric!r}; supported values: {supported}"
+        )
+
     training_config = get_config_from_args(args)
     # Keep CLI-only orchestration fields on a simple namespace so the canonical
     # pipeline accepts one config object without mutating TrainingConfig.
@@ -94,6 +128,9 @@ def main(argv: list[str] | None = None) -> int:
         no_cache=args.no_cache,
         val_size=args.val_size,
         test_size=args.test_split,
+        split_strategy=args.split_strategy,
+        primary_metric=args.primary_metric,
+        real_world_mode=args.real_world_mode,
     )
 
     result = run_training_pipeline(config)
