@@ -283,7 +283,7 @@ Wave 3: Tasks 9-12 — trusted baseline, controlled tuning, notebook validation,
 
   **Commit**: YES | Message: `feat(train): persist preprocessing manifests` | Files: `src/core/normalizer.py`, `src/train/*`, `src/inference/*`, `tests/inference/test_preprocessing_manifest.py`
 
-- [ ] 5. Build canonical `src/train/` training pipeline and retire legacy authority
+- [x] 5. Build canonical `src/train/` training pipeline and retire legacy authority
 
   **What to do**: Move end-to-end orchestration into `src/train/` using existing modular pieces: config, loader, Trainer, evaluator, grouped splits, augmentation, manifests, checkpoint saving, and result writing. Legacy script may remain for compatibility, but it must no longer be the authoritative path for `tsl-train`.
   **Must NOT do**: Do not add active implementation to `legacy/`. Do not change model math and pipeline migration in the same step unless covered by tests. Do not tune hyperparameters in this task.
