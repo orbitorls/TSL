@@ -1,3 +1,4 @@
+# pyright: reportConstantRedefinition=false
 """Compatibility shims for optional dependencies (AMP, tqdm, matplotlib) and platform-specific fixes."""
 
 import os
@@ -9,7 +10,16 @@ def setup_windows_encoding():
     if sys.platform == "win32":
         import io
 
-        sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
+        def _reconfigure(stream):
+            if hasattr(stream, "reconfigure"):
+                stream.reconfigure(encoding="utf-8", errors="replace")
+                return stream
+            if hasattr(stream, "buffer"):
+                return io.TextIOWrapper(stream.buffer, encoding="utf-8", errors="replace")
+            return stream
+
+        sys.stdout = _reconfigure(sys.stdout)
+        sys.stderr = _reconfigure(sys.stderr)
 
 
 def setup_mkl_threads():
