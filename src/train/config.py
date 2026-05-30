@@ -277,28 +277,62 @@ def _ensure_single_value(results: Sequence[Mapping[str, Any]], key: str, message
         raise ValueError(message)
 
 
-def _validate_candidate_result_contract(results: Sequence[Mapping[str, Any]]) -> None:
+def _trusted_identity_by_name(
+    run_configs: Sequence[Mapping[str, Any]],
+) -> dict[str, Mapping[str, Any]]:
+    trusted: dict[str, Mapping[str, Any]] = {}
+    for run_config in run_configs:
+        candidate = run_config.get("candidate")
+        if not isinstance(candidate, TuningCandidate):
+            raise ValueError("run config must include a TuningCandidate under 'candidate'")
+        trusted[candidate.name] = run_config
+    return trusted
+
+
+def _validate_candidate_result_contract(
+    results: Sequence[Mapping[str, Any]],
+    *,
+    run_configs: Sequence[Mapping[str, Any]] | None = None,
+) -> None:
     if not results:
         raise ValueError("at least one candidate result is required")
-    _ensure_single_value(results, "split_manifest_hash", "candidate results must use the same split manifest hash")
-    _ensure_single_value(results, "preprocessing_schema", "candidate results must use the same preprocessing schema")
-    _ensure_single_value(results, "feature_schema_version", "candidate results must use the same feature schema version")
+
+    trusted_by_name = _trusted_identity_by_name(run_configs) if run_configs is not None else None
     for result in results:
         if result.get("primary_metric_name") != TRUSTED_TUNING_PRIMARY_METRIC:
             raise ValueError("candidate results must use macro_f1 as the primary metric")
         if result.get("feature_level") != TRUSTED_TUNING_FEATURE_LEVEL:
             raise ValueError("candidate results must use feature_level='basic'")
+        if trusted_by_name is None:
+            continue
+        candidate_name = _candidate_name(result)
+        if candidate_name not in trusted_by_name:
+            raise ValueError(f"candidate result {candidate_name!r} has no trusted run config")
+        trusted = trusted_by_name[candidate_name]
+        for key in ("split_manifest_hash", "preprocessing_schema", "feature_schema_version", "feature_level"):
+            result_value = str(result.get(key, ""))
+            trusted_value = str(trusted.get(key, ""))
+            if result_value != trusted_value:
+                raise ValueError(
+                    f"candidate result {candidate_name!r} does not match trusted run config {key}: "
+                    f"result={result_value!r}, trusted={trusted_value!r}"
+                )
+
+    _ensure_single_value(results, "split_manifest_hash", "candidate results must use the same split manifest hash")
+    _ensure_single_value(results, "preprocessing_schema", "candidate results must use the same preprocessing schema")
+    _ensure_single_value(results, "feature_schema_version", "candidate results must use the same feature schema version")
 
 
 def select_trusted_tuning_result(
     candidate_results: Sequence[Mapping[str, Any]],
     baseline_metrics: Mapping[str, Any],
     *,
+    run_configs: Sequence[Mapping[str, Any]],
     min_delta: float = TRUSTED_TUNING_MIN_DELTA,
 ) -> TuningSelection:
     """Select a tuned candidate only when it clears the trusted Macro F1 gate."""
     results = tuple(candidate_results)
-    _validate_candidate_result_contract(results)
+    _validate_candidate_result_contract(results, run_configs=run_configs)
 
     baseline_macro_f1 = _baseline_macro_f1(baseline_metrics)
     required_macro_f1 = baseline_macro_f1 + float(min_delta)
@@ -374,7 +408,7 @@ def _config_payload(config: TrainingConfig) -> dict[str, object]:
     }
 
 
-def _candidate_command(config: TrainingConfig) -> str:
+def _candidate_command(config: TrainingConfig, *, split_strategy: str = TRUSTED_TUNING_SPLIT_STRATEGY) -> str:
     parts = [
         "python",
         "-m",
@@ -384,7 +418,7 @@ def _candidate_command(config: TrainingConfig) -> str:
         "--model",
         config.model,
         "--split-strategy",
-        "video_family_grouped",
+        split_strategy,
         "--primary-metric",
         TRUSTED_TUNING_PRIMARY_METRIC,
         "--feature-level",
@@ -480,7 +514,7 @@ def build_trusted_tuning_report(
     Macro F1 gate and artifact identity without introducing heavy HPO state.
     """
     results = tuple(candidate_results)
-    _validate_candidate_result_contract(results)
+    _validate_candidate_result_contract(results, run_configs=run_configs)
 
     configs_by_name = _run_config_by_name(run_configs)
     results_by_name = _result_by_name(results)
@@ -493,28 +527,29 @@ def build_trusted_tuning_report(
         run_config = configs_by_name[candidate.name]
         result = results_by_name[candidate.name]
         config = candidate.config
+        artifacts = _artifact_paths(result)
         candidate_runs.append(
             {
                 "candidate_name": candidate.name,
                 "description": candidate.description,
                 "complexity_rank": candidate.complexity_rank,
-                "command": _candidate_command(config),
+                "command": _candidate_command(config, split_strategy=str(run_config.get("split_strategy", TRUSTED_TUNING_SPLIT_STRATEGY))),
                 "config": _config_payload(config),
                 "seed": config.seed,
                 "primary_metric_name": TRUSTED_TUNING_PRIMARY_METRIC,
                 "grouped_macro_f1": _result_macro_f1(result),
                 "secondary_metrics": _secondary_metrics(result),
-                "artifacts": _artifact_paths(result),
-                "split_manifest_hash": str(run_config.get("split_manifest_hash", "")),
-                "split_manifest_path": str(run_config.get("split_manifest_path", "")),
-                "preprocessing_schema": str(run_config.get("preprocessing_schema", "")),
-                "preprocessing_manifest_path": str(run_config.get("preprocessing_manifest_path", "")),
-                "feature_schema_version": str(run_config.get("feature_schema_version", "")),
-                "feature_level": str(run_config.get("feature_level", "")),
+                "artifacts": artifacts,
+                "split_manifest_hash": str(result.get("split_manifest_hash", "")),
+                "split_manifest_path": artifacts["split_manifest"],
+                "preprocessing_schema": str(result.get("preprocessing_schema", "")),
+                "preprocessing_manifest_path": artifacts["preprocessing_manifest"],
+                "feature_schema_version": str(result.get("feature_schema_version", "")),
+                "feature_level": str(result.get("feature_level", "")),
             }
         )
 
-    selection = select_trusted_tuning_result(results, baseline_metrics)
+    selection = select_trusted_tuning_result(results, baseline_metrics, run_configs=run_configs)
     baseline_macro_f1 = _baseline_macro_f1(baseline_metrics)
     return {
         "report_version": "trusted-tuning-report-v1",

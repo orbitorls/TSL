@@ -141,7 +141,7 @@ def test_complex_candidate_must_clear_two_point_macro_f1_gate(tmp_path: Path) ->
         _result(run_configs[2], just_below_gate),
     ]
 
-    selection = select_trusted_tuning_result(results, baseline)
+    selection = select_trusted_tuning_result(results, baseline, run_configs=run_configs)
 
     assert selection.selected_name == "task9_baseline"
     assert selection.accepted_tuned_candidate is False
@@ -159,7 +159,7 @@ def test_candidate_at_two_point_macro_f1_gate_is_selected(tmp_path: Path) -> Non
         _result(run_configs[2], threshold - 0.1),
     ]
 
-    selection = select_trusted_tuning_result(results, baseline)
+    selection = select_trusted_tuning_result(results, baseline, run_configs=run_configs)
 
     assert selection.selected_name == "gru_sequence"
     assert selection.accepted_tuned_candidate is True
@@ -177,14 +177,60 @@ def test_candidate_results_must_use_same_split_and_preprocessing_contract(tmp_pa
     ]
     results[2]["split_manifest_hash"] = "different-hash"
 
-    with pytest.raises(ValueError, match="same split manifest hash"):
-        select_trusted_tuning_result(results, baseline)
+    with pytest.raises(ValueError, match="trusted run config.*split_manifest_hash"):
+        select_trusted_tuning_result(results, baseline, run_configs=run_configs)
 
     results[2]["split_manifest_hash"] = results[0]["split_manifest_hash"]
     results[1]["preprocessing_schema"] = "basic-162-v1|basic|target_frames=15|seq_mode=True"
 
-    with pytest.raises(ValueError, match="same preprocessing schema"):
-        select_trusted_tuning_result(results, baseline)
+    with pytest.raises(ValueError, match="trusted run config.*preprocessing_schema"):
+        select_trusted_tuning_result(results, baseline, run_configs=run_configs)
+
+
+def test_direct_selection_requires_trusted_run_configs(tmp_path: Path) -> None:
+    baseline = _baseline_metrics(tmp_path)
+    run_configs = build_trusted_tuning_run_configs(baseline)
+    results = [
+        _result(run_config, TASK9_BASELINE_MACRO_F1 + TRUSTED_TUNING_MIN_DELTA)
+        for run_config in run_configs
+    ]
+
+    unsafe_selector = cast(Any, select_trusted_tuning_result)
+    with pytest.raises(TypeError, match="run_configs"):
+        unsafe_selector(results, baseline)
+
+
+
+def test_candidate_results_must_match_trusted_run_config_identity(tmp_path: Path) -> None:
+    baseline = _baseline_metrics(tmp_path)
+    run_configs = build_trusted_tuning_run_configs(baseline)
+    results = [
+        _result(run_config, TASK9_BASELINE_MACRO_F1 + TRUSTED_TUNING_MIN_DELTA)
+        for run_config in run_configs
+    ]
+    for result in results:
+        result["split_manifest_hash"] = "BOGUS-HASH"
+        result["preprocessing_schema"] = "BOGUS-SCHEMA"
+
+    with pytest.raises(ValueError, match="trusted run config.*split_manifest_hash"):
+        select_trusted_tuning_result(results, baseline, run_configs=run_configs)
+
+    with pytest.raises(ValueError, match="trusted run config.*split_manifest_hash"):
+        build_trusted_tuning_report(run_configs, results, baseline)
+
+
+def test_report_uses_validated_result_identity_not_run_config_mask(tmp_path: Path) -> None:
+    baseline = _baseline_metrics(tmp_path)
+    run_configs = build_trusted_tuning_run_configs(baseline)
+    results = [
+        _result(run_config, TASK9_BASELINE_MACRO_F1 + 0.5)
+        for run_config in run_configs
+    ]
+    results[1]["preprocessing_schema"] = "BOGUS-SCHEMA"
+
+    with pytest.raises(ValueError, match="trusted run config.*preprocessing_schema"):
+        build_trusted_tuning_report(run_configs, results, baseline)
+
 
 
 def test_trusted_tuning_report_records_each_candidate_run_detail(tmp_path: Path) -> None:
@@ -228,7 +274,7 @@ def test_trusted_tuning_report_records_each_candidate_run_detail(tmp_path: Path)
         artifacts = _mapping(entry["artifacts"])
 
         assert command.startswith("python -m src.cli.train ")
-        assert "--split-strategy video_family_grouped" in command
+        assert "--split-strategy video_family_holdout" in command
         assert "--primary-metric macro_f1" in command
         assert "--gradient-clip-value" not in command
         assert config_payload["model"] in {"mlp", "gru"}
