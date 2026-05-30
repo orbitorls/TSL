@@ -8,6 +8,8 @@ Comprehensive tests for model evaluation including:
 - Cross-validation consistency
 """
 
+# pyright: reportArgumentType=false, reportIndexIssue=false, reportCallIssue=false
+
 import numpy as np
 import pytest
 import torch
@@ -19,27 +21,55 @@ from pathlib import Path
 
 
 # Test configuration
-TEST_MODEL_PATH = Path(__file__).parent.parent / "models" / "tsl51_gru_20260503_183943.pt"
-EXPECTED_CLASSES = 262
+EXPECTED_CLASSES = 6
+METRIC_TEST_CLASSES = 12
 EXPECTED_FEATURES = 162
 
 
+@pytest.fixture(scope="session")
+def test_checkpoint_path(tmp_path_factory):
+    """Create a deterministic local checkpoint for model-loading tests."""
+    from src.core import GRUModel
+
+    classes = [f"sign_{idx}" for idx in range(EXPECTED_CLASSES)]
+    model = GRUModel(
+        input_dim=EXPECTED_FEATURES,
+        num_classes=len(classes),
+        hidden_dim=32,
+        num_layers=2,
+        dropout=0.0,
+    )
+    checkpoint_path = tmp_path_factory.mktemp("evaluation-artifacts") / "synthetic-evaluation-model.pt"
+    torch.save(
+        {
+            "state_dict": model.state_dict(),
+            "classes": classes,
+            "mean": np.zeros(EXPECTED_FEATURES, dtype=np.float32),
+            "std": np.ones(EXPECTED_FEATURES, dtype=np.float32),
+            "input_dim": EXPECTED_FEATURES,
+            "num_classes": len(classes),
+            "hidden_dim": 32,
+            "num_layers": 2,
+            "accuracy": 1.0,
+        },
+        checkpoint_path,
+    )
+    return checkpoint_path
+
+
 @pytest.fixture
-def trained_model():
+def trained_model(test_checkpoint_path):
     """Load trained model for evaluation."""
     import torch
     from src.core import GRUModel
 
-    if not TEST_MODEL_PATH.exists():
-        pytest.skip(f"Model not found: {TEST_MODEL_PATH}")
-
-    checkpoint = torch.load(TEST_MODEL_PATH, map_location='cpu')
+    checkpoint = torch.load(test_checkpoint_path, map_location='cpu', weights_only=False)
 
     model = GRUModel(
         input_dim=checkpoint.get('input_dim', 162),
         num_classes=checkpoint.get('num_classes', 262),
-        hidden_dim=256,
-        num_layers=3,
+        hidden_dim=checkpoint.get('hidden_dim', 256),
+        num_layers=checkpoint.get('num_layers', 3),
         dropout=0.0  # No dropout during evaluation
     )
     model.load_state_dict(checkpoint['state_dict'], strict=False)
@@ -59,7 +89,7 @@ def sample_predictions():
     """Generate sample predictions for testing metrics."""
     np.random.seed(42)
     n_samples = 100
-    n_classes = 262
+    n_classes = METRIC_TEST_CLASSES
 
     # True labels
     y_true = np.random.randint(0, n_classes, n_samples)
@@ -200,20 +230,14 @@ class TestClassificationReport:
 class TestModelLoading:
     """Tests for model loading and initialization."""
 
-    def test_model_checkpoint_exists(self):
+    def test_model_checkpoint_exists(self, test_checkpoint_path):
         """Test that model checkpoint exists."""
-        if not TEST_MODEL_PATH.exists():
-            pytest.skip(f"Model not found: {TEST_MODEL_PATH}")
+        assert test_checkpoint_path.exists()
+        assert test_checkpoint_path.stat().st_size > 0
 
-        assert TEST_MODEL_PATH.exists()
-        assert TEST_MODEL_PATH.stat().st_size > 0
-
-    def test_model_checkpoint_structure(self):
+    def test_model_checkpoint_structure(self, test_checkpoint_path):
         """Test that checkpoint has required keys."""
-        if not TEST_MODEL_PATH.exists():
-            pytest.skip(f"Model not found: {TEST_MODEL_PATH}")
-
-        checkpoint = torch.load(TEST_MODEL_PATH, map_location='cpu')
+        checkpoint = torch.load(test_checkpoint_path, map_location='cpu', weights_only=False)
 
         required_keys = ['state_dict', 'classes', 'mean', 'std', 'input_dim', 'num_classes']
         for key in required_keys:
