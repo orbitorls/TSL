@@ -534,7 +534,7 @@ Wave 3: Tasks 9-12 — trusted baseline, controlled tuning, notebook validation,
 
   **Commit**: YES | Message: `feat(train): add trusted model comparison workflow` | Files: `src/train/config.py`, `tests/train/test_tuning_contract.py`
 
-- [ ] 11. Add minimal notebook validation for Colab workflow
+- [x] 11. Add minimal notebook validation for Colab workflow
 
   **What to do**: Add lightweight validation that notebook JSON parses and required canonical imports/calls exist in `colab/02_train.ipynb` and `colab/03_evaluate.ipynb`. Use pytest-based JSON inspection only; add no notebook execution dependency.
   **Must NOT do**: Do not execute notebooks in CI. Do not require Google Drive/GPU. Do not add papermill or heavy notebook infrastructure.
@@ -575,7 +575,7 @@ Wave 3: Tasks 9-12 — trusted baseline, controlled tuning, notebook validation,
 
   **Commit**: YES | Message: `test(colab): validate notebook training contract` | Files: `colab/02_train.ipynb`, `colab/03_evaluate.ipynb`, `tests/colab/test_notebook_contract.py`
 
-- [ ] 12. Tighten CI markers and fast/slow QA boundaries
+- [x] 12. Tighten CI markers and fast/slow QA boundaries
 
   **What to do**: Make pytest markers meaningful. Fast unit/contract tests run in normal CI. Tiny training smoke can be marked `integration` if runtime requires, but must remain CPU-only and runnable by agents. Manual/video-data tests must be marked/skipped clearly or converted to fixture-based tests.
   **Must NOT do**: Do not hide critical split/schema/manifest tests behind slow markers. Do not make CI depend on full HuggingFace downloads or GPU.
