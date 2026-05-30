@@ -8,15 +8,16 @@ from typing import Any
 
 import numpy as np
 
+from src.core.features import (
+    BASIC_FEATURE_DIM,
+    BASIC_FEATURE_SCHEMA,
+    FEATURE_LEVELS,
+    get_feature_dim,
+    validate_feature_level,
+)
 from src.utils.dataset_utils import safe_mean
 
-FEATURE_DIMS = {
-    "basic": 162,
-    "finger": 252,
-    "enhanced": 249,  # 162 base + 87 geometric/dynamic features
-    "full": 1596,
-    "face": 1434,
-}
+FEATURE_DIMS = FEATURE_LEVELS
 
 # Canonical pose landmark names — same order as extract_features_from_landmark_df
 _POSE_LANDMARK_NAMES = [
@@ -35,18 +36,10 @@ _POSE_LANDMARK_NAMES = [
 ]
 
 
-def _build_column_list(feature_level: str = "basic") -> list:
-    """Build the ordered list of column names for a given feature level."""
-    cols = []
-    for i in range(21):
-        for c in ["x", "y", "z"]:
-            cols.append(f"lh_{c}{i}")
-    for i in range(21):
-        for c in ["x", "y", "z"]:
-            cols.append(f"rh_{c}{i}")
-    for base in _POSE_LANDMARK_NAMES:
-        for c in ["x", "y", "z"]:
-            cols.append(f"{base}_{c}")
+def _build_column_list(feature_level: str = "basic") -> list[str]:
+    """Build the ordered list of column names for a supported feature level."""
+    feature_level = validate_feature_level(feature_level)
+    cols = list(BASIC_FEATURE_SCHEMA.columns)
     if feature_level in ["finger", "full", "face"]:
         for hand_prefix in ["lh_", "rh_"]:
             for finger in ["thumb", "index", "middle", "ring", "pinky"]:
@@ -57,51 +50,24 @@ def _build_column_list(feature_level: str = "basic") -> list:
         for i in range(478):
             for c in ["x", "y", "z"]:
                 cols.append(f"face_{c}{i}")
-    if feature_level == "enhanced":
-        # Enhanced adds geometric + dynamic features after base 162
-        # These are synthetic features computed at runtime, not stored columns
-        # But we still need to return a consistent feature_dim
-        pass
-    feature_dim = FEATURE_DIMS.get(feature_level, 162)
-    return cols[:feature_dim]
+    return cols[: get_feature_dim(feature_level)]
 
 
 def extract_features_from_landmark_df(lm_df: Any, feature_level: str = "basic") -> np.ndarray:
     """Extract landmark features from a pandas DataFrame.
 
-    Returns a mean-aggregated (feature_dim,) vector — one value per coordinate
-    averaged across all frames. Use ``extract_sequence_from_landmark_df`` when
-    per-frame temporal information is needed.
+    Returns a mean-aggregated ``(feature_dim,)`` vector. ``enhanced`` is
+    explicitly unsupported in this phase so callers cannot silently receive a
+    partial 162-dim vector for a claimed 249-dim schema.
     """
+    feature_level = validate_feature_level(feature_level)
     features = []
 
-    # ===== 1. BASIC: Hand + Pose (162) =====
-    # Left hand (21 * 3 = 63)
-    for i in range(21):
-        for c in ["x", "y", "z"]:
-            col = f"lh_{c}{i}"
-            if col in lm_df.columns:
-                features.append(safe_mean(lm_df[col]))
-            else:
-                features.append(0.0)
-
-    # Right hand (21 * 3 = 63)
-    for i in range(21):
-        for c in ["x", "y", "z"]:
-            col = f"rh_{c}{i}"
-            if col in lm_df.columns:
-                features.append(safe_mean(lm_df[col]))
-            else:
-                features.append(0.0)
-
-    # Pose landmarks (12 * 3 = 36)
-    for base in _POSE_LANDMARK_NAMES:
-        for c in ["x", "y", "z"]:
-            col = f"{base}_{c}"
-            if col in lm_df.columns:
-                features.append(safe_mean(lm_df[col]))
-            else:
-                features.append(0.0)
+    for col in BASIC_FEATURE_SCHEMA.columns:
+        if col in lm_df.columns:
+            features.append(safe_mean(lm_df[col]))
+        else:
+            features.append(0.0)
 
     if feature_level in ["finger", "full", "face"]:
         finger_names = ["thumb", "index", "middle", "ring", "pinky"]
@@ -124,26 +90,21 @@ def extract_features_from_landmark_df(lm_df: Any, feature_level: str = "basic") 
                 else:
                     features.append(0.0)
 
-    feature_dim = FEATURE_DIMS.get(feature_level, 162)
-    return np.array(features[:feature_dim], dtype=np.float32)
+    return np.array(features[: get_feature_dim(feature_level)], dtype=np.float32)
 
 
 class FeatureExtractor:
     """Wrapper for feature extraction settings."""
 
     def __init__(self, feature_level="basic"):
-        self.feature_level = feature_level
-        self.feature_dim = FEATURE_DIMS.get(feature_level, 162)
+        self.feature_level = validate_feature_level(feature_level)
+        self.feature_dim = get_feature_dim(self.feature_level)
 
     def extract_from_dataframe(self, lm_df):
         return extract_features_from_landmark_df(lm_df, self.feature_level)
 
     def extract_sequence(self, lm_df, target_frames=30):
         """Extract sequence features for the configured level."""
-        if self.feature_level == "enhanced":
-            # Enhanced requires per-frame dicts; DataFrame path not directly supported
-            # Fallback to basic sequence extraction
-            return extract_sequence_from_landmark_df(lm_df, "basic", target_frames)
         return extract_sequence_from_landmark_df(lm_df, self.feature_level, target_frames)
 
 
@@ -163,7 +124,8 @@ def extract_sequence_from_landmark_df(
     Returns:
         ``np.ndarray`` of shape ``(target_frames, feature_dim)``, float32.
     """
-    feature_dim = FEATURE_DIMS.get(feature_level, 162)
+    feature_level = validate_feature_level(feature_level)
+    feature_dim = get_feature_dim(feature_level)
     n_frames = len(lm_df)
 
     if n_frames == 0:
@@ -229,7 +191,7 @@ _FINGER_PIP = {
 }
 
 
-def _get_hand_landmarks(landmarks: dict, hand: str) -> np.ndarray | None:
+def _get_hand_landmarks(landmarks: dict[str, float], hand: str) -> np.ndarray | None:
     """Extract 21x3 array of hand landmarks from a landmark dict.
 
     Expects MediaPipe-style keys such as ``lh_x0``, ``lh_y0``, ``lh_z0``.
@@ -302,7 +264,7 @@ def _compute_relative_hand_position(
     return rel_pos.astype(np.float32)  # type: ignore[no-any-return]  # (3,)
 
 
-def compute_enhanced_frame_features(landmarks: dict) -> np.ndarray | None:
+def compute_enhanced_frame_features(landmarks: dict[str, float]) -> np.ndarray | None:
     """Compute enhanced geometric features (up to 87 dims) from a single frame.
 
     These features complement the raw 162-dim landmark coordinates with
@@ -353,7 +315,7 @@ def compute_enhanced_frame_features(landmarks: dict) -> np.ndarray | None:
     )
 
     torso_scale = np.linalg.norm(r_shoulder - l_shoulder) + 1e-8
-    features.append(torso_scale)  # 1
+    features.append(float(torso_scale))  # 1
 
     if lh is not None and torso_scale > 1e-6:
         rel_lh = _compute_relative_hand_position(lh, l_shoulder, r_shoulder)
@@ -372,7 +334,7 @@ def compute_enhanced_frame_features(landmarks: dict) -> np.ndarray | None:
         lh_wrist = lh[0]
         rh_wrist = rh[0]
         dist = np.linalg.norm(lh_wrist - rh_wrist)
-        features.append(dist / torso_scale)  # 1
+        features.append(float(dist / torso_scale))  # 1
     else:
         features.append(0.0)
 
@@ -401,7 +363,7 @@ def compute_enhanced_frame_features(landmarks: dict) -> np.ndarray | None:
 
 
 def compute_sequence_dynamic_features(
-    frames: list[dict], target_frames: int = 30
+    frames: list[dict[str, float]], target_frames: int = 30
 ) -> np.ndarray | None:
     """Compute dynamic (velocity + acceleration) features from a sequence.
 
@@ -450,7 +412,7 @@ def compute_sequence_dynamic_features(
 
 
 def build_enhanced_sequence(
-    frames: list[dict],
+    frames: list[dict[str, float]],
     feature_level: str = "enhanced",
     target_frames: int = 30,
 ) -> np.ndarray | None:
@@ -462,6 +424,7 @@ def build_enhanced_sequence(
 
     This is the canonical entry-point for real-time enhanced inference.
     """
+    _ = validate_feature_level(feature_level)
     if not frames:
         return None
 
@@ -469,8 +432,8 @@ def build_enhanced_sequence(
     # Local import to avoid circular dependency (extractor imports from this module)
     from .extractor import _frame_dict_to_vector
 
-    feature_dim = FEATURE_DIMS.get(feature_level, 249)
-    base_dim = 162
+    feature_dim = get_feature_dim(feature_level)
+    base_dim = BASIC_FEATURE_DIM
 
     seq_base = []
     for frm in frames:
@@ -527,7 +490,7 @@ _POSE_BASES = [
 ]
 
 
-def _df_row_to_dict(row) -> dict:
+def _df_row_to_dict(row: Any) -> dict[str, float]:
     """Convert a DataFrame row (Series) to a landmarks dict.
 
     Maps ``lh_x0`` / ``p_x0`` style keys to the formats expected by
@@ -568,6 +531,7 @@ def build_enhanced_sequence_from_df(
     Returns:
         np.ndarray of shape (target_frames, 249) or None.
     """
+    _ = validate_feature_level(feature_level)
     if lm_df is None or len(lm_df) == 0:
         return None
     frames = [_df_row_to_dict(row) for _, row in lm_df.iterrows()]
@@ -644,6 +608,11 @@ def resolve_feature_level_for_inference(
     Returns:
         Tuple of (resolved_level, warning_message_or_None).
     """
+    if checkpoint_feature_level:
+        _ = validate_feature_level(checkpoint_feature_level)
+    if requested_level is not None:
+        _ = validate_feature_level(requested_level)
+
     # Determine what feature level matches the model's input dimension
     dim_to_level = {dim: level for level, dim in FEATURE_DIMS.items()}
     matching_level = dim_to_level.get(model_input_dim)
@@ -677,3 +646,6 @@ def resolve_feature_level_for_inference(
             f"Continuing with adaptation — accuracy may be degraded."
         )
         return requested_level, msg
+
+
+

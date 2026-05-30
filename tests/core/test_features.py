@@ -4,15 +4,16 @@ import numpy as np
 import pandas as pd
 import pytest
 from src.core import FEATURE_LEVELS, extract_features
+from src.core.features import UnsupportedFeatureLevelError
 
 
 def test_feature_levels():
     """Test FEATURE_LEVELS dictionary."""
     assert FEATURE_LEVELS['basic'] == 162
-    assert FEATURE_LEVELS['enhanced'] == 249
     assert FEATURE_LEVELS['finger'] == 252
     assert FEATURE_LEVELS['full'] == 1596
     assert FEATURE_LEVELS['face'] == 1434
+    assert 'enhanced' not in FEATURE_LEVELS
 
 
 def test_extract_features_basic():
@@ -50,3 +51,10 @@ def test_extract_features_missing_columns():
     assert features[0] == 0.5
     # Second feature (lh_y0) should be 0.0 (missing, defaults to 0)
     assert features[1] == 0.0
+
+
+def test_extract_features_enhanced_unsupported():
+    """Enhanced feature extraction is intentionally disabled for this phase."""
+    with pytest.raises(UnsupportedFeatureLevelError, match="enhanced.*not supported"):
+        extract_features(pd.DataFrame(), "enhanced")
+
