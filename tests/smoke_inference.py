@@ -8,9 +8,12 @@ import numpy as np
 import pytest
 import torch
 
-pytestmark = pytest.mark.skip(
-    reason="Manual local smoke script relies on external checkpoint/cache paths; use deterministic tmp-path training smoke tests instead."
-)
+pytestmark = [
+    pytest.mark.manual,
+    pytest.mark.skip(
+        reason="Manual local smoke script relies on external checkpoint/cache paths; use deterministic tmp-path training smoke tests instead."
+    ),
+]
 
 # Paths
 CKPT_PATH = r"D:\TSL\models\tsl51_gru_best.pt"

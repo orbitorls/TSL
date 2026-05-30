@@ -3,6 +3,8 @@
 import pytest
 import torch
 
+pytestmark = pytest.mark.integration
+
 
 class TestModelRegistryConsistency:
     """Verify src.core.models is the single source of truth."""

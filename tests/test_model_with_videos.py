@@ -14,9 +14,12 @@ import pytest
 from pathlib import Path
 from collections import Counter
 
-pytestmark = pytest.mark.skip(
-    reason="Manual regression script relies on local checkpoints and real video dataset paths; excluded from deterministic automated tests."
-)
+pytestmark = [
+    pytest.mark.manual,
+    pytest.mark.skip(
+        reason="Manual regression script relies on local checkpoints and real video dataset paths; excluded from deterministic automated tests."
+    ),
+]
 
 def configure_stdout_encoding():
     """Enable UTF-8 console output for Thai text when run as a script."""
