@@ -106,7 +106,7 @@ class Trainer:
             return array_like.astype(dtype, copy=False)
         return np.asarray(array_like, dtype=dtype)
 
-    def _configure_scheduler(self, train_loader: DataLoader, accumulation_steps: int) -> None:
+    def _configure_scheduler(self, train_loader: DataLoader[Any], accumulation_steps: int) -> None:
         if self.optimizer is None:
             return
 
@@ -188,21 +188,19 @@ class Trainer:
         val_dataset = TensorDataset(torch.from_numpy(X_val).float(), torch.from_numpy(y_val).long())
 
         num_workers = self._resolve_num_workers(self.device)
-        common_kwargs = {
-            "batch_size": self.config.batch_size,
-            "num_workers": num_workers,
-            "pin_memory": num_workers > 0,
-        }
-
         train_loader = DataLoader(
             train_dataset,
+            batch_size=self.config.batch_size,
             shuffle=True,
-            **common_kwargs,
+            num_workers=num_workers,
+            pin_memory=num_workers > 0,
         )
         val_loader = DataLoader(
             val_dataset,
+            batch_size=self.config.batch_size,
             shuffle=False,
-            **common_kwargs,
+            num_workers=num_workers,
+            pin_memory=num_workers > 0,
         )
 
         return train_loader, val_loader
@@ -395,34 +393,43 @@ class Trainer:
             "train_acc": [],
             "val_loss": [],
             "val_acc": [],
+            "val_macro_f1": [],
         }
 
         for epoch in range(self.config.epochs):
             train_loss, train_acc = self.train_epoch(train_loader, criterion, accumulation_steps)
-            val_loss, val_acc, val_preds, val_labels = self.validate(val_loader, criterion)
+            val_loss, val_acc, val_preds, val_labels, val_probs = self.validate(val_loader, criterion)
+            epoch_metrics = compute_metrics(val_labels, val_preds, classes, y_probs=val_probs)
+            val_macro_f1 = float(epoch_metrics["macro"]["f1"])
 
             # Record history
             history["train_loss"].append(train_loss)
             history["train_acc"].append(train_acc)
             history["val_loss"].append(val_loss)
             history["val_acc"].append(val_acc)
+            history["val_macro_f1"].append(val_macro_f1)
 
             print(
                 f"Fold {fold_idx} Epoch {epoch + 1}/{self.config.epochs}: "
                 f"Train Loss: {train_loss:.4f}, Train Acc: {train_acc:.2f}% | "
-                f"Val Loss: {val_loss:.4f}, Val Acc: {val_acc:.2f}%"
+                f"Val Loss: {val_loss:.4f}, Val Acc: {val_acc:.2f}%, "
+                f"Macro F1: {val_macro_f1:.2f}%"
             )
 
-            # Early stopping and best-model tracking.
-            if val_acc > self.best_val_acc:
+            # Early stopping and best-model tracking. Macro F1 is the primary
+            # real-world selection metric because it is less dominated by common signs.
+            if val_macro_f1 > self.best_val_f1:
                 self.best_val_acc = val_acc
-                self.best_val_f1 = val_acc
+                self.best_val_f1 = val_macro_f1
                 self.patience_counter = 0
                 self.best_state = {
                     "model_state_dict": self.model.state_dict(),
                     "optimizer_state_dict": self.optimizer.state_dict(),
                     "epoch": epoch,
                     "val_acc": val_acc,
+                    "val_macro_f1": val_macro_f1,
+                    "primary_metric_name": "macro_f1",
+                    "primary_metric": val_macro_f1,
                     "seq_mode": bool(getattr(self.config, "seq_mode", False)),
                     "target_frames": int(getattr(self.config, "target_frames", 30)),
                     "model": str(self.config.model),
@@ -440,7 +447,8 @@ class Trainer:
         # Final evaluation via evaluator
         val_loss, val_acc, val_preds, val_labels, val_probs = self.validate(val_loader, criterion)
         metrics = compute_metrics(val_labels, val_preds, classes, y_probs=val_probs)
-        self.best_val_f1 = metrics["f1_score"]
+        macro_f1 = float(metrics["macro"]["f1"])
+        self.best_val_f1 = macro_f1
 
         results = {
             "fold": fold_idx,
@@ -449,6 +457,9 @@ class Trainer:
             "val_loss": val_loss,
             "val_acc": val_acc,
             "val_f1_score": metrics["f1_score"],
+            "val_macro_f1": macro_f1,
+            "primary_metric_name": "macro_f1",
+            "primary_metric": macro_f1,
             "val_precision": metrics["precision"],
             "val_recall": metrics["recall"],
             "val_top3_acc": metrics["top3_accuracy"],
