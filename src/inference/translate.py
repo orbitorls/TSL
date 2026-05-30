@@ -2,9 +2,9 @@
 Thai Sign Language Translation - Single Model File
 
 Usage:
-    python translate.py --input sample.json
-    python translate.py --input file1.json file2.json
-    python translate.py --input data/tsl51_full_processed/test/*.json
+    tsl-translate --input sample.json
+    tsl-translate --input file1.json file2.json
+    tsl-translate --input data/tsl51_full_processed/test/*.json
 
 Output:
     Predicted word in Thai (e.g., "กรุงเทพ", "กิน", "รัก")
@@ -19,9 +19,9 @@ from pathlib import Path
 
 # Fix Windows console encoding for Thai characters
 if sys.platform == "win32":
-    import io
-
-    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
+    reconfigure_stdout = getattr(sys.stdout, "reconfigure", None)
+    if callable(reconfigure_stdout):
+        reconfigure_stdout(encoding="utf-8", errors="replace")
 
 os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
 
@@ -29,6 +29,7 @@ import numpy as np
 import torch
 
 from src.core.models import MLP, MOPGRU, GRUModel, HybridGRUTransformer
+from src.core.normalizer import resolve_checkpoint_preprocessing
 
 from ..data.extractor import (
     FEATURE_DIMS,
@@ -76,35 +77,31 @@ def load_model(model_path: str | Path):
     else:
         raise KeyError("Checkpoint missing labels/classes metadata")
 
-    mean = checkpoint.get("normalization_mean", checkpoint.get("mean"))
-    std = checkpoint.get("normalization_std", checkpoint.get("std"))
-    if mean is None or std is None:
-        raise KeyError("Checkpoint missing normalization stats (mean/std)")
-    mean = np.asarray(mean, dtype=np.float32)
-    std = np.asarray(std, dtype=np.float32)
-
-    input_dim = checkpoint.get("input_dim", int(mean.shape[0]))
+    preprocessing = resolve_checkpoint_preprocessing(model_path, checkpoint)
+    mean = preprocessing["mean"]
+    std = preprocessing["std"]
+    input_dim = int(preprocessing["input_dim"])
     num_classes = checkpoint.get("num_classes", len(labels))
     config = checkpoint.get("config", {})
+    feature_level = str(preprocessing["feature_level"])
 
-    # Auto-detect or use explicit feature_level
-    feature_level = str(config.get("feature_level", _detect_feature_level_from_dim(input_dim)))
-    expected_dim = FEATURE_DIMS.get(feature_level, input_dim)
-
-    # Validate feature dimension consistency
-    if input_dim != len(mean):
-        print(f"WARNING: input_dim={input_dim} but mean/std have {len(mean)} dimensions")
-        print(f"Using mean/std dimension: {len(mean)}")
-        input_dim = len(mean)
-
-    if input_dim != expected_dim:
-        print(
-            f"WARNING: Feature level '{feature_level}' expects {expected_dim} features but model has {input_dim}"
-        )
-        print(f"Available feature levels: {FEATURE_DIMS}")
-        # Auto-correct feature_level based on actual input_dim
-        feature_level = _detect_feature_level_from_dim(input_dim)
-        print(f"Auto-detected feature level: '{feature_level}'")
+    # Legacy checkpoints can still be corrected heuristically. Manifests are
+    # validated strictly in resolve_checkpoint_preprocessing and must not guess.
+    if preprocessing["manifest"] is None:
+        if "feature_level" not in config:
+            feature_level = _detect_feature_level_from_dim(input_dim)
+        expected_dim = FEATURE_DIMS.get(feature_level, input_dim)
+        if input_dim != len(mean):
+            print(f"WARNING: input_dim={input_dim} but mean/std have {len(mean)} dimensions")
+            print(f"Using mean/std dimension: {len(mean)}")
+            input_dim = len(mean)
+        if input_dim != expected_dim:
+            print(
+                f"WARNING: Feature level '{feature_level}' expects {expected_dim} features but model has {input_dim}"
+            )
+            print(f"Available feature levels: {FEATURE_DIMS}")
+            feature_level = _detect_feature_level_from_dim(input_dim)
+            print(f"Auto-detected feature level: '{feature_level}'")
 
     model_name = config.get("model", checkpoint.get("model", "mlp"))
     model_classes = {
@@ -142,8 +139,8 @@ def load_model(model_path: str | Path):
             raise
     model.eval()
 
-    seq_mode = bool(checkpoint.get("seq_mode", False))
-    target_frames = int(checkpoint.get("target_frames", 30))
+    seq_mode = bool(preprocessing["seq_mode"])
+    target_frames = int(preprocessing["target_frames"])
 
     print(f"Model configuration: feature_level='{feature_level}', input_dim={input_dim}")
 
@@ -170,8 +167,8 @@ def predict(
     with torch.no_grad():
         outputs = model(tensor)
         probs = torch.softmax(outputs, dim=1)[0]
-        top_indices = probs.argsort(descending=True)[:top_k]
-        predictions = [(idx_to_label[idx.item()], probs[idx].item()) for idx in top_indices]
+        top_indices = [int(idx) for idx in probs.argsort(descending=True)[:top_k].tolist()]
+        predictions = [(idx_to_label[idx], float(probs[idx].item())) for idx in top_indices]
 
     return predictions
 
@@ -186,13 +183,13 @@ def main():
         epilog=r"""
 Examples:
     # Single file
-    python translate.py --input sample.json
+    tsl-translate --input sample.json
 
     # Multiple files
-    python translate.py --input file1.json file2.json
+    tsl-translate --input file1.json file2.json
 
     # PowerShell: all test files
-    python translate.py --input (Get-ChildItem data\tsl51_full_processed\test\*.json).FullName
+    tsl-translate --input (Get-ChildItem data\tsl51_full_processed\test\*.json).FullName
 """,
     )
     parser.add_argument(

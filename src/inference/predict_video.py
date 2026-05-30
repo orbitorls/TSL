@@ -3,9 +3,9 @@ Thai Sign Language Video Prediction Script
 Predict Thai words from video files (pre-recorded clips)
 
 Usage:
-    python predict_video.py --input video.mp4
-    python predict_video.py --input video.mp4 --model models/tsl_model.pt
-    python predict_video.py --input video.mp4 --top-k 5
+    tsl-predict-video --input video.mp4
+    tsl-predict-video --input video.mp4 --model models/tsl_model.pt
+    tsl-predict-video --input video.mp4 --top-k 5
 """
 
 from __future__ import annotations
@@ -17,6 +17,7 @@ import numpy as np
 import torch
 
 from src.core.models import MLP, MOPGRU, GRUModel, HybridGRUTransformer
+from src.core.normalizer import resolve_checkpoint_preprocessing
 
 from ..data.extractor import (
     FEATURE_DIMS,
@@ -61,35 +62,31 @@ def load_model(model_path: str | Path):
     else:
         raise KeyError("Checkpoint missing labels/classes metadata")
 
-    mean = checkpoint.get("normalization_mean", checkpoint.get("mean"))
-    std = checkpoint.get("normalization_std", checkpoint.get("std"))
-    if mean is None or std is None:
-        raise KeyError("Checkpoint missing normalization stats (mean/std)")
-    mean = np.asarray(mean, dtype=np.float32)
-    std = np.asarray(std, dtype=np.float32)
-
-    input_dim = checkpoint.get("input_dim", int(mean.shape[0]))
+    preprocessing = resolve_checkpoint_preprocessing(model_path, checkpoint)
+    mean = preprocessing["mean"]
+    std = preprocessing["std"]
+    input_dim = int(preprocessing["input_dim"])
     num_classes = checkpoint.get("num_classes", len(labels))
     config = checkpoint.get("config", {})
+    feature_level = str(preprocessing["feature_level"])
 
-    # Auto-detect or use explicit feature_level
-    feature_level = str(config.get("feature_level", _detect_feature_level_from_dim(input_dim)))
-    expected_dim = FEATURE_DIMS.get(feature_level, input_dim)
-
-    # Validate feature dimension consistency
-    if input_dim != len(mean):
-        print(f"WARNING: input_dim={input_dim} but mean/std have {len(mean)} dimensions")
-        print(f"Using mean/std dimension: {len(mean)}")
-        input_dim = len(mean)
-
-    if input_dim != expected_dim:
-        print(
-            f"WARNING: Feature level '{feature_level}' expects {expected_dim} features but model has {input_dim}"
-        )
-        print(f"Available feature levels: {FEATURE_DIMS}")
-        # Auto-correct feature_level based on actual input_dim
-        feature_level = _detect_feature_level_from_dim(input_dim)
-        print(f"Auto-detected feature level: '{feature_level}'")
+    # Legacy checkpoints can still be corrected heuristically. Manifests are
+    # validated strictly in resolve_checkpoint_preprocessing and must not guess.
+    if preprocessing["manifest"] is None:
+        if "feature_level" not in config:
+            feature_level = _detect_feature_level_from_dim(input_dim)
+        expected_dim = FEATURE_DIMS.get(feature_level, input_dim)
+        if input_dim != len(mean):
+            print(f"WARNING: input_dim={input_dim} but mean/std have {len(mean)} dimensions")
+            print(f"Using mean/std dimension: {len(mean)}")
+            input_dim = len(mean)
+        if input_dim != expected_dim:
+            print(
+                f"WARNING: Feature level '{feature_level}' expects {expected_dim} features but model has {input_dim}"
+            )
+            print(f"Available feature levels: {FEATURE_DIMS}")
+            feature_level = _detect_feature_level_from_dim(input_dim)
+            print(f"Auto-detected feature level: '{feature_level}'")
 
     model_name = config.get("model", checkpoint.get("model", "mlp"))
     model_classes = {
@@ -128,8 +125,8 @@ def load_model(model_path: str | Path):
             raise
     model.eval()
 
-    seq_mode = bool(checkpoint.get("seq_mode", False))
-    target_frames = int(checkpoint.get("target_frames", 30))
+    seq_mode = bool(preprocessing["seq_mode"])
+    target_frames = int(preprocessing["target_frames"])
 
     print(f"Model configuration: feature_level='{feature_level}', input_dim={input_dim}")
 
@@ -244,9 +241,9 @@ def main():
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-    python predict_video.py --input video.mp4
-    python predict_video.py --input video.mp4 --top-k 5
-    python predict_video.py --input video.mp4 --model models/tsl_model.pt
+    tsl-predict-video --input video.mp4
+    tsl-predict-video --input video.mp4 --top-k 5
+    tsl-predict-video --input video.mp4 --model models/tsl_model.pt
 """,
     )
     parser.add_argument("--input", type=Path, required=True, help="Input video file")

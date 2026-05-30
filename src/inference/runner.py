@@ -1,3 +1,4 @@
+# pyright: reportMissingImports=false, reportGeneralTypeIssues=false, reportCallIssue=false, reportArgumentType=false, reportOperatorIssue=false
 """
 TSL-51 Inference Script
 =======================
@@ -18,15 +19,15 @@ INPUT FORMAT:
 USAGE:
 ======
 # Load model and predict
-python inference.py --model models/tsl51_xxx.pt --input your_data.npz
+tsl-inference --model models/tsl51_xxx.pt --input your_data.npz
 
 # Or use as Python module
-from inference import TSLPredictor
+from src.inference.runner import TSLPredictor
 predictor = TSLPredictor('models/tsl51_xxx.pt')
 label, confidence = predictor.predict(landmarks)
 
 # AutoGluon model (directory instead of .pt file)
-python inference.py --model models/autogluon_tsl51 --input your_data.npz
+tsl-inference --model models/autogluon_tsl51 --input your_data.npz
 """
 
 import argparse
@@ -37,9 +38,9 @@ from pathlib import Path
 from ..utils.security import validate_file_path
 
 if sys.platform == "win32":
-    import io
-
-    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
+    reconfigure_stdout = getattr(sys.stdout, "reconfigure", None)
+    if callable(reconfigure_stdout):
+        reconfigure_stdout(encoding="utf-8", errors="replace")
 
 os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
 
@@ -52,6 +53,7 @@ from src.core.models import (
 from src.core.models import (
     MODEL_REGISTRY as MODEL_CLASSES,
 )
+from src.core.normalizer import resolve_checkpoint_preprocessing
 
 # NEW: Use core module for shared functionality
 from ..data.feature_extraction import (
@@ -223,29 +225,28 @@ class TSLPredictor:
         else:
             raise KeyError("Checkpoint missing classes/labels metadata")
 
-        mean_val = checkpoint.get("normalization_mean", checkpoint.get("mean"))
-        std_val = checkpoint.get("normalization_std", checkpoint.get("std"))
-        if mean_val is None or std_val is None:
-            raise KeyError("Checkpoint missing normalization stats (mean/std)")
-        self.mean = np.array(mean_val)
-        self.std = np.array(std_val)
+        preprocessing = resolve_checkpoint_preprocessing(self.model_path, checkpoint)
+        self.mean = preprocessing["mean"]
+        self.std = preprocessing["std"]
 
-        self.input_dim = checkpoint.get("input_dim", int(self.mean.shape[0]))
+        self.input_dim = int(preprocessing["input_dim"])
         self.num_classes = checkpoint.get("num_classes", len(self.classes))
         self.model_name = checkpoint.get("model", checkpoint.get("config", {}).get("model", "gru"))
         self.accuracy = checkpoint.get("accuracy", 0.0)
 
-        # Get feature level and sequence mode from checkpoint
-        self.feature_level = checkpoint.get("config", {}).get("feature_level", "basic")
-        self.seq_mode = checkpoint.get("seq_mode", False)
-        self.target_frames = checkpoint.get("target_frames", 30)
+        # Get feature level and sequence mode from manifest when present,
+        # otherwise preserve legacy checkpoint metadata.
+        self.feature_level = str(preprocessing["feature_level"])
+        self.seq_mode = bool(preprocessing["seq_mode"])
+        self.target_frames = int(preprocessing["target_frames"])
 
         if self.seq_mode:
             print(f"Sequence mode: ON (target_frames={self.target_frames})")
 
-        # Validate dimensions
+        # Validate dimensions. Sidecar manifests are already strict; legacy
+        # checkpoints retain the existing warning-only behavior.
         expected_dim = FEATURE_DIMS.get(self.feature_level, 162)
-        if self.input_dim != expected_dim:
+        if self.input_dim != expected_dim and preprocessing["manifest"] is None:
             print(f"WARNING: Model has {self.input_dim} features but expected {expected_dim}")
 
         # Create model based on type
@@ -421,6 +422,11 @@ class TSLPredictor:
         return self.predict(features, return_top_k=return_top_k)
 
 
+def load_model(model_path, device=None):
+    """Compatibility wrapper returning a loaded TSLPredictor."""
+    return TSLPredictor(model_path, device=device)
+
+
 # ============================================================================
 # MAIN
 # ============================================================================
@@ -430,8 +436,8 @@ def main():
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-    python inference.py --model models/tsl51_gru.pt --input data.npz
-    python inference.py --model models/autogluon_tsl51 --input data.csv
+    tsl-inference --model models/tsl51_gru.pt --input data.npz
+    tsl-inference --model models/autogluon_tsl51 --input data.csv
     """,
     )
     parser.add_argument(
