@@ -327,7 +327,7 @@ Wave 3: Tasks 9-12 — trusted baseline, controlled tuning, notebook validation,
 
   **Commit**: YES | Message: `refactor(train): make src training pipeline canonical` | Files: `src/train/pipeline.py`, `src/train/trainer.py`, `src/train/config.py`, `src/cli/train.py`, `tests/train/test_pipeline_contract.py`
 
-- [ ] 6. Migrate CLI and Colab wiring to the canonical pipeline
+- [x] 6. Migrate CLI and Colab wiring to the canonical pipeline
 
   **What to do**: Update `src/cli/train.py` so `python -m src.cli.train --help` and `tsl-train --help` use the canonical `src/train/` pipeline. Preserve common legacy flags and output locations where practical, and add explicit `--real-world-mode`, `--split-strategy`, and `--primary-metric` flags. Update `colab/02_train.ipynb` to call/import the canonical path rather than duplicating training logic.
   **Must NOT do**: Do not require manual Colab execution as verification. Do not break console script declarations in `pyproject.toml`. Do not remove legacy files unless separately approved.
