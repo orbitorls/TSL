@@ -4,6 +4,7 @@ This module contains the training loop and related functions extracted from
 train_tsl51_v3.py for better modularity.
 """
 
+import copy
 import logging
 import math
 import os
@@ -423,8 +424,8 @@ class Trainer:
                 self.best_val_f1 = val_macro_f1
                 self.patience_counter = 0
                 self.best_state = {
-                    "model_state_dict": self.model.state_dict(),
-                    "optimizer_state_dict": self.optimizer.state_dict(),
+                    "model_state_dict": copy.deepcopy(self.model.state_dict()),
+                    "optimizer_state_dict": copy.deepcopy(self.optimizer.state_dict()),
                     "epoch": epoch,
                     "val_acc": val_acc,
                     "val_macro_f1": val_macro_f1,
