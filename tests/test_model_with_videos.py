@@ -4,12 +4,19 @@ Test TSL Model with Real Videos - Check Label Match
 This script tests the fixed model with videos and checks label overlap.
 """
 
+# pyright: reportAttributeAccessIssue=false, reportIndexIssue=false
+
 import os
 import sys
 import cv2
 import torch
+import pytest
 from pathlib import Path
 from collections import Counter
+
+pytestmark = pytest.mark.skip(
+    reason="Manual regression script relies on local checkpoints and real video dataset paths; excluded from deterministic automated tests."
+)
 
 def configure_stdout_encoding():
     """Enable UTF-8 console output for Thai text when run as a script."""
@@ -22,8 +29,8 @@ os.environ['TF_ENABLE_ONEDNN_OPTS'] = '0'
 PROJECT_DIR = Path(__file__).resolve().parent
 
 # Import model and extraction
-from camera_translate import ThaiSignTranslator
-from tsl_tasks_extractor import LANDMARK_VECTOR_DIM, extract_features, normalize_features
+from src.data.extractor import LANDMARK_VECTOR_DIM, extract_features, normalize_features
+from src.inference.camera_translate import ThaiSignTranslator
 
 
 def get_label_from_filename(filename):
@@ -184,7 +191,7 @@ def process_video(video_path, translator, min_frames=60):
     with torch.no_grad():
         outputs = translator.model(tensor)
         probs = torch.softmax(outputs, dim=1)[0]
-        top_idx = probs.argmax().item()
+        top_idx = int(probs.argmax().item())
         confidence = probs[top_idx].item()
     
     if confidence < 0.70:

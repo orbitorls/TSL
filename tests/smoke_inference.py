@@ -1,9 +1,16 @@
+# pyright: reportOptionalMemberAccess=false, reportArgumentType=false
+
 import json
 import sys
 from pathlib import Path
 
 import numpy as np
+import pytest
 import torch
+
+pytestmark = pytest.mark.skip(
+    reason="Manual local smoke script relies on external checkpoint/cache paths; use deterministic tmp-path training smoke tests instead."
+)
 
 # Paths
 CKPT_PATH = r"D:\TSL\models\tsl51_gru_best.pt"
@@ -63,7 +70,7 @@ def main():
             # suppress prints from predictor init
             import io
             import contextlib
-            from inference import TSLPredictor
+            from src.inference.runner import TSLPredictor
             with contextlib.redirect_stdout(io.StringIO()):
                 predictor = TSLPredictor(CKPT_PATH, device=torch.device('cpu'))
         except Exception:
