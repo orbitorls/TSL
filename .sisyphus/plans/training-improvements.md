@@ -410,7 +410,7 @@ Wave 3: Tasks 9-12 — trusted baseline, controlled tuning, notebook validation,
 
   **Commit**: YES | Message: `test(train): add tiny training smoke coverage` | Files: `tests/conftest.py`, `tests/train/test_tiny_training_smoke.py`, `tests/test_evaluation.py`, `tests/test_model_with_videos.py`, `tests/smoke_inference.py`
 
-- [ ] 8. Make metrics/result contract Macro-F1-first and grouped-split-aware
+- [x] 8. Make metrics/result contract Macro-F1-first and grouped-split-aware
 
   **What to do**: Update evaluator/result serialization so `macro_f1` is the primary selection/reporting metric for real-world mode. Result JSON must include grouped split metadata, secondary metrics, per-class metrics, confusion matrix data/path, seed, feature schema version, preprocessing manifest path, and checkpoint path.
   **Must NOT do**: Do not remove accuracy/top-k metrics. Do not select best checkpoint by validation accuracy in real-world mode. Do not rely on visual plot inspection.

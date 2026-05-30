@@ -3,16 +3,17 @@
 from __future__ import annotations
 
 import json
+import math
 from dataclasses import asdict, is_dataclass
 from datetime import datetime
 from pathlib import Path
 from types import SimpleNamespace
-from typing import Any
+from typing import Any, Mapping
 
 import numpy as np
 import torch
 
-from src.core.features import BASIC_FEATURE_DIM, validate_feature_level
+from src.core.features import BASIC_FEATURE_DIM, FEATURE_SCHEMA_VERSION, validate_feature_level
 from src.core.normalizer import Normalizer
 from src.data.loader import (
     load_local_dataset,
@@ -233,6 +234,87 @@ def _write_label_map(path: Path, classes: np.ndarray) -> tuple[Path, dict[str, i
     return path, label_map
 
 
+def _require_metric(mapping: Mapping[str, Any], key: str, *, context: str) -> float:
+    if key not in mapping:
+        raise PipelineConfigError(
+            f"{context} requires {key!r} before checkpoint selection or result serialization"
+        )
+    value = mapping[key]
+    if value is None:
+        raise PipelineConfigError(
+            f"{context} requires non-null {key!r} before checkpoint selection or result serialization"
+        )
+    try:
+        metric_value = float(value)
+    except (TypeError, ValueError) as exc:
+        raise PipelineConfigError(
+            f"{context} requires numeric {key!r} before checkpoint selection or result serialization"
+        ) from exc
+    if not math.isfinite(metric_value):
+        raise PipelineConfigError(
+            f"{context} requires finite {key!r} before checkpoint selection or result serialization"
+        )
+    return metric_value
+
+
+def _build_confusion_matrix_contract(
+    confusion_matrix_data: Any,
+    *,
+    path: str | Path | None = None,
+) -> dict[str, Any]:
+    return {
+        "data": _json_safe(confusion_matrix_data),
+        "path": str(path) if path is not None else None,
+    }
+
+
+def _resolve_macro_f1(train_result: Mapping[str, Any], *, context: str) -> float:
+    return _require_metric(train_result, "val_macro_f1", context=context)
+
+
+def _build_result_metrics_contract(train_result: dict[str, Any]) -> dict[str, Any]:
+    macro_f1 = _resolve_macro_f1(train_result, context="training result contract")
+    weighted_f1 = _require_metric(train_result, "val_f1_score", context="training result contract")
+    accuracy = _require_metric(train_result, "val_acc", context="training result contract")
+    precision = _require_metric(train_result, "val_precision", context="training result contract")
+    recall = _require_metric(train_result, "val_recall", context="training result contract")
+    top3_accuracy = _require_metric(train_result, "val_top3_acc", context="training result contract")
+    top5_accuracy = _require_metric(train_result, "val_top5_acc", context="training result contract")
+
+    if "per_class_metrics" not in train_result or train_result["per_class_metrics"] is None:
+        raise PipelineConfigError(
+            "training result contract requires 'per_class_metrics' before checkpoint selection or result serialization"
+        )
+    if "confusion_matrix" not in train_result or train_result["confusion_matrix"] is None:
+        raise PipelineConfigError(
+            "training result contract requires 'confusion_matrix' before checkpoint selection or result serialization"
+        )
+
+    return {
+        "macro_f1": macro_f1,
+        "weighted_f1": weighted_f1,
+        "accuracy": accuracy,
+        "precision": precision,
+        "recall": recall,
+        "top3_accuracy": top3_accuracy,
+        "top5_accuracy": top5_accuracy,
+        "per_class": _json_safe(train_result["per_class_metrics"]),
+        "confusion_matrix": _build_confusion_matrix_contract(train_result["confusion_matrix"], path=None),
+        "most_confused": _json_safe(train_result.get("most_confused", [])),
+    }
+
+
+def _build_split_metadata_contract(split_manifest: dict[str, Any], *, requested_strategy: str) -> dict[str, Any]:
+    return {
+        "requested_strategy": requested_strategy,
+        "persisted_strategy": str(split_manifest["split_strategy"]),
+        "group_key": str(split_manifest["group_key"]),
+        "sample_counts": _json_safe(split_manifest.get("sample_counts", {})),
+        "group_counts": _json_safe(split_manifest.get("group_counts", {})),
+        "class_counts": _json_safe(split_manifest.get("class_counts", {})),
+    }
+
+
 def _checkpoint_payload(
     *,
     trainer: Trainer,
@@ -248,6 +330,8 @@ def _checkpoint_payload(
     state_dict = model_state.get("model_state_dict")
     if state_dict is None and getattr(trainer, "model", None) is not None:
         state_dict = trainer.model.state_dict()
+
+    macro_f1 = _resolve_macro_f1(train_result, context="checkpoint payload")
 
     return {
         "model_state_dict": state_dict,
@@ -269,7 +353,7 @@ def _checkpoint_payload(
         "seq_mode": bool(training_config.seq_mode),
         "target_frames": int(training_config.target_frames),
         "primary_metric_name": PRIMARY_METRIC_NAME,
-        "primary_metric": float(train_result.get("primary_metric", train_result.get("val_macro_f1", 0.0))),
+        "primary_metric": macro_f1,
         "metrics": _json_safe(train_result),
     }
 
@@ -334,7 +418,7 @@ def run_training_pipeline(config: Any, *, dataset: Any | None = None) -> dict[st
         fold_idx=0,
     )
 
-    macro_f1 = float(train_result.get("val_macro_f1", train_result.get("primary_metric", train_result.get("val_f1_score", 0.0))))
+    macro_f1 = _resolve_macro_f1(train_result, context="pipeline training result")
     train_result["val_macro_f1"] = macro_f1
     train_result["primary_metric_name"] = PRIMARY_METRIC_NAME
     train_result["primary_metric"] = macro_f1
@@ -386,8 +470,17 @@ def run_training_pipeline(config: Any, *, dataset: Any | None = None) -> dict[st
     metrics_payload = {
         "dataset": dataset_name,
         "model": training_config.model,
+        "seed": int(training_config.seed),
+        "feature_schema_version": FEATURE_SCHEMA_VERSION,
+        "feature_level": training_config.feature_level,
         "primary_metric_name": PRIMARY_METRIC_NAME,
         "primary_metric": macro_f1,
+        "checkpoint_path": str(checkpoint_path),
+        "preprocessing_manifest_path": str(preprocessing_manifest_path),
+        "split_manifest_path": str(split_manifest_path),
+        "label_map_path": str(label_map_path),
+        "metrics": _build_result_metrics_contract(train_result),
+        "split_metadata": _build_split_metadata_contract(split_manifest, requested_strategy=requested_split_strategy),
         "train_result": train_result,
         "split_manifest": split_manifest,
         "artifacts": artifacts,
