@@ -368,7 +368,7 @@ Wave 3: Tasks 9-12 — trusted baseline, controlled tuning, notebook validation,
 
   **Commit**: YES | Message: `feat(cli): route training through canonical pipeline` | Files: `src/cli/train.py`, `colab/02_train.ipynb`, `tests/cli/test_train_cli.py`
 
-- [ ] 7. Add deterministic tiny fixture training smoke test and replace brittle paths
+- [x] 7. Add deterministic tiny fixture training smoke test and replace brittle paths
 
   **What to do**: Add tiny generated or checked-in fixture data sufficient for a fast train/save/load smoke. Replace tests that hardcode local checkpoints/data paths with temp fixtures or skips tied to explicit markers. Make smoke test run on CPU under CI time constraints.
   **Must NOT do**: Do not commit large model/data artifacts. Do not rely on `D:\TSL\TSL\models\...` or local full dataset paths. Do not require GPU.
