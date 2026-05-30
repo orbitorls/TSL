@@ -452,7 +452,7 @@ Wave 3: Tasks 9-12 — trusted baseline, controlled tuning, notebook validation,
 
   **Commit**: YES | Message: `feat(eval): make macro f1 the primary training metric` | Files: `src/train/evaluator.py`, `src/train/trainer.py`, `tests/train/test_metrics_contract.py`, `tests/test_evaluator.py`
 
-- [ ] 9. Reproduce a trusted baseline run on grouped split
+- [x] 9. Reproduce a trusted baseline run on grouped split
 
   **What to do**: Run the canonical pipeline with locked 162-dim basic schema, grouped split, train-only augmentation, and Macro F1 primary metric. Save baseline artifacts under ignored output locations and commit only a small baseline summary/report if appropriate. The baseline is the comparison point for Task 10.
   **Must NOT do**: Do not tune hyperparameters in this task. Do not use leaked/random split as primary baseline. Do not commit large checkpoints/results.
@@ -493,7 +493,7 @@ Wave 3: Tasks 9-12 — trusted baseline, controlled tuning, notebook validation,
 
   **Commit**: NO | Message: `n/a` | Files: ignored run artifacts only; commit only small summary if project convention accepts it
 
-- [ ] 10. Run controlled GRU/MLP tuning under trusted Macro F1 gate
+- [x] 10. Run controlled GRU/MLP tuning under trusted Macro F1 gate
 
   **What to do**: Compare a small, fixed candidate set: MLP basic baseline, GRU sequence model, and one GRU regularization variant. Use grouped split Macro F1 as the gate. Keep search manual/fixed, not heavy HPO. If Optuna or persisted studies are introduced later, isolate study names by device/search-space fingerprint and clamp runtime constraints after suggestions.
   **Must NOT do**: Do not tune before Task 9 trusted baseline exists. Do not use random split as the primary metric. Do not add heavy HPO dependencies now. Do not expand to Hybrid/Transformer/CTC in this plan.
