@@ -136,6 +136,7 @@ addopts = [
 markers = [
     "slow: marks tests as slow (deselect with '-m \"not slow\"')",
     "integration: marks tests as integration tests",
+    "manual: marks tests that are manual/local scripts and skipped from automated CI",
     "gpu: marks tests that require GPU",
 ]
 
