@@ -285,10 +285,30 @@ def validate_split_manifest(manifest: Mapping[str, Any]) -> None:
                 sample_ids.add(sample_id)
 
 
+def get_manifest_split_rows(manifest: Mapping[str, Any], split: str) -> list[dict[str, Any]]:
+    """Return validated manifest rows for a single split.
+
+    This accessor keeps downstream pipeline code anchored to the canonical
+    manifest contract instead of reaching into arbitrary split structures.
+    """
+    if split not in SPLIT_NAMES:
+        raise ValueError(f"Unknown split {split!r}; expected one of {SPLIT_NAMES}")
+
+    validate_split_manifest(manifest)
+    splits = cast(Mapping[str, Iterable[Any]], manifest["splits"])
+    rows = []
+    for row in splits.get(split, []):
+        if not isinstance(row, Mapping):
+            raise ValueError(f"Manifest row for split {split!r} must be mapping-like")
+        rows.append(dict(row))
+    return rows
+
+
 __all__ = [
     "AUGMENTATION_TOKENS",
     "build_grouped_split_manifest",
     "derive_video_family_id",
+    "get_manifest_split_rows",
     "is_augmented_row",
     "strip_known_augmentation_suffix",
     "validate_split_manifest",
