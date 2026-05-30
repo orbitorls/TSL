@@ -1,8 +1,14 @@
-"""Legacy shim for src.inference.translate."""
+"""Backward-compatible re-export for legacy ``translate.py`` scripts."""
 
 from src.inference.translate import *  # noqa: F401,F403
-from src.inference.translate import main  # noqa: F401
+
+
+def main():
+    from src.inference.translate import main as _main
+
+    return _main()
+
 
 if __name__ == "__main__":
-    import sys
-    sys.exit(main())
+    raise SystemExit(main())
+

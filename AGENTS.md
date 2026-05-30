@@ -2,12 +2,18 @@
 
 ## Project Overview
 
-Thai Sign Language (TSL-51) recognition system using PyTorch. Supports training on isolated signs and inference for real-time translation.
+Thai Sign Language (TSL-51) recognition system using PyTorch. Designed for training on Google Colab with a clean, modular architecture. Supports training on isolated signs and inference for real-time translation.
 
 ## Architecture
 
-### Modular Structure
-The project has been refactored with a clean modular architecture:
+### Colab-Focused Structure
+The project has been restructured for optimal Google Colab workflow:
+
+- **`colab/`** - Google Colab notebooks
+  - `01_setup.ipynb` - Environment setup and dependency installation
+  - `02_train.ipynb` - Training pipeline with K-Fold CV
+  - `03_evaluate.ipynb` - Model evaluation and metrics
+  - `04_inference.ipynb` - Video inference demo
 
 - **`src/core/`** - Single source of truth for models and features
   - `models.py` - All model architectures (GRU, MLP, MOPGRU, HybridGRUTransformer, CTC)
@@ -38,70 +44,82 @@ The project has been refactored with a clean modular architecture:
   - `dataset_utils.py` - safe_mean, safe_std, validation helpers
   - `security.py` - File path validation for security
 
-### Legacy Shims (Root Level)
+- **`tsl_web/`** - Flask real-time web translator
+  - `app.py` - Web app, model loading, `/predict` inference endpoint
+  - `static/` - Browser-side camera, hand detection, and UI code
+  - `templates/` - HTML shell
+  - `models/` - Small web task assets that must be packaged with the app
 
-The following root-level files are legacy shims for backward compatibility:
+Root-level Python files are compatibility shims only. Put new implementation in
+`src/` or `tsl_web/`.
 
-- `inference.py` → `src.inference.runner`
-- `predict_video.py` → `src.inference.predict_video`
-- `camera_translate.py` → `src.inference.camera_translate`
-- `translate.py` → `src.inference.translate`
-- `tsl_tasks_extractor.py` → `src.data.extractor`
+### Legacy Archive
+
+All legacy content has been moved to `legacy/`:
+
+- **`legacy/root_scripts/`** - Legacy root-level Python scripts (moved during restructuring)
+- **`legacy/papers/`** - LaTeX papers and academic writing
+- **`legacy/tools/`** - TUI application and tools
+- **`legacy/website/`** - Next.js website
+- **`legacy/scripts_archive/`** - Historical scripts archive
+- **`legacy/root_archive/`** - Additional archived scripts
+- **`legacy/models/`** - Old model checkpoints
+- **`legacy/results/`** - Old training results
 
 ## Key Files
 
-### Training
-- **`train_tsl51_v3.py`** - Main training script with K-Fold CV, data augmentation, GPU support (CLI entry point)
+### Colab Notebooks
+- **`colab/01_setup.ipynb`** - Environment setup, dependency installation, Google Drive mounting
+- **`colab/02_train.ipynb`** - Training pipeline with K-Fold CV and configurable parameters
+- **`colab/03_evaluate.ipynb`** - Model evaluation, confusion matrix, per-class accuracy
+- **`colab/04_inference.ipynb`** - Video inference with MediaPipe landmark extraction
+
+### Core Modules
 - **`src/data/loader.py`** - Modular data loading with validation and quality metrics
 - **`src/train/config.py`** - Training configuration with presets (quick, default, full_cv, mlp_fast, large_dataset)
 - **`src/train/trainer.py`** - Core training logic with gradient clipping, mixed precision, early stopping
+- **`src/core/models.py`** - All model architectures (GRU, MLP, MOPGRU, HybridGRUTransformer, CTC)
 
-### Inference & Prediction
-- **`inference.py`** - Load trained models and run inference on pre-extracted features
-- **`predict_video.py`** - Predict Thai words from video files using MediaPipe landmarks
-- **`camera_translate.py`** - Real-time sign language translation from webcam
-- **`translate.py`** - Single model translation from JSON landmark files
+### Dependencies
 
-### Dependencies (Inferred)
 ```bash
 pip install torch numpy pandas matplotlib scikit-learn tqdm huggingface_hub opencv-python mediapipe pillow
 ```
 
 See also: `requirements.txt` for the canonical dependency list.
 
-## Common Commands
+## Common Commands (Colab)
 
 ### Training
-```bash
-# Default training (5-fold CV, GRU model, user_sign dataset)
-python train_tsl51_v3.py
 
-# Training with full expert dataset (~45k samples)
-python train_tsl51_v3.py --dataset tsl51_expert_full
+Training is done through Colab notebooks. Configure parameters in `02_train.ipynb`:
 
-# Fast training with augmentation
-python train_tsl51_v3.py --layers 3 --epochs 50 --batch 128 --augment 5 --test-split 0.2
-
-# MLP model variant
-python train_tsl51_v3.py --model mlp --hidden 256 --layers 3
-
-# Using preset configurations (via src/train/config.py)
-# Quick: python train_tsl51_v3.py --smoke
-# Default: python train_tsl51_v3.py
-# Full CV: python train_tsl51_v3.py --folds 5 --epochs 100
+```python
+CONFIG = {
+    'dataset': 'tsl51_user_sign',
+    'model_type': 'gru',
+    'hidden_dim': 256,
+    'num_layers': 3,
+    'epochs': 50,
+    'k_folds': 5
+}
 ```
+
+### Evaluation
+
+Run `03_evaluate.ipynb` to:
+- Load trained model
+- Evaluate on test set
+- Generate confusion matrix
+- Calculate per-class accuracy
 
 ### Inference
-```bash
-# Run inference with trained model
-python inference.py --model models/tsl51_gru_best.pt --input data.npz
 
-# Predict from video
-python predict_video.py --input video.mp4 --model models/tsl51_gru_best.pt
-
-# Real-time camera translation
-python camera_translate.py --model models/tsl51_gru_best.pt
-```
+Run `04_inference.ipynb` to:
+- Upload video file
+- Extract MediaPipe landmarks
+- Run model inference
+- Display prediction timeline
 
 ## Architecture Notes
 
@@ -137,34 +155,24 @@ python camera_translate.py --model models/tsl51_gru_best.pt
 
 ## Important Conventions
 
-### GPU Requirement
-Training script prefers CUDA GPU but falls back to CPU with a warning:
-```python
-if not torch.cuda.is_available():
-    print("WARNING: CUDA GPU not available. Falling back to CPU.")
-    DEVICE = torch.device("cpu")
-```
-Use `--smoke` flag for CPU-only quick validation (epochs=1, folds=1, samples=10).
-
-### Windows Encoding
-All scripts include Windows UTF-8 fix for Thai characters:
-```python
-if sys.platform == 'win32':
-    import io
-    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='replace')
-```
+### Colab GPU
+Colab notebooks automatically detect and use GPU when available. Free tier has limited GPU runtime; consider upgrading for longer training sessions.
 
 ### Output Structure
 ```
 models/
-  tsl51_gru_YYYYMMDD_HHMMSS.pt    # Saved model with timestamp
+  tsl51_{model_type}_YYYYMMDD_HHMMSS.pt    # Local saved model with timestamp
 results/
-  cv_YYYYMMDD_HHMMSS.json         # JSON results
-  results_YYYYMMDD_HHMMSS.png     # Visualization chart
-  report_YYYYMMDD_HHMMSS.txt      # Text report
-.cache/tsl51/
-  user_sign_data.npz              # Cached dataset
+  cv_YYYYMMDD_HHMMSS.json                  # JSON results
+  evaluation_YYYYMMDD_HHMMSS.json          # Evaluation results
+  confusion_matrix.png                      # Confusion matrix visualization
+  per_class_accuracy.png                    # Per-class accuracy plot
+artifacts/
+  runs/                                    # Local run folders and large outputs
 ```
+
+`models/`, `results/`, and `artifacts/` outputs are ignored by Git. Commit only
+small placeholders or intentionally packaged runtime assets.
 
 ## Gotchas
 

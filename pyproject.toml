@@ -36,6 +36,7 @@ dependencies = [
     "mediapipe>=0.10.0",
     "pillow>=10.0.0",
     "textual>=0.44.0",
+    "flask>=3.0.0",
 ]
 
 [project.optional-dependencies]
@@ -60,11 +61,14 @@ Homepage = "https://github.com/yourusername/TSL"
 Repository = "https://github.com/yourusername/TSL"
 Issues = "https://github.com/yourusername/TSL/issues"
 
-[tool.setuptools]
-packages = ["src"]
+[tool.setuptools.packages.find]
+include = ["src*", "tsl_web*"]
 
 [tool.setuptools.package-dir]
 "" = "."
+
+[tool.setuptools.package-data]
+tsl_web = ["templates/*.html", "static/*", "models/*"]
 
 [tool.ruff]
 target-version = "py310"
@@ -111,6 +115,9 @@ warn_return_any = true
 warn_unused_configs = true
 ignore_missing_imports = true
 exclude = [
+    "legacy/",
+    "artifacts/",
+    "tsl51_results_*/",
     "tsl-website/",
     "root_archive/",
     "scripts/archive/",
@@ -137,6 +144,9 @@ source = ["src"]
 omit = [
     "*/tests/*",
     "*/__pycache__/*",
+    "*/legacy/*",
+    "*/artifacts/*",
+    "*/tsl51_results_*/*",
     "*/tsl-website/*",
     "*/root_archive/*",
     "*/scripts/archive/*",

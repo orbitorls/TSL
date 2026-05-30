@@ -1,0 +1,90 @@
+======================================================================
+TSL-51 THAI SIGN LANGUAGE TRAINING REPORT
+======================================================================
+
+CONFIGURATION
+----------------------------------------------------------------------
+  dataset: tsl51_user_sign
+  data_path: None
+  samples: None
+  folds: 5
+  hidden: 256
+  layers: 3
+  dropout: 0.3
+  model: mlp
+  feature_level: basic
+  target_frames: 30
+  seq_mode: False
+  epochs: 50
+  batch: 32
+  lr: 0.001
+  patience: 10
+  seed: 42
+  no_cache: False
+  force_download: False
+  augment: 0
+  include_augmented: False
+  require_cuda: False
+  smoke: False
+  test_split: 0.2
+  export: False
+  export_name: None
+
+MODEL PARAMETERS
+----------------------------------------------------------------------
+  Model Type: MLP
+  Hidden Dimensions: 256
+  Number of Layers: 3
+  Dropout Rate: 0.3
+  Input Features: 162.0
+  Output Classes: 51.0
+  Est. Parameters: ~0.19M
+
+TRAINING CONFIGURATION
+----------------------------------------------------------------------
+  Optimizer: AdamW
+  Learning Rate: 0.001
+  Weight Decay: 1e-4
+  LR Scheduler: OneCycleLR
+  Batch Size: 32
+  Max Epochs: 50
+  Early Stopping: patience=10
+  CV Folds: 5
+  Augmentation: 1x
+  Test Split: 20%
+
+DATASET INFORMATION
+----------------------------------------------------------------------
+  Total Samples: 437.0
+  Number of Classes: 51.0
+  Feature Dimension: 162.0
+  Train Samples: 327.0
+  Test Samples: 110.0
+
+PER-FOLD RESULTS
+----------------------------------------------------------------------
+  Fold 1: 3.41%
+  Fold 2: 3.41%
+  Fold 3: 4.60%
+  Fold 4: 4.60%
+  Fold 5: 4.60%
+
+  Best Fold: Fold 3
+  Std Dev: 0.58%
+
+OVERALL METRICS
+----------------------------------------------------------------------
+  CV Average: 4.12% (±0.58%)
+  Overall Accuracy: 4.12%
+  Precision: 0.17%
+  Recall: 4.12%
+  F1-Score: 0.33%
+
+TEST SET RESULTS
+----------------------------------------------------------------------
+  Test Accuracy: 4.55%
+  Test Precision: 0.21%
+  Test Recall: 4.55%
+  Test F1-Score: 0.40%
+
+======================================================================

@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>TSL-51 - แปลคำศัพท์ภาษามือไทย</title>
+    <link rel="preconnect" href="https://cdn.jsdelivr.net" />
+    <link rel="preconnect" href="https://unpkg.com" />
+    <link rel="stylesheet" href="/static/styles.css" />
+</head>
+<body>
+<div id="loadingScreen" class="loading-screen" role="status" aria-live="polite">
+    <div class="loading-card">
+        <div class="brand-mark" aria-hidden="true">TSL</div>
+        <div>
+            <p class="loading-title">กำลังเตรียมระบบ</p>
+            <p id="loadingStep" class="loading-step">กำลังโหลดโมเดลตรวจจับท่าทาง...</p>
+        </div>
+        <div class="loading-ring" aria-hidden="true"></div>
+    </div>
+</div>
+
+<div id="app" class="app-shell">
+    <header class="topbar">
+        <a class="brand" href="/" aria-label="TSL-51 home">
+            <span class="brand-mark" aria-hidden="true">TSL</span>
+            <span>
+                <strong>TSL-51</strong>
+                <small>Thai Sign Vocabulary</small>
+            </span>
+        </a>
+        <div class="topbar-status" aria-live="polite">
+            <span class="status-dot" id="statusDot"></span>
+            <span id="statusText">พร้อมเริ่ม</span>
+        </div>
+    </header>
+
+    <main class="workspace">
+        <section class="intro-panel" aria-labelledby="pageTitle">
+            <div class="intro-copy">
+                <h1 id="pageTitle">แปลคำศัพท์ TSL-51</h1>
+                <p>เปิดกล้อง วางมือในกรอบ แล้วดูคำที่ตรวจพบ</p>
+            </div>
+
+            <ol class="guide-steps" aria-label="ขั้นตอนการใช้งาน">
+                <li class="guide-step active" id="stepReady">
+                    <span>1</span>
+                    <div>
+                        <strong>เตรียมกล้อง</strong>
+                        <p>กดเปิดกล้องและอนุญาตการใช้งานจากเบราว์เซอร์</p>
+                    </div>
+                </li>
+                <li class="guide-step" id="stepHands">
+                    <span>2</span>
+                    <div>
+                        <strong>วางมือในกรอบ</strong>
+                        <p>ให้เห็นมือ แขน และใบหน้าให้ชัด</p>
+                    </div>
+                </li>
+                <li class="guide-step" id="stepResult">
+                    <span>3</span>
+                    <div>
+                        <strong>ดูคำที่ตรวจพบ</strong>
+                        <p>ผลลัพธ์จะแสดงคำหลักพร้อมระดับความมั่นใจ</p>
+                    </div>
+                </li>
+            </ol>
+        </section>
+
+        <section class="camera-section" aria-labelledby="cameraTitle">
+            <div class="section-heading">
+                <div>
+                    <h2 id="cameraTitle">กล้องสำหรับตรวจจับภาษามือ</h2>
+                    <p id="cameraHint">กดเปิดกล้องเพื่อเริ่มใช้งาน</p>
+                </div>
+                <button class="secondary-button" id="btnStop" type="button" hidden>ปิดกล้อง</button>
+            </div>
+
+            <div class="video-card" id="videoCard">
+                <video id="video" autoplay playsinline muted></video>
+                <canvas id="landmarkCanvas" aria-hidden="true"></canvas>
+
+                <div class="start-overlay" id="startOverlay">
+                    <button class="primary-button" id="btnStart" type="button">
+                        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14l11-7z"></path></svg>
+                        เปิดกล้อง
+                    </button>
+                    <p>ใช้กับกล้องหน้าได้ดีที่สุดเมื่อแสงสว่างเพียงพอ</p>
+                </div>
+
+                <div class="video-badges" aria-hidden="true">
+                    <span class="camera-badge" id="handsBadge">ยังไม่พบมือ</span>
+                    <span class="camera-badge mono" id="fpsBadge">-- FPS</span>
+                </div>
+            </div>
+
+            <div class="buffer-row" aria-label="ความพร้อมของข้อมูลลำดับภาพ">
+                <span>ข้อมูลลำดับภาพ</span>
+                <div class="buffer-track"><div id="bufferFill" class="buffer-fill" style="width:0%"></div></div>
+                <span id="bufferPct">0%</span>
+            </div>
+        </section>
+
+        <aside class="results-section" aria-labelledby="resultTitle">
+            <section class="result-card">
+                <div class="card-header">
+                    <h2 id="resultTitle">คำที่ตรวจพบ</h2>
+                    <span id="confidenceState">รอสัญญาณ</span>
+                </div>
+                <div class="main-result" aria-live="polite">
+                    <strong id="top1Label">รอเริ่มต้น</strong>
+                    <span id="top1Conf">เปิดกล้องและวางมือในกรอบ</span>
+                </div>
+                <div class="confidence-meter" aria-hidden="true">
+                    <div id="confidenceFill" style="width:0%"></div>
+                </div>
+            </section>
+
+            <details class="details-card">
+                <summary>รายละเอียดโมเดล</summary>
+                <div class="pred-list" aria-label="อันดับความน่าจะเป็น">
+                    <div class="pred-row" id="pred1">
+                        <span class="pred-rank">1</span>
+                        <span class="pred-label">-</span>
+                        <span class="pred-bar-bg"><span class="pred-bar" id="bar1" style="width:0%"></span></span>
+                        <span class="pred-conf" id="conf1">0%</span>
+                    </div>
+                    <div class="pred-row" id="pred2">
+                        <span class="pred-rank">2</span>
+                        <span class="pred-label">-</span>
+                        <span class="pred-bar-bg"><span class="pred-bar" id="bar2" style="width:0%"></span></span>
+                        <span class="pred-conf" id="conf2">0%</span>
+                    </div>
+                    <div class="pred-row" id="pred3">
+                        <span class="pred-rank">3</span>
+                        <span class="pred-label">-</span>
+                        <span class="pred-bar-bg"><span class="pred-bar" id="bar3" style="width:0%"></span></span>
+                        <span class="pred-conf" id="conf3">0%</span>
+                    </div>
+                </div>
+            </details>
+
+            <section class="history-card">
+                <div class="card-header">
+                    <h2>คำที่ตรวจพบล่าสุด</h2>
+                    <button class="text-button" id="btnClearHistory" type="button">ล้าง</button>
+                </div>
+                <div class="history-inner" id="historyList">
+                    <span class="history-empty" id="historyEmpty">ยังไม่มีคำที่มั่นใจพอ</span>
+                </div>
+            </section>
+
+            <p class="scope-note">ระบบนี้เป็นตัวช่วยรู้จำคำศัพท์ TSL-51 จำนวน 51 คำ ไม่ใช่การแปลประโยคภาษามือเต็มรูปแบบ</p>
+        </aside>
+    </main>
+</div>
+
+<script type="module" src="/static/app.js"></script>
+</body>
+</html>

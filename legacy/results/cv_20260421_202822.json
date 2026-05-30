@@ -1,0 +1,52 @@
+{
+  "timestamp": "2026-04-21T20:28:22.623293",
+  "config": {
+    "dataset": "tsl51_user_sign",
+    "device": "auto",
+    "data_path": "None",
+    "samples": "None",
+    "folds": "2",
+    "hidden": "256",
+    "layers": "3",
+    "dropout": "0.3",
+    "model": "gru",
+    "feature_level": "basic",
+    "target_frames": "30",
+    "seq_mode": "False",
+    "epochs": "20",
+    "batch": "64",
+    "lr": "0.001",
+    "patience": "10",
+    "seed": "42",
+    "no_cache": "False",
+    "force_download": "True",
+    "augment": "0",
+    "include_augmented": "False",
+    "require_cuda": "False",
+    "smoke": "False",
+    "test_split": "0.0",
+    "export": "False",
+    "export_name": "None"
+  },
+  "fold_results": [
+    {
+      "fold": "1",
+      "accuracy": "0.9635036496350365"
+    },
+    {
+      "fold": "2",
+      "accuracy": "0.9633699633699634"
+    }
+  ],
+  "average_accuracy": "0.9634368065025",
+  "std_accuracy": "6.684313253657592e-05",
+  "overall_accuracy": "0.9634369287020109",
+  "precision": "0.9660644048212604",
+  "recall": "0.9634369287020109",
+  "f1_score": "0.9614258591961413",
+  "num_classes": "51",
+  "num_samples": "547",
+  "test_samples": "0",
+  "input_dim": "162",
+  "actual_parameters": "3037747"
+}

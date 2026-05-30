@@ -66,5 +66,5 @@ def augment_data(X, y, _classes, augmentation_factor=2, noise_level=0.01, scale_
     X_final = np.concatenate(X_list, axis=0)
     y_final = np.concatenate(y_list, axis=0)
 
-    print(f"Augmented: {len(X)} → {len(X_final)} samples")
+    print(f"Augmented: {len(X)} -> {len(X_final)} samples")
     return X_final, y_final

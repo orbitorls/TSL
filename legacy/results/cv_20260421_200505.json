@@ -1,0 +1,69 @@
+{
+  "timestamp": "2026-04-21T20:05:05.729279",
+  "config": {
+    "dataset": "tsl51_user_sign",
+    "data_path": "None",
+    "samples": "None",
+    "folds": "5",
+    "hidden": "256",
+    "layers": "1",
+    "dropout": "0.0",
+    "model": "mlp",
+    "feature_level": "basic",
+    "target_frames": "30",
+    "seq_mode": "False",
+    "epochs": "20",
+    "batch": "32",
+    "lr": "0.001",
+    "patience": "20",
+    "seed": "42",
+    "no_cache": "False",
+    "force_download": "False",
+    "augment": "0",
+    "include_augmented": "False",
+    "require_cuda": "False",
+    "smoke": "False",
+    "test_split": "0.2",
+    "export": "False",
+    "export_name": "None"
+  },
+  "fold_results": [
+    {
+      "fold": "1",
+      "accuracy": "0.03409090909090909"
+    },
+    {
+      "fold": "2",
+      "accuracy": "0.03409090909090909"
+    },
+    {
+      "fold": "3",
+      "accuracy": "0.04597701149425287"
+    },
+    {
+      "fold": "4",
+      "accuracy": "0.04597701149425287"
+    },
+    {
+      "fold": "5",
+      "accuracy": "0.04597701149425287"
+    }
+  ],
+  "average_accuracy": "0.04122257053291536",
+  "std_accuracy": "0.005822977183732217",
+  "overall_accuracy": "0.041189931350114416",
+  "precision": "0.0016966104446271384",
+  "recall": "0.041189931350114416",
+  "f1_score": "0.003258983579349712",
+  "num_classes": "51",
+  "num_samples": "437",
+  "test_samples": "110",
+  "input_dim": "162",
+  "test_results": {
+    "test_accuracy": "0.045454545454545456",
+    "test_precision": "0.002066115702479339",
+    "test_recall": "0.045454545454545456",
+    "test_f1_score": "0.003952569169960474"
+  },
+  "actual_parameters": "55347"
+}

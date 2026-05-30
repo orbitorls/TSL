@@ -14,6 +14,7 @@ build/
 htmlcov/
 .mypy_cache/
 .ruff_cache/
+.tmp_pycache/
 .dmypy.json
 dmypy.json
 
@@ -36,11 +37,23 @@ Thumbs.db
 
 # Project specific
 .cache/
+artifacts/
+tsl51_results_*/
+tsl51_results_*.zip
+legacy/tsl51_results_*.zip
+/scripts/
+/utils/
+/src/train_v2/
 models/*.pt
 models/*.onnx
 results/*.json
 results/*.txt
 results/*.png
+results/**/*.json
+results/**/*.txt
+results/**/*.png
+!models/.gitkeep
+!results/.gitkeep
 
 # Docker (keep Dockerfiles and docker-compose, ignore temp files)
 *.log
@@ -53,16 +66,24 @@ results/*.png
 # Website
 tsl-website/node_modules/
 tsl-website/.next/
+**/node_modules/
+**/.next/
+*.tsbuildinfo
 
-# Archive (these contain scripts used by TUI, keep versioned)
-# root_archive/ - Legacy scripts referenced by tools/config.py
-# scripts/archive/ - Archive of historical scripts
+# Archive
+legacy/**/__pycache__/
+legacy/**/*.pyc
+legacy/**/node_modules/
+legacy/**/.next/
 
 # Jupyter
 .ipynb_checkpoints/
 *.ipynb
+!colab/*.ipynb
 
 # Temporary files
 *.tmp
 *.bak
 *.log
+.chrome-check-*/
+tsl_web_*.png

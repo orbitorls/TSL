@@ -1,0 +1,51 @@
+{
+  "timestamp": "2026-04-21T20:11:13.033955",
+  "config": {
+    "dataset": "tsl51_user_sign",
+    "data_path": "None",
+    "samples": "10",
+    "folds": "2",
+    "hidden": "256",
+    "layers": "3",
+    "dropout": "0.3",
+    "model": "gru",
+    "feature_level": "basic",
+    "target_frames": "30",
+    "seq_mode": "False",
+    "epochs": "1",
+    "batch": "16",
+    "lr": "0.001",
+    "patience": "10",
+    "seed": "42",
+    "no_cache": "False",
+    "force_download": "False",
+    "augment": "0",
+    "include_augmented": "False",
+    "require_cuda": "False",
+    "smoke": "True",
+    "test_split": "0.0",
+    "export": "False",
+    "export_name": "None"
+  },
+  "fold_results": [
+    {
+      "fold": "1",
+      "accuracy": "0.0"
+    },
+    {
+      "fold": "2",
+      "accuracy": "0.0"
+    }
+  ],
+  "average_accuracy": "0.0",
+  "std_accuracy": "0.0",
+  "overall_accuracy": "0.0",
+  "precision": "0.0",
+  "recall": "0.0",
+  "f1_score": "0.0",
+  "num_classes": "51",
+  "num_samples": "10",
+  "test_samples": "0",
+  "input_dim": "162",
+  "actual_parameters": "3037747"
+}

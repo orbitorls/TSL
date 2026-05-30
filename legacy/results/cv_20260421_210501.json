@@ -1,0 +1,64 @@
+{
+  "timestamp": "2026-04-21T21:05:01.470705",
+  "config": {
+    "dataset": "local",
+    "device": "auto",
+    "data_path": ".cache\\tsl51\\combined_data.npz",
+    "samples": "None",
+    "folds": "5",
+    "hidden": "256",
+    "layers": "3",
+    "dropout": "0.3",
+    "model": "gru",
+    "feature_level": "basic",
+    "target_frames": "30",
+    "seq_mode": "False",
+    "epochs": "50",
+    "batch": "64",
+    "lr": "0.001",
+    "patience": "10",
+    "seed": "42",
+    "no_cache": "False",
+    "force_download": "False",
+    "augment": "3",
+    "include_augmented": "False",
+    "require_cuda": "False",
+    "smoke": "False",
+    "test_split": "0.0",
+    "export": "False",
+    "export_name": "None"
+  },
+  "fold_results": [
+    {
+      "fold": "1",
+      "accuracy": "0.9043478260869565"
+    },
+    {
+      "fold": "2",
+      "accuracy": "0.8989130434782608"
+    },
+    {
+      "fold": "3",
+      "accuracy": "0.9282608695652174"
+    },
+    {
+      "fold": "4",
+      "accuracy": "0.9141304347826087"
+    },
+    {
+      "fold": "5",
+      "accuracy": "0.9173913043478261"
+    }
+  ],
+  "average_accuracy": "0.912608695652174",
+  "std_accuracy": "0.010256631401813435",
+  "overall_accuracy": "0.912608695652174",
+  "precision": "0.9145184154092749",
+  "recall": "0.912608695652174",
+  "f1_score": "0.912178699896451",
+  "num_classes": "51",
+  "num_samples": "4600",
+  "test_samples": "0",
+  "input_dim": "162",
+  "actual_parameters": "3037747"
+}

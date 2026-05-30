@@ -1,0 +1,81 @@
+======================================================================
+TSL-51 THAI SIGN LANGUAGE TRAINING REPORT
+======================================================================
+
+CONFIGURATION
+----------------------------------------------------------------------
+  dataset: tsl51_user_sign
+  data_path: None
+  samples: None
+  folds: 5
+  hidden: 256
+  layers: 3
+  dropout: 0.3
+  model: gru
+  feature_level: basic
+  target_frames: 30
+  seq_mode: False
+  epochs: 30
+  batch: 64
+  lr: 0.001
+  patience: 10
+  seed: 42
+  no_cache: False
+  force_download: False
+  augment: 0
+  include_augmented: False
+  require_cuda: False
+  smoke: False
+  test_split: 0.0
+  export: False
+  export_name: None
+
+MODEL PARAMETERS
+----------------------------------------------------------------------
+  Model Type: GRU
+  Hidden Dimensions: 256
+  Number of Layers: 3
+  Dropout Rate: 0.3
+  Input Features: 162.0
+  Output Classes: 51.0
+  Est. Parameters: ~2.44M
+
+TRAINING CONFIGURATION
+----------------------------------------------------------------------
+  Optimizer: AdamW
+  Learning Rate: 0.001
+  Weight Decay: 1e-4
+  LR Scheduler: OneCycleLR
+  Batch Size: 64
+  Max Epochs: 30
+  Early Stopping: patience=10
+  CV Folds: 5
+  Augmentation: 1x
+  Test Split: 0%
+
+DATASET INFORMATION
+----------------------------------------------------------------------
+  Total Samples: 547.0
+  Number of Classes: 51.0
+  Feature Dimension: 162.0
+
+PER-FOLD RESULTS
+----------------------------------------------------------------------
+  Fold 1: 4.55%
+  Fold 2: 4.55%
+  Fold 3: 3.67%
+  Fold 4: 3.67%
+  Fold 5: 4.59%
+
+  Best Fold: Fold 5
+  Std Dev: 0.44%
+
+OVERALL METRICS
+----------------------------------------------------------------------
+  CV Average: 4.20% (±0.44%)
+  Overall Accuracy: 4.20%
+  Precision: 0.18%
+  Recall: 4.20%
+  F1-Score: 0.34%
+
+======================================================================

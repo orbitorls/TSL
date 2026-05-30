@@ -1,59 +1,67 @@
 # TSL-51: Thai Sign Language Recognition
 
-A PyTorch-based system for recognizing Thai Sign Language (TSL) using MediaPipe landmarks. Supports training on isolated signs and real-time inference for translation.
+A PyTorch-based system for recognizing Thai Sign Language (TSL) using MediaPipe landmarks. Designed for training on Google Colab with a clean, modular architecture.
 
 ## Features
 
 - **Multiple Model Architectures**: GRU, MLP, MOPGRU, HybridGRUTransformer, CTC
-- **GPU Training**: CUDA support with automatic mixed precision (AMP)
+- **Colab-Optimized**: Ready-to-use notebooks for cloud training
 - **K-Fold Cross Validation**: Robust model evaluation with per-fold normalization
 - **Data Augmentation**: Noise injection, scaling, and horizontal flipping
-- **Real-time Translation**: Webcam-based sign language translation
-- **Video Prediction**: Batch inference on video files
+- **Video Inference**: Batch inference on video files
 - **Multiple Datasets**: User sign, expert, combined, and full expert (~45k samples)
 
-## Quick Start
+## Quick Start (Google Colab)
 
-### Installation
+### 1. Clone Repository to Google Drive
 
 ```bash
+# In Google Drive
 git clone https://github.com/yourusername/TSL.git
 cd TSL
-pip install -r requirements.txt
 ```
 
-**Dependencies**: torch, numpy, pandas, matplotlib, scikit-learn, tqdm, huggingface_hub, opencv-python, mediapipe, pillow, textual
+### 2. Open Colab Notebooks
 
-**GPU**: Training prefers CUDA GPU but falls back to CPU with a warning. Use `--smoke` for CPU-only quick validation.
+Navigate to the `colab/` directory and open the notebooks in order:
 
-### Train a Model
+1. **01_setup.ipynb** - Environment setup and dependency installation
+2. **02_train.ipynb** - Train your TSL-51 model
+3. **03_evaluate.ipynb** - Evaluate model performance
+4. **04_inference.ipynb** - Run inference on videos
 
-```bash
-# Default training (TSL-51 user_sign, 5-fold CV, GRU model)
-python train_tsl51_v3.py
+### 3. Run Setup Notebook
 
-# Fast training with data augmentation
-python train_tsl51_v3.py --dataset tsl51_user_sign --augment 5 --epochs 50 --batch 128
+Execute all cells in `01_setup.ipynb` to:
+- Mount Google Drive
+- Install dependencies (PyTorch, MediaPipe, etc.)
+- Verify GPU availability
+- Test module imports
+- Create output directories
 
-# Use full expert dataset (~45k samples)
-python train_tsl51_v3.py --dataset tsl51_expert_full
+### 4. Train Model
 
-# MLP model variant
-python train_tsl51_v3.py --model mlp --hidden 256 --layers 3
+Configure training parameters in `02_train.ipynb`:
+```python
+CONFIG = {
+    'dataset': 'tsl51_user_sign',  # Options: tsl51_user_sign, tsl51_expert, tsl51_combined, tsl51_expert_full
+    'model_type': 'gru',           # Options: gru, mlp
+    'hidden_dim': 256,
+    'num_layers': 3,
+    'dropout': 0.3,
+    'learning_rate': 0.001,
+    'batch_size': 64,
+    'epochs': 50,
+    'k_folds': 5,
+    'augment_factor': 2
+}
 ```
 
-### Inference
+Run the notebook to train your model with K-Fold cross-validation. The best model will be saved to `models/`.
 
-```bash
-# Real-time camera translation
-python camera_translate.py --model models/tsl51_gru_best.pt
+### 5. Evaluate and Inference
 
-# Predict from video file
-python predict_video.py --input video.mp4 --model models/tsl51_gru_best.pt
-
-# Inference on pre-extracted features
-python inference.py --model models/tsl51_gru_best.pt --input data.npz
-```
+Use `03_evaluate.ipynb` to test your model on a held-out test set, and `04_inference.ipynb` to run inference on new videos.
 
 ## Datasets
 
@@ -85,72 +93,64 @@ python inference.py --model models/tsl51_gru_best.pt --input data.npz
 
 ```
 TSL/
-├── src/
-│   ├── core/           # Single source of truth for models & features
-│   │   ├── models.py          # All model architectures
-│   │   ├── features.py        # Feature dimension constants & extraction
-│   │   └── normalizer.py      # Data normalization
-│   ├── data/           # Data loading and preprocessing
-│   │   ├── loader.py          # Dataset loading functions
-│   │   ├── loader_expert.py   # Full expert dataset loader
-│   │   ├── feature_extraction.py  # Feature extraction utilities
-│   │   └── extractor.py       # MediaPipe landmark extractor
-│   ├── train/          # Training modules
-│   │   ├── config.py          # Training configuration
-│   │   ├── trainer.py         # Core training logic
-│   │   ├── evaluator.py       # Evaluation metrics
-│   │   ├── models.py          # Re-exports from src.core.models
-│   │   ├── augment.py         # Data augmentation
-│   │   └── visualize.py       # Training visualization
-│   ├── inference/      # Inference modules
-│   │   ├── runner.py          # General inference script
-│   │   ├── predict_video.py   # Video prediction
-│   │   ├── camera_translate.py # Real-time camera translation
-│   │   └── translate.py       # JSON translation
-│   └── utils/          # Shared utility functions
-│       ├── dataset_utils.py   # safe_mean, safe_std, validation
-│       └── security.py        # File path validation
-├── train_tsl51_v3.py  # Main training script (CLI entry point)
-├── tests/             # Unit and integration tests
-├── models/            # Saved model checkpoints (.pt)
-├── results/           # Training results (JSON, PNG, TXT)
-└── .cache/tsl51/       # Cached dataset files
+├── colab/                  # Google Colab notebooks
+│   ├── 01_setup.ipynb     # Environment setup
+│   ├── 02_train.ipynb     # Training pipeline
+│   ├── 03_evaluate.ipynb  # Model evaluation
+│   └── 04_inference.ipynb # Inference demo
+├── src/                    # Core training modules
+│   ├── core/              # Models & features
+│   ├── data/              # Data loading
+│   ├── train/             # Training logic
+│   ├── inference/         # Inference modules
+│   └── utils/             # Utilities
+├── tsl_web/                # Flask real-time web translator
+├── tests/                  # Unit tests
+├── docs/                   # Documentation
+├── models/                 # Local model outputs (ignored except placeholders)
+├── results/                # Local training results (ignored except placeholders)
+├── artifacts/              # Local run artifacts and large outputs (ignored)
+├── legacy/                 # Archived content
+│   ├── root_scripts/      # Legacy root-level scripts
+│   ├── papers/            # LaTeX papers
+│   ├── tools/             # TUI app
+│   ├── website/           # Next.js website
+│   └── results/           # Old results
+├── README.md
+└── requirements.txt
 ```
+
+Root-level Python files such as `predict_video.py`, `camera_translate.py`, and
+`train_tsl51_v3.py` are compatibility shims. New implementation work should go
+under `src/` or `tsl_web/`.
 
 ## Training Configuration
 
-### Preset Configurations
+Training is configured directly in the Colab notebooks. See `02_train.ipynb` for the configuration dictionary:
 
 ```python
-# Quick testing (5 epochs, smaller model)
-python train_tsl51_v3.py --smoke
-
-# Default (50 epochs, augmentation)
-python train_tsl51_v3.py
-
-# Full CV (100 epochs)
-python train_tsl51_v3.py --folds 5 --epochs 100
-
-# Large dataset (45k+ samples)
-python train_tsl51_v3.py --dataset tsl51_expert_full --hidden 512 --layers 4
+CONFIG = {
+    'dataset': 'tsl51_user_sign',  # Options: tsl51_user_sign, tsl51_expert, tsl51_combined, tsl51_expert_full
+    'model_type': 'gru',           # Options: gru, mlp
+    'hidden_dim': 256,
+    'num_layers': 3,
+    'dropout': 0.3,
+    'learning_rate': 0.001,
+    'batch_size': 64,
+    'epochs': 50,
+    'k_folds': 5,
+    'augment_factor': 2,
+    'early_stopping_patience': 10
+}
 ```
-
-### Key Hyperparameters
-
-- `--hidden`: Hidden dimension (default: 256)
-- `--layers`: Number of layers (default: 3)
-- `--dropout`: Dropout rate (default: 0.3)
-- `--lr`: Learning rate (default: 0.001)
-- `--batch`: Batch size (default: 64)
-- `--augment`: Data augmentation factor (e.g., 2 = 2x samples)
-- `--patience`: Early stopping patience (default: 10)
 
 ## Output Files
 
-- `models/tsl51_gru_YYYYMMDD_HHMMSS.pt` - Saved model with timestamp
-- `results/cv_YYYYMMDD_HHMMSS.json` - JSON results with metrics
-- `results/results_YYYYMMDD_HHMMSS.png` - Visualization chart
-- `results/report_YYYYMMDD_HHMMSS.txt` - Text report
+- `models/tsl51_{model_type}_{timestamp}.pt` - Saved model checkpoint
+- `results/cv_{timestamp}.json` - Cross-validation results with metrics
+- `results/evaluation_{timestamp}.json` - Test set evaluation results
+- `results/confusion_matrix.png` - Confusion matrix visualization
+- `results/per_class_accuracy.png` - Per-class accuracy plot
 
 ## Model Usage (Inference)
 
@@ -186,24 +186,23 @@ with torch.no_grad():
 ### Running Tests
 
 ```bash
-pytest tests/
+python -m pytest tests/
 ```
 
 ### Code Quality
 
 ```bash
 # Linting
-ruff check src/
+python -m ruff check src/ --no-fix
 
 # Formatting
-black src/
+python -m black src/
 ```
 
 ## Known Issues
 
-- **Windows Fonts**: Matplotlib does not support emojis on Windows; plain text is used instead
-- **GPU Preferred**: Training prefers CUDA GPU but falls back to CPU with a warning
 - **Initial Download**: First dataset download from HuggingFace takes time (cached in `.cache/tsl51/`)
+- **Colab GPU**: Free Colab tier has limited GPU runtime; consider upgrading for longer training sessions
 
 ## License
 

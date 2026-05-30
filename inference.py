@@ -1,8 +1,14 @@
-"""Legacy shim for src.inference.runner."""
+"""Backward-compatible re-export for legacy ``inference.py`` scripts."""
 
 from src.inference.runner import *  # noqa: F401,F403
-from src.inference.runner import main, TSLPredictor  # noqa: F401
+
+
+def main():
+    from src.inference.runner import main as _main
+
+    return _main()
+
 
 if __name__ == "__main__":
-    import sys
-    sys.exit(main())
+    raise SystemExit(main())
+
