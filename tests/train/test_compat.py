@@ -6,6 +6,7 @@ from src.train.compat import setup_windows_encoding
 class _DummyStream:
     def __init__(self):
         self.calls = []
+        self.buffer = self
 
     def reconfigure(self, **kwargs):
         self.calls.append(kwargs)

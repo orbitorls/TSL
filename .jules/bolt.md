@@ -1,3 +1,0 @@
-## 2024-05-19 - Pandas Vectorization in Feature Extraction
-**Learning:** Extracting data frame column by column in a loop is extremely slow in pandas. We can gain a massive speedup (~16x for sequence extraction, >10x for feature extraction) by vectorizing column extraction instead of looping. Also module-level caching `_FEATURE_COLUMN_CACHE` provides a massive speedup by avoiding recomputing column names.
-**Action:** When extracting multiple columns from a dataframe and putting it into a numpy array, use pandas `intersection()` and vectorize extraction like `seq[:, col_indices] = lm_df[available_cols].fillna(0.0).values`.

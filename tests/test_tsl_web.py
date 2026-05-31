@@ -1,3 +1,4 @@
+import contextlib
 import importlib
 import tempfile
 from pathlib import Path
@@ -278,7 +279,7 @@ def test_tsl_web_session_eviction_maintains_limit(monkeypatch):
     assert len(webapp._session_buffers) <= webapp.MAX_ACTIVE_SESSIONS
 
 
-def test_tsl_web_defaults_sequence_mode_for_legacy_gru_checkpoint(monkeypatch):
+def test_tsl_web_defaults_sequence_mode_for_legacy_gru_checkpoint():
     webapp = importlib.import_module("tsl_web.app")
 
     checkpoint = {
@@ -320,7 +321,5 @@ def test_tsl_web_defaults_sequence_mode_for_legacy_gru_checkpoint(monkeypatch):
         webapp.model = None
         webapp._model_load_error = None
         if ckpt_file.exists():
-            try:
+            with contextlib.suppress(OSError):
                 ckpt_file.unlink()
-            except OSError:
-                pass

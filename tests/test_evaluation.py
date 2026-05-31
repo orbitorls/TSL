@@ -8,15 +8,19 @@ Comprehensive tests for model evaluation including:
 - Cross-validation consistency
 """
 
+from pathlib import Path
+
 import numpy as np
 import pytest
 import torch
 from sklearn.metrics import (
-    accuracy_score, precision_score, recall_score, f1_score,
-    confusion_matrix, classification_report
+    accuracy_score,
+    classification_report,
+    confusion_matrix,
+    f1_score,
+    precision_score,
+    recall_score,
 )
-from pathlib import Path
-
 
 # Test configuration
 TEST_MODEL_PATH = Path(__file__).parent.parent / "models" / "tsl51_gru_20260503_183943.pt"
@@ -28,6 +32,7 @@ EXPECTED_FEATURES = 162
 def trained_model():
     """Load trained model for evaluation."""
     import torch
+
     from src.core import GRUModel
 
     if not TEST_MODEL_PATH.exists():
@@ -133,7 +138,7 @@ class TestModelEvaluation:
 
         # Per-class metrics
         precision = precision_score(y_true, y_pred, average=None, zero_division=0)
-        recall = recall_score(y_true, y_pred, average=None, zero_division=0)
+        recall_score(y_true, y_pred, average=None, zero_division=0)
         f1 = f1_score(y_true, y_pred, average=None, zero_division=0)
 
         # sklearn returns metrics only for classes present in data (y_true or y_pred)
@@ -359,7 +364,7 @@ class TestBenchmarkMetrics:
         """Test top-k accuracy."""
         y_true = sample_predictions['y_true']
         y_pred = sample_predictions['y_pred']
-        n_classes = sample_predictions['n_classes']
+        sample_predictions['n_classes']
 
         # Simulate top-3 with confidence scores
         # Assuming true class is in top-3 ~98% of the time
