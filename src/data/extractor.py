@@ -185,8 +185,14 @@ def extract_features(frames: list, feature_level: str = "basic") -> np.ndarray |
     return (accumulator / count).astype(np.float32)
 
 
-def _frame_dict_to_vector(frame: dict, _feature_level: str, feature_dim: int) -> np.ndarray | None:
+def _frame_dict_to_vector(frame: dict, feature_level: str, feature_dim: int) -> np.ndarray | None:
     """Convert a single landmark dict to a feature vector."""
+    # Fast path for basic features (most common in inference)
+    if feature_level == "basic" and feature_dim == len(_BASIC_KEYS):
+        feats = [float(frame.get(k, 0.0)) for k in _BASIC_KEYS]
+        return np.array(feats, dtype=np.float32)
+
+    # Fallback for other feature levels
     feats: list[float] = []
 
     # Left hand (63)
