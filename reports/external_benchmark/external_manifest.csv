@@ -1,0 +1,5 @@
+video_id,path,track,label,start_s,end_s,source_url,split,license_note,quality_status
+3gsWMJ-eD3I,reports/external_fingerspelling_eval/videos/3gsWMJ-eD3I.mp4,fingerspelling,DOR_DEK,56.6,57.4,https://www.youtube.com/watch?v=3gsWMJ-eD3I,external_test,local research only,reviewed
+3gsWMJ-eD3I,reports/external_fingerspelling_eval/videos/3gsWMJ-eD3I.mp4,fingerspelling,BOR_BAI_MAI,74.6,75.4,https://www.youtube.com/watch?v=3gsWMJ-eD3I,external_test,local research only,reviewed
+NyTAPrGdMKo,reports/external_tsl51_eval/videos/NyTAPrGdMKo.mp4,tsl51,สวัสดี_อายุเท่ากันหรือน้อยกว่า,0.0,4.44,https://www.youtube.com/watch?v=NyTAPrGdMKo,external_test,local research only,reviewed
+5L9u0Rvw118,reports/external_tsl51_eval/videos/5L9u0Rvw118.mp4,tsl51,ขอโทษ_อายุเท่ากันหรือน้อยกว่า,0.0,3.28,https://www.youtube.com/watch?v=5L9u0Rvw118,external_test,local research only,reviewed

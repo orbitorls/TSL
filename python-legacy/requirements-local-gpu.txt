@@ -1,0 +1,14 @@
+# Local GPU training stack for WSL2 Ubuntu + Python 3.11.
+# TensorFlow GPU wheels for Linux install CUDA runtime libraries via this extra.
+tensorflow[and-cuda]>=2.16,<2.17
+
+mediapipe>=0.10.14,<0.11
+opencv-python>=4.8
+numpy>=1.24,<2.0
+scikit-learn>=1.3
+joblib>=1.3
+tqdm>=4.66
+huggingface_hub>=0.23
+pandas>=2.0
+Pillow>=10.0
+matplotlib>=3.7

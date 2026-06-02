@@ -1,0 +1,23 @@
+name: Rust CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+
+jobs:
+  test:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Export golden vectors (Python)
+        run: |
+          pip install numpy
+          python scripts/export_golden.py
+        shell: bash
+      - name: cargo test
+        run: cargo test --workspace
+      - name: cargo build release
+        run: cargo build --release -p tsl-cli

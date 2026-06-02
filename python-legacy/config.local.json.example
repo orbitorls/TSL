@@ -1,0 +1,14 @@
+{
+  "_comment": "Copy to config.local.json beside this file (gitignored). train_local_all.py loads these keys; CLI flags override.",
+  "tracks": "both",
+  "work_root": "~/tsl_training",
+  "artifact_dir": "/mnt/d/TSL/artifacts",
+  "fs_zip": "/mnt/d/TSL/data/fingerspelling/One-Stage-TFS.zip",
+  "fs_dataset_root": "/mnt/d/TSL/data/fingerspelling",
+  "tsl51_metadata_dir": "/mnt/d/TSL/data/tsl51/metadata",
+  "tsl51_file_cache": "~/tsl_training/tsl51_files",
+  "fs_epochs": 120,
+  "tsl51_epochs": 120,
+  "fs_batch_size": 128,
+  "tsl51_batch_size": 64
+}

@@ -1,0 +1,12 @@
+{
+  "video": "https://www.youtube.com/watch?v=3gsWMJ-eD3I",
+  "local_video": "D:\\TSL\\reports\\external_fingerspelling_eval\\videos\\3gsWMJ-eD3I.mp4",
+  "artifact_dir": "D:\\TSL\\.tools\\train_runs_25690531-131843\\fs_e80_b64\\artifacts\\fingerspelling",
+  "sampled_supported_letters": 15,
+  "frames_per_letter": 3,
+  "total_frames": 45,
+  "hand_detected_frames": 25,
+  "frame_accuracy_on_detected": 0.92,
+  "frame_accuracy_all": 0.5111111111111111,
+  "correct_frames": 23
+}

@@ -1,0 +1,17 @@
+[package]
+name = "tsl-core"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "TSL feature extraction, sequence buffering, scaler, and labels"
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+zip = { workspace = true }
+
+[dev-dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+zip = { workspace = true }

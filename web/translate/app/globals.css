@@ -1,0 +1,17 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --tsl-brand: #0f4f4a;
+  --tsl-page: #f6f4ef;
+}
+
+body {
+  @apply font-thai text-text antialiased;
+  background:
+    radial-gradient(1000px 500px at -8% -10%, #d9efe8 0%, transparent 58%),
+    radial-gradient(900px 430px at 108% -10%, #fbe9d3 0%, transparent 60%),
+    var(--tsl-page);
+  min-height: 100vh;
+}

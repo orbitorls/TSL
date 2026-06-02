@@ -1,0 +1,13 @@
+{
+  "track": "tsl51",
+  "base_cache": ".tools\\train_runs_25690531-175818\\tsl51_e40_b32_s12000\\work\\features\\tsl51_features.npz",
+  "external_cache": "reports\\external_benchmark\\smoke_tsl51_external.npz",
+  "combined_cache": "reports\\external_benchmark\\train_smoke_tsl51\\tsl51_combined_external_augmented.npz",
+  "combined_shape": [
+    12002,
+    60,
+    162
+  ],
+  "num_classes": 47,
+  "trained": false
+}

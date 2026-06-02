@@ -1,0 +1,10 @@
+{
+  "samples_file": "reports\\external_tsl51_eval\\short_word_samples.csv",
+  "artifact_dir": ".tools\\train_runs_25690531-175818\\tsl51_e40_b32_s12000\\artifacts\\tsl51",
+  "strategy": "last",
+  "target_fps": 15.0,
+  "total_samples": 4,
+  "correct_samples": 0,
+  "video_accuracy": 0.0,
+  "predictions_csv": "reports\\external_tsl51_eval\\last\\predictions.csv"
+}

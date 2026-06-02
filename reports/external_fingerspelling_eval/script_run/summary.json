@@ -1,0 +1,12 @@
+{
+  "video": "reports\\external_fingerspelling_eval\\videos\\3gsWMJ-eD3I.mp4",
+  "artifact_dir": ".tools\\train_runs_25690531-131843\\fs_e80_b64\\artifacts\\fingerspelling",
+  "samples_file": "reports\\external_fingerspelling_eval\\3gsWMJ-eD3I_supported_samples.csv",
+  "labeled_samples": 15,
+  "frames_per_sample": 3,
+  "total_frames": 45,
+  "hand_detected_frames": 25,
+  "correct_frames": 23,
+  "frame_accuracy_on_detected": 0.92,
+  "frame_accuracy_all": 0.5111111111111111
+}

@@ -1,0 +1,12 @@
+{
+  "track": "fingerspelling",
+  "base_cache": ".tools\\train_runs_25690531-131843\\fs_e80_b64\\work\\features\\keypoints_cache.npz",
+  "external_cache": "reports\\external_benchmark\\smoke_fingerspelling_external.npz",
+  "combined_cache": "reports\\external_benchmark\\train_smoke_fingerspelling\\fingerspelling_combined_external_augmented.npz",
+  "combined_shape": [
+    7195,
+    63
+  ],
+  "num_classes": 15,
+  "trained": false
+}

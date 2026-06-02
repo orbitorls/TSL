@@ -1,0 +1,112 @@
+# ── Trained model artifacts ───────────────────────────────────────────────────
+# Produced by notebooks/train_thai_fingerspelling.ipynb — do not commit binaries.
+artifacts/
+model.keras
+model.tflite
+model_best.keras
+tsl51_model.keras
+tsl51_model.tflite
+tsl51_model_best.keras
+*.pkl
+scaler.pkl
+labels.json
+tsl51_scaler.pkl
+tsl51_labels.json
+model_manifest.json
+tsl51_model_manifest.json
+
+# ── Cached feature data ───────────────────────────────────────────────────────
+_runtime/
+keypoints_cache.npz
+tsl51_features.npz
+*.npz
+
+# ── Downloaded assets ─────────────────────────────────────────────────────────
+# Thai fonts are downloaded by the user (see README Step 3); not redistributed.
+assets/*.ttf
+
+# ── Training artifacts (regenerated each run) ─────────────────────────────────
+training_curves.png
+confusion_matrix.png
+tsl51_training_curves.png
+tsl51_confusion_matrix.png
+
+# ── Logs ──────────────────────────────────────────────────────────────────────
+*.log
+session_log.csv
+
+# ── Rust ──────────────────────────────────────────────────────────────────────
+/target/
+.tools/
+**/*.rs.bk
+
+# ONNX / vision models (download separately)
+artifacts/
+*.onnx
+
+# ── Python ────────────────────────────────────────────────────────────────────
+python-legacy/config.local.json
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+pytest-cache-files-*/
+.pytest_tmp/
+test_tmp_manual/
+.mypy_cache/
+.ruff_cache/
+
+# ── Virtual environments ──────────────────────────────────────────────────────
+.venv/
+.venv-train/
+venv/
+env/
+
+# Local training overrides (copy from config.local.json.example)
+python-legacy/config.local.json
+
+# ── Notebook checkpoints ──────────────────────────────────────────────────────
+.ipynb_checkpoints/
+
+# ── IDE / editor ──────────────────────────────────────────────────────────────
+.idea/
+.vscode/
+
+# ── OS junk ───────────────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db# datasets / generated data
+data/
+datasets/
+*.zip
+*.tar
+*.tar.gz
+*.npz
+*.npy
+*.onnx
+*.pt
+*.pth
+*.safetensors
+
+# local agent/tool state
+.omo/
+.omx/
+.opencode/
+.playwright-mcp/
+.claude/settings.local.json
+
+# build outputs
+target/
+target-codex/
+target-codex-msvc/
+target-codexE94Lus/
+dist/
+build/
+
+# temporary pipeline outputs
+_tmp_*/
+
+# OS/editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

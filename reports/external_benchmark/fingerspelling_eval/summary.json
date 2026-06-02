@@ -1,0 +1,23 @@
+{
+  "video": "reports\\external_fingerspelling_eval\\videos\\3gsWMJ-eD3I.mp4",
+  "artifact_dir": ".tools\\train_runs_25690531-131843\\fs_e80_b64\\artifacts\\fingerspelling",
+  "samples_file": "reports\\external_fingerspelling_eval\\3gsWMJ-eD3I_supported_samples.csv",
+  "labeled_samples": 15,
+  "frames_per_sample": 3,
+  "total_frames": 45,
+  "hand_detected_frames": 25,
+  "rejected_frames": 20,
+  "hand_detection_rate": 0.5555555555555556,
+  "top1_correct": 23,
+  "top3_correct": 23,
+  "top1_accuracy_all": 0.5111111111111111,
+  "top3_accuracy_all": 0.5111111111111111,
+  "top1_accuracy_on_detected": 0.92,
+  "confusion_pairs": [
+    {
+      "expected": "POR_PHAN",
+      "predicted": "FOR_FUN",
+      "count": 2
+    }
+  ]
+}

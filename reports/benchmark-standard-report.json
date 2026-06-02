@@ -1,0 +1,62 @@
+{
+  "fingerspelling": {
+    "name": "Fingerspelling",
+    "test_accuracy": 0.9846153846153847,
+    "precision_macro": 0.9847048695307234,
+    "recall_macro": 0.9846340313148463,
+    "f1_macro": 0.9845711279971094,
+    "precision_weighted": 0.9847874817899563,
+    "recall_weighted": 0.9846153846153847,
+    "f1_weighted": 0.9846038397287856,
+    "ece": 0.007870011729793949,
+    "latency_p50_ms": 50.700699997833,
+    "latency_p95_ms": 60.33336499676807,
+    "latency_p99_ms": 68.62032499986526,
+    "throughput_sps_batch1": 19.237188633615446,
+    "throughput_sps_batch16": 303.9908276850507,
+    "model_size_mb": 0.7258491516113281,
+    "load_time_ms": 156.00329999870155,
+    "num_classes": 15,
+    "robustness": {
+      "base_acc": 0.9846153846153847,
+      "gaussian_noise_acc": 0.9839160839160839,
+      "feature_scale_0_92_acc": 0.986013986013986,
+      "feature_dropout_acc": 0.7972027972027972
+    }
+  },
+  "tsl51": {
+    "name": "TSL-51",
+    "test_accuracy": 0.9383333333333334,
+    "precision_macro": 0.9418273518136895,
+    "recall_macro": 0.9376777608723947,
+    "f1_macro": 0.9372346736079891,
+    "precision_weighted": 0.9433762679216574,
+    "recall_weighted": 0.9383333333333334,
+    "f1_weighted": 0.9390452144467881,
+    "ece": 0.009054895776013532,
+    "latency_p50_ms": 54.56909999702475,
+    "latency_p95_ms": 58.71614000025147,
+    "latency_p99_ms": 60.50051100013661,
+    "throughput_sps_batch1": 18.21989475027976,
+    "throughput_sps_batch16": 274.8427246861698,
+    "model_size_mb": 4.104585647583008,
+    "load_time_ms": 176.07500000303844,
+    "num_classes": 47,
+    "robustness": {
+      "base_acc": 0.9383333333333334,
+      "gaussian_noise_acc": 0.9383333333333334,
+      "frame_dropout_acc": 0.9383333333333334,
+      "feature_scale_0_95_acc": 0.9366666666666666
+    }
+  },
+  "confusion_matrices": {
+    "fingerspelling_shape": [
+      15,
+      15
+    ],
+    "tsl51_shape": [
+      47,
+      47
+    ]
+  }
+}

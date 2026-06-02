@@ -1,0 +1,3 @@
+# Windows: use scripts/cargo_test_windows.ps1 (winlibs + optional RUSTUP_HOME=R:\ subst).
+[build]
+target-dir = "R:/tsl-cargo-target"

@@ -1,0 +1,37 @@
+{
+  "samples_file": "reports\\external_tsl51_eval\\short_word_samples.csv",
+  "artifact_dir": ".tools\\yt_augmented_v2\\artifacts\\tsl51",
+  "strategy": "uniform",
+  "target_fps": 30.0,
+  "total_samples": 6,
+  "detected_samples": 6,
+  "rejected_samples": 0,
+  "detection_rate": 1.0,
+  "top1_correct": 2,
+  "top3_correct": 2,
+  "top1_accuracy": 0.3333333333333333,
+  "top3_accuracy": 0.3333333333333333,
+  "confusion_pairs": [
+    {
+      "expected": "กิน_var_1",
+      "predicted": "ข้าว_var_1",
+      "count": 1
+    },
+    {
+      "expected": "ขอโทษ_อายุเท่ากันหรือน้อยกว่า",
+      "predicted": "กรุงเทพ_var_1",
+      "count": 1
+    },
+    {
+      "expected": "ขอโทษ_อายุเท่ากันหรือน้อยกว่า",
+      "predicted": "เรียก_var_1",
+      "count": 1
+    },
+    {
+      "expected": "ชื่อ_var_1",
+      "predicted": "แต่งงาน_var_1",
+      "count": 1
+    }
+  ],
+  "predictions_csv": "reports\\external_tsl51_eval\\yt_augmented_v2\\predictions.csv"
+}

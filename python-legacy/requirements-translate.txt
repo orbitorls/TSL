@@ -1,0 +1,6 @@
+# TSL web translate API (install on top of requirements.txt)
+-r requirements.txt
+fastapi>=0.115
+uvicorn[standard]>=0.32
+python-multipart>=0.0.12
+pydantic>=2.0

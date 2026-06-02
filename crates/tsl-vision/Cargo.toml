@@ -1,0 +1,15 @@
+[package]
+name = "tsl-vision"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Landmark backend abstraction for hand/holistic features"
+
+[features]
+default = []
+# Reserved for ONNX Runtime wiring (see README).
+onnx = []
+
+[dependencies]
+tsl-core = { workspace = true }
+thiserror = { workspace = true }

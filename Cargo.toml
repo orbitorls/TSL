@@ -1,0 +1,37 @@
+[workspace]
+resolver = "2"
+members = [
+    "crates/tsl-core",
+    "crates/tsl-vision",
+    "crates/tsl-ingest",
+    "crates/tsl-ml",
+    "crates/tsl-infer",
+    "crates/tsl-cli",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/example/tsl"
+
+[workspace.dependencies]
+anyhow = "1"
+clap = { version = "4", features = ["derive"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+thiserror = "2"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+walkdir = "2"
+zip = "2"
+hf-hub = { version = "0.4", features = ["native-tls", "default"] }
+candle-core = "0.8"
+candle-nn = "0.8"
+tract-core = "0.21"
+tract-onnx = "0.21"
+tsl-core = { path = "crates/tsl-core" }
+tsl-infer = { path = "crates/tsl-infer" }
+tsl-vision = { path = "crates/tsl-vision" }
+tsl-ingest = { path = "crates/tsl-ingest" }
+tsl-ml = { path = "crates/tsl-ml" }

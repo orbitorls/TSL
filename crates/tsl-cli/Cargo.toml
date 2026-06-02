@@ -1,0 +1,33 @@
+[package]
+name = "tsl-cli"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "TSL command-line demos, ingest, and training"
+
+[[bin]]
+name = "tsl-demo-fs"
+path = "src/bin/tsl_demo_fs.rs"
+
+[[bin]]
+name = "tsl-demo-51"
+path = "src/bin/tsl_demo_51.rs"
+
+[[bin]]
+name = "tsl-train"
+path = "src/bin/tsl_train.rs"
+
+[[bin]]
+name = "tsl-ingest"
+path = "src/bin/tsl_ingest.rs"
+
+[dependencies]
+tsl-core = { workspace = true }
+tsl-infer = { workspace = true }
+tsl-vision = { workspace = true }
+tsl-ingest = { workspace = true }
+tsl-ml = { workspace = true }
+clap = { workspace = true }
+anyhow = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }

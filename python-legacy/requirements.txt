@@ -1,0 +1,31 @@
+# Thai Fingerspelling Recognition — local dependencies
+# Install with:  pip install -r requirements.txt
+#
+# NOTE: mediapipe 0.10.14 is pinned because it still exposes the
+# legacy mp.solutions.hands API used by this project.
+# Newer versions (0.10.18+) deprecate solutions.hands in favour of the
+# Tasks API — migration is left as future work.
+
+mediapipe==0.10.14
+tensorflow>=2.13,<2.17
+opencv-python>=4.8
+numpy>=1.24,<2.0
+scikit-learn>=1.3
+joblib>=1.3
+Pillow>=10.0
+matplotlib>=3.7
+tqdm>=4.66
+
+# Optional (inference-only, lighter than tensorflow):
+#   pip install tflite-runtime
+# webcam_demo.py auto-detects tflite_runtime if installed.
+
+# Optional (TSL-51 word-level track):
+# datasets>=2.14
+# huggingface_hub>=0.23
+# pandas>=2.0
+
+streamlit>=1.37
+
+# YouTube clip download (external dataset expansion):
+yt-dlp>=2024.1.0

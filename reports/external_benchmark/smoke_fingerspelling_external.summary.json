@@ -1,0 +1,13 @@
+{
+  "track": "fingerspelling",
+  "manifest": "reports\\external_benchmark\\external_manifest.csv",
+  "output": "reports\\external_benchmark\\smoke_fingerspelling_external.npz",
+  "report": "reports\\external_benchmark\\smoke_fingerspelling_external.report.csv",
+  "manifest_rows": 2,
+  "accepted_rows": 2,
+  "samples": 9,
+  "shape": [
+    9,
+    63
+  ]
+}

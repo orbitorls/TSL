@@ -1,0 +1,3 @@
+[toolchain]
+# Default stable (MSVC on Windows in CI). Local GNU: scripts/cargo_test_windows.ps1 sets override.
+channel = "stable"

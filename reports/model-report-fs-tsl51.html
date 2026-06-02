@@ -1,0 +1,276 @@
+<!doctype html>
+<html lang='th'>
+<head>
+  <meta charset='utf-8'>
+  <meta name='viewport' content='width=device-width,initial-scale=1'>
+  <title>TSL Unified Model + Benchmark Report</title>
+  <style>
+    :root {
+      --bg: #f6f4ef;
+      --ink: #1a1712;
+      --muted: #5f584d;
+      --line: #d6cdbd;
+      --card: #fffcf6;
+      --teal: #0f766e;
+      --teal-dark: #0a4f4a;
+      --amber: #b45309;
+      --blue: #1d4ed8;
+      --radius: 16px;
+      --shadow: 0 8px 30px rgba(41, 33, 24, 0.09);
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      color: var(--ink);
+      font-family: "Aptos", "Bahnschrift", "Trebuchet MS", sans-serif;
+      background:
+        radial-gradient(1000px 480px at -10% -10%, #d9efe8 0%, transparent 58%),
+        radial-gradient(840px 420px at 110% -8%, #fde9d3 0%, transparent 60%),
+        var(--bg);
+    }
+    .wrap { max-width: 1200px; margin: 0 auto; padding: 28px 16px 42px; }
+    .hero {
+      border-radius: 24px;
+      padding: 26px 22px;
+      background: linear-gradient(130deg, var(--teal), var(--teal-dark));
+      color: #edfffc;
+      box-shadow: var(--shadow);
+    }
+    .hero h1 { margin: 0; font-family: "Cambria", "Palatino Linotype", serif; font-size: clamp(1.6rem, 3.2vw, 2.5rem); }
+    .hero p { margin: 10px 0 0; color: #c7f5ed; max-width: 980px; }
+    .chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
+    .chip { font-size: .88rem; border: 1px solid rgba(255,255,255,.28); background: rgba(255,255,255,.12); border-radius: 999px; padding: 5px 10px; }
+    .grid { display: grid; gap: 12px; }
+    .kpi { margin-top: 14px; grid-template-columns: repeat(4, minmax(0,1fr)); }
+    .card {
+      border-radius: var(--radius);
+      border: 1px solid var(--line);
+      background: var(--card);
+      box-shadow: var(--shadow);
+      padding: 14px;
+    }
+    .kpi .card .t { color: var(--muted); font-size: .83rem; }
+    .kpi .card .v { margin-top: 5px; font-size: 1.25rem; font-weight: 700; color: var(--teal); }
+    .split-2 { margin-top: 14px; grid-template-columns: 1fr 1fr; }
+    h2 { margin: 0; font-size: 1.18rem; font-family: "Cambria", "Palatino Linotype", serif; }
+    .head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 8px; }
+    .badge { font-size: .8rem; border-radius: 999px; border: 1px solid; padding: 5px 10px; }
+    .good { color: #166534; border-color: #86efac; background: #f0fdf4; }
+    .warn { color: #92400e; border-color: #fbd38d; background: #fff7ed; }
+    table { width: 100%; border-collapse: collapse; font-size: .94rem; }
+    td, th { border-bottom: 1px dashed var(--line); padding: 8px 4px; text-align: left; vertical-align: top; }
+    td:first-child { width: 210px; color: var(--muted); font-weight: 600; }
+    .mono { font-family: "Consolas", "Courier New", monospace; font-size: .84rem; word-break: break-all; }
+    .bars { margin-top: 14px; }
+    .bar-block { margin-bottom: 12px; }
+    .bar-title { font-weight: 700; font-size: .9rem; margin-bottom: 5px; }
+    .bar-pair { display: grid; grid-template-columns: 32px 1fr 88px; align-items: center; gap: 8px; margin-bottom: 5px; }
+    .tag { text-align: center; font-weight: 700; font-size: .76rem; border-radius: 6px; padding: 2px 4px; color: #fff; }
+    .tag.fs { background: var(--teal); }
+    .tag.tsl { background: var(--amber); }
+    .bar-track { height: 10px; background: #ece4d6; border-radius: 999px; overflow: hidden; }
+    .bar-fill { height: 100%; border-radius: 999px; }
+    .bar-fill.fs { background: linear-gradient(90deg, #159987, var(--teal)); }
+    .bar-fill.tsl { background: linear-gradient(90deg, #cf6f18, var(--amber)); }
+    .bar-val { text-align: right; font-family: "Consolas", monospace; font-size: .84rem; color: var(--muted); }
+    .foot { margin-top: 14px; color: var(--muted); font-size: .9rem; }
+    @media (max-width: 980px) {
+      .kpi { grid-template-columns: 1fr 1fr; }
+      .split-2 { grid-template-columns: 1fr; }
+      td:first-child { width: 150px; }
+    }
+    @media (max-width: 640px) {
+      .kpi { grid-template-columns: 1fr; }
+      .bar-pair { grid-template-columns: 28px 1fr 74px; }
+    }
+  </style>
+</head>
+<body>
+  <main class='wrap'>
+    <section class='hero'>
+      <h1>Thai Sign Language Unified Report</h1>
+      <p>รวมรายงานโมเดลและ benchmark มาตรฐานในหน้าเดียว: คุณภาพการจำแนก, calibration, latency/throughput, footprint และ robustness ของทั้ง Fingerspelling และ TSL-51</p>
+      <div class='chips'>
+        <span class='chip'>Generated: 2026-05-31</span>
+        <span class='chip'>Pipeline: scripts/benchmark_standard_suite.py</span>
+        <span class='chip'>Confusion matrix: 15x15 / 47x47</span>
+      </div>
+    </section>
+
+    <section class='grid kpi'>
+      <article class='card'><div class='t'>Fingerspelling Accuracy</div><div class='v'>98.46%</div></article>
+      <article class='card'><div class='t'>TSL-51 Accuracy</div><div class='v'>93.83%</div></article>
+      <article class='card'><div class='t'>Fingerspelling Throughput (B16)</div><div class='v'>303.99</div></article>
+      <article class='card'><div class='t'>TSL-51 Throughput (B16)</div><div class='v'>274.84</div></article>
+    </section>
+
+    <section class='grid split-2'>
+      <article class='card'>
+        <div class='head'><h2>Model A: Fingerspelling</h2><span class='badge good'>15 classes</span></div>
+        <table>
+          <tr><td>Run ID</td><td class='mono'>fs_e80_b64</td></tr>
+          <tr><td>Test Accuracy</td><td><strong>0.984615</strong></td></tr>
+          <tr><td>Macro F1</td><td>0.984571</td></tr>
+          <tr><td>Weighted F1</td><td>0.984604</td></tr>
+          <tr><td>ECE</td><td>0.007870</td></tr>
+          <tr><td>Latency p50/p95/p99 (ms)</td><td>50.701 / 60.333 / 68.620</td></tr>
+          <tr><td>Throughput batch1/batch16</td><td>19.24 / 303.99</td></tr>
+          <tr><td>Model size/load time</td><td>0.73 MB / 156.00 ms</td></tr>
+          <tr><td>Model file</td><td class='mono'>D:\TSL\.tools\train_runs_25690531-131843\fs_e80_b64\artifacts\fingerspelling\model.keras</td></tr>
+        </table>
+      </article>
+      <article class='card'>
+        <div class='head'><h2>Model B: TSL-51</h2><span class='badge warn'>47 classes benchmarked</span></div>
+        <table>
+          <tr><td>Run ID</td><td class='mono'>tsl51_e40_b32_s12000</td></tr>
+          <tr><td>Test Accuracy</td><td><strong>0.938333</strong></td></tr>
+          <tr><td>Macro F1</td><td>0.937235</td></tr>
+          <tr><td>Weighted F1</td><td>0.939045</td></tr>
+          <tr><td>ECE</td><td>0.009055</td></tr>
+          <tr><td>Latency p50/p95/p99 (ms)</td><td>54.569 / 58.716 / 60.501</td></tr>
+          <tr><td>Throughput batch1/batch16</td><td>18.22 / 274.84</td></tr>
+          <tr><td>Model size/load time</td><td>4.10 MB / 176.08 ms</td></tr>
+          <tr><td>Model file</td><td class='mono'>D:\TSL\.tools\train_runs_25690531-175818\tsl51_e40_b32_s12000\artifacts\tsl51\tsl51_model.keras</td></tr>
+        </table>
+      </article>
+    </section>
+
+    <section class='grid split-2'>
+      <article class='card'>
+        <div class='head'><h2>Benchmark Comparison Matrix</h2><span class='badge good'>Standard Suite</span></div>
+        <table>
+          <tr><th>Metric</th><th>Fingerspelling</th><th>TSL-51</th><th>Winner</th></tr>
+          <tr><td>Test Accuracy</td><td>0.9846</td><td>0.9383</td><td><strong>Fingerspelling</strong></td></tr><tr><td>Macro F1</td><td>0.9846</td><td>0.9372</td><td><strong>Fingerspelling</strong></td></tr><tr><td>Weighted F1</td><td>0.9846</td><td>0.9390</td><td><strong>Fingerspelling</strong></td></tr><tr><td>Calibration ECE</td><td>0.0079</td><td>0.0091</td><td><strong>Fingerspelling</strong></td></tr><tr><td>Latency p50 (ms)</td><td>50.7007</td><td>54.5691</td><td><strong>Fingerspelling</strong></td></tr><tr><td>Latency p95 (ms)</td><td>60.3334</td><td>58.7161</td><td><strong>TSL-51</strong></td></tr><tr><td>Latency p99 (ms)</td><td>68.6203</td><td>60.5005</td><td><strong>TSL-51</strong></td></tr><tr><td>Throughput batch1</td><td>19.2372</td><td>18.2199</td><td><strong>Fingerspelling</strong></td></tr><tr><td>Throughput batch16</td><td>303.9908</td><td>274.8427</td><td><strong>Fingerspelling</strong></td></tr><tr><td>Model Size (MB)</td><td>0.7258</td><td>4.1046</td><td><strong>Fingerspelling</strong></td></tr><tr><td>Load Time (ms)</td><td>156.0033</td><td>176.0750</td><td><strong>Fingerspelling</strong></td></tr>
+        </table>
+      </article>
+      <article class='card'>
+        <div class='head'><h2>Visualization</h2><span class='badge warn'>Relative Bars</span></div>
+        <div class='bars'>
+            <div class='bar-block'>
+              <div class='bar-title'>Test Accuracy</div>
+              <div class='bar-pair'>
+                <span class='tag fs'>FS</span><div class='bar-track'><div class='bar-fill fs' style='width:100.0%'></div></div><span class='bar-val'>0.9846</span>
+              </div>
+              <div class='bar-pair'>
+                <span class='tag tsl'>TSL</span><div class='bar-track'><div class='bar-fill tsl' style='width:95.3%'></div></div><span class='bar-val'>0.9383</span>
+              </div>
+            </div>
+            
+            <div class='bar-block'>
+              <div class='bar-title'>Macro F1</div>
+              <div class='bar-pair'>
+                <span class='tag fs'>FS</span><div class='bar-track'><div class='bar-fill fs' style='width:100.0%'></div></div><span class='bar-val'>0.9846</span>
+              </div>
+              <div class='bar-pair'>
+                <span class='tag tsl'>TSL</span><div class='bar-track'><div class='bar-fill tsl' style='width:95.2%'></div></div><span class='bar-val'>0.9372</span>
+              </div>
+            </div>
+            
+            <div class='bar-block'>
+              <div class='bar-title'>Weighted F1</div>
+              <div class='bar-pair'>
+                <span class='tag fs'>FS</span><div class='bar-track'><div class='bar-fill fs' style='width:100.0%'></div></div><span class='bar-val'>0.9846</span>
+              </div>
+              <div class='bar-pair'>
+                <span class='tag tsl'>TSL</span><div class='bar-track'><div class='bar-fill tsl' style='width:95.4%'></div></div><span class='bar-val'>0.9390</span>
+              </div>
+            </div>
+            
+            <div class='bar-block'>
+              <div class='bar-title'>Calibration ECE</div>
+              <div class='bar-pair'>
+                <span class='tag fs'>FS</span><div class='bar-track'><div class='bar-fill fs' style='width:86.9%'></div></div><span class='bar-val'>0.0079</span>
+              </div>
+              <div class='bar-pair'>
+                <span class='tag tsl'>TSL</span><div class='bar-track'><div class='bar-fill tsl' style='width:100.0%'></div></div><span class='bar-val'>0.0091</span>
+              </div>
+            </div>
+            
+            <div class='bar-block'>
+              <div class='bar-title'>Latency p50 (ms)</div>
+              <div class='bar-pair'>
+                <span class='tag fs'>FS</span><div class='bar-track'><div class='bar-fill fs' style='width:92.9%'></div></div><span class='bar-val'>50.7007</span>
+              </div>
+              <div class='bar-pair'>
+                <span class='tag tsl'>TSL</span><div class='bar-track'><div class='bar-fill tsl' style='width:100.0%'></div></div><span class='bar-val'>54.5691</span>
+              </div>
+            </div>
+            
+            <div class='bar-block'>
+              <div class='bar-title'>Latency p95 (ms)</div>
+              <div class='bar-pair'>
+                <span class='tag fs'>FS</span><div class='bar-track'><div class='bar-fill fs' style='width:100.0%'></div></div><span class='bar-val'>60.3334</span>
+              </div>
+              <div class='bar-pair'>
+                <span class='tag tsl'>TSL</span><div class='bar-track'><div class='bar-fill tsl' style='width:97.3%'></div></div><span class='bar-val'>58.7161</span>
+              </div>
+            </div>
+            
+            <div class='bar-block'>
+              <div class='bar-title'>Latency p99 (ms)</div>
+              <div class='bar-pair'>
+                <span class='tag fs'>FS</span><div class='bar-track'><div class='bar-fill fs' style='width:100.0%'></div></div><span class='bar-val'>68.6203</span>
+              </div>
+              <div class='bar-pair'>
+                <span class='tag tsl'>TSL</span><div class='bar-track'><div class='bar-fill tsl' style='width:88.2%'></div></div><span class='bar-val'>60.5005</span>
+              </div>
+            </div>
+            
+            <div class='bar-block'>
+              <div class='bar-title'>Throughput batch1</div>
+              <div class='bar-pair'>
+                <span class='tag fs'>FS</span><div class='bar-track'><div class='bar-fill fs' style='width:100.0%'></div></div><span class='bar-val'>19.2372</span>
+              </div>
+              <div class='bar-pair'>
+                <span class='tag tsl'>TSL</span><div class='bar-track'><div class='bar-fill tsl' style='width:94.7%'></div></div><span class='bar-val'>18.2199</span>
+              </div>
+            </div>
+            
+            <div class='bar-block'>
+              <div class='bar-title'>Throughput batch16</div>
+              <div class='bar-pair'>
+                <span class='tag fs'>FS</span><div class='bar-track'><div class='bar-fill fs' style='width:100.0%'></div></div><span class='bar-val'>303.9908</span>
+              </div>
+              <div class='bar-pair'>
+                <span class='tag tsl'>TSL</span><div class='bar-track'><div class='bar-fill tsl' style='width:90.4%'></div></div><span class='bar-val'>274.8427</span>
+              </div>
+            </div>
+            
+            <div class='bar-block'>
+              <div class='bar-title'>Model Size (MB)</div>
+              <div class='bar-pair'>
+                <span class='tag fs'>FS</span><div class='bar-track'><div class='bar-fill fs' style='width:17.7%'></div></div><span class='bar-val'>0.7258</span>
+              </div>
+              <div class='bar-pair'>
+                <span class='tag tsl'>TSL</span><div class='bar-track'><div class='bar-fill tsl' style='width:100.0%'></div></div><span class='bar-val'>4.1046</span>
+              </div>
+            </div>
+            
+            <div class='bar-block'>
+              <div class='bar-title'>Load Time (ms)</div>
+              <div class='bar-pair'>
+                <span class='tag fs'>FS</span><div class='bar-track'><div class='bar-fill fs' style='width:88.6%'></div></div><span class='bar-val'>156.0033</span>
+              </div>
+              <div class='bar-pair'>
+                <span class='tag tsl'>TSL</span><div class='bar-track'><div class='bar-fill tsl' style='width:100.0%'></div></div><span class='bar-val'>176.0750</span>
+              </div>
+            </div>
+            </div>
+      </article>
+    </section>
+
+    <section class='grid split-2'>
+      <article class='card'>
+        <div class='head'><h2>Robustness: Fingerspelling</h2><span class='badge good'>Perturbation</span></div>
+        <table><tr><td>base_acc</td><td>0.9846</td></tr><tr><td>gaussian_noise_acc</td><td>0.9839</td></tr><tr><td>feature_scale_0_92_acc</td><td>0.9860</td></tr><tr><td>feature_dropout_acc</td><td>0.7972</td></tr></table>
+      </article>
+      <article class='card'>
+        <div class='head'><h2>Robustness: TSL-51</h2><span class='badge warn'>Perturbation</span></div>
+        <table><tr><td>base_acc</td><td>0.9383</td></tr><tr><td>gaussian_noise_acc</td><td>0.9383</td></tr><tr><td>frame_dropout_acc</td><td>0.9383</td></tr><tr><td>feature_scale_0_95_acc</td><td>0.9367</td></tr></table>
+      </article>
+    </section>
+
+    <p class='foot'>Outputs: model-report-fs-tsl51.html | benchmark-standard-report.html | benchmark-standard-summary.csv | benchmark-standard-report.json</p>
+  </main>
+</body>
+</html>
