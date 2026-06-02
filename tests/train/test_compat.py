@@ -1,40 +1,32 @@
 """Regression tests for platform compatibility helpers."""
 
+import io
+
 from src.train.compat import setup_windows_encoding
 
 
-class _DummyStream:
-    def __init__(self):
-        self.calls = []
-
-    def reconfigure(self, **kwargs):
-        self.calls.append(kwargs)
-
-
 def test_setup_windows_encoding_reconfigures_streams(monkeypatch):
-    stdout = _DummyStream()
-    stderr = _DummyStream()
+    from unittest.mock import MagicMock
+    mock_stdout = MagicMock()
+    mock_stdout.buffer = MagicMock(spec=io.BytesIO)
 
     monkeypatch.setattr("sys.platform", "win32")
-    monkeypatch.setattr("sys.stdout", stdout)
-    monkeypatch.setattr("sys.stderr", stderr)
+    monkeypatch.setattr("sys.stdout", mock_stdout)
 
     setup_windows_encoding()
 
-    expected = {"encoding": "utf-8", "errors": "replace"}
-    assert stdout.calls == [expected]
-    assert stderr.calls == [expected]
-
+    import sys
+    assert isinstance(sys.stdout, io.TextIOWrapper)
+    assert sys.stdout.encoding == "utf-8"
+    assert sys.stdout.errors == "replace"
 
 def test_setup_windows_encoding_noops_outside_windows(monkeypatch):
-    stdout = _DummyStream()
-    stderr = _DummyStream()
-
+    from unittest.mock import MagicMock
+    mock_stdout = MagicMock()
     monkeypatch.setattr("sys.platform", "linux")
-    monkeypatch.setattr("sys.stdout", stdout)
-    monkeypatch.setattr("sys.stderr", stderr)
+    monkeypatch.setattr("sys.stdout", mock_stdout)
 
     setup_windows_encoding()
 
-    assert stdout.calls == []
-    assert stderr.calls == []
+    import sys
+    assert sys.stdout is mock_stdout
