@@ -1,9 +1,9 @@
 """Regression tests for platform compatibility helpers."""
 
+import io
+
 from src.train.compat import setup_windows_encoding
 
-
-import io
 
 def test_setup_windows_encoding_reconfigures_streams(monkeypatch):
     from unittest.mock import MagicMock

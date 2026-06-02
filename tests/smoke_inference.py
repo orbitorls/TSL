@@ -40,10 +40,7 @@ def main():
         if sample_npz is not None and sample_npz.exists():
             data = np.load(sample_npz)
             # Prefer key 'X' else first array
-            if 'X' in data:
-                features = data['X']
-            else:
-                features = data[data.files[0]]
+            features = data['X'] if 'X' in data else data[data.files[0]]
             # Ensure single sample shape (162,) or (1,162)
             features = np.array(features, dtype=np.float32)
             if features.ndim > 1:
@@ -61,8 +58,9 @@ def main():
         predictor = None
         try:
             # suppress prints from predictor init
-            import io
             import contextlib
+            import io
+
             from inference import TSLPredictor
             with contextlib.redirect_stdout(io.StringIO()):
                 predictor = TSLPredictor(CKPT_PATH, device=torch.device('cpu'))
@@ -82,7 +80,7 @@ def main():
                 state = ckpt.get('state_dict', None) if isinstance(ckpt, dict) else None
                 if state is not None:
                     # Try to infer output dim from final linear weight (for logging only)
-                    for k, v in state.items():
+                    for k, _v in state.items():
                         if k.endswith('fc.weight') or k.endswith('net.{}'):
                             # out_dim = v.shape[0]  # available if needed for future use
                             break
