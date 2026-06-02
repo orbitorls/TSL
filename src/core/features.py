@@ -5,7 +5,6 @@ Single source of truth for landmark → feature vector conversion.
 
 import numpy as np
 
-
 FEATURE_LEVELS = {
     "basic": 162,  # Hand (63+63) + Pose (36)
     "enhanced": 249,  # + geometric features
