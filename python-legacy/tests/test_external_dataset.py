@@ -31,6 +31,19 @@ def write_manifest(path: Path, rows: list[dict[str, object]]) -> None:
         "split",
         "license_note",
         "quality_status",
+        "source_type",
+        "rights_status",
+        "rights_evidence",
+        "consent_id",
+        "signer_id",
+        "session_id",
+        "camera_id",
+        "camera_angle",
+        "take_id",
+        "segment_id",
+        "reviewer_id",
+        "reviewed_at",
+        "review_notes",
     ]
     with path.open("w", newline="", encoding="utf-8") as handle:
         writer = csv.DictWriter(handle, fieldnames=fieldnames)
@@ -50,6 +63,19 @@ def base_row(**overrides: object) -> dict[str, object]:
         "split": "train",
         "license_note": "local research only",
         "quality_status": "reviewed",
+        "source_type": "own_recording",
+        "rights_status": "own_internal_consent",
+        "rights_evidence": "consent:demo",
+        "consent_id": "consent-demo",
+        "signer_id": "signer-a",
+        "session_id": "session-a",
+        "camera_id": "cam-a",
+        "camera_angle": "front",
+        "take_id": "take-a",
+        "segment_id": "seg-a",
+        "reviewer_id": "reviewer-a",
+        "reviewed_at": "2026-06-02",
+        "review_notes": "ok",
     }
     row.update(overrides)
     return row
@@ -117,7 +143,101 @@ def test_manifest_allowed_tracks_filters_mixed_manifest(tmp_path: Path) -> None:
     assert rows[0].track == "tsl51"
 
 
-def test_feature_cache_builders_keep_track_shapes() -> None:
+
+
+def test_strict_manifest_rejects_unreviewed_rows(tmp_path: Path) -> None:
+    manifest = tmp_path / "manifest.csv"
+    write_manifest(manifest, [base_row(quality_status="prelabel")])
+
+    with pytest.raises(ManifestError, match="quality_status must be reviewed"):
+        load_manifest(manifest, known_labels={"KO_KAI"}, strict_training=True)
+
+
+def test_strict_manifest_rejects_unknown_rights(tmp_path: Path) -> None:
+    manifest = tmp_path / "manifest.csv"
+    write_manifest(manifest, [base_row(rights_status="unknown")])
+
+    with pytest.raises(ManifestError, match="rights_status"):
+        load_manifest(manifest, known_labels={"KO_KAI"}, strict_training=True)
+
+
+def test_strict_manifest_rejects_youtube_without_rights_evidence(tmp_path: Path) -> None:
+    manifest = tmp_path / "manifest.csv"
+    write_manifest(
+        manifest,
+        [
+            base_row(
+                source_type="youtube_permission",
+                rights_status="permission_granted_internal",
+                rights_evidence="",
+            )
+        ],
+    )
+
+    with pytest.raises(ManifestError, match="rights_evidence"):
+        load_manifest(manifest, known_labels={"KO_KAI"}, strict_training=True)
+
+
+def test_strict_manifest_rejects_session_split_leakage(tmp_path: Path) -> None:
+    manifest = tmp_path / "manifest.csv"
+    write_manifest(
+        manifest,
+        [
+            base_row(video_id="clip-a", split="train", session_id="same-session"),
+            base_row(video_id="clip-b", split="val", session_id="same-session"),
+        ],
+    )
+
+    with pytest.raises(ManifestError, match="session_id"):
+        load_manifest(manifest, known_labels={"KO_KAI"}, strict_training=True)
+
+
+def test_strict_manifest_rejects_conflicting_segment_labels(tmp_path: Path) -> None:
+    manifest = tmp_path / "manifest.csv"
+    write_manifest(
+        manifest,
+        [
+            base_row(label="KO_KAI"),
+            base_row(label="BOR_BAI_MAI"),
+        ],
+    )
+
+    with pytest.raises(ManifestError, match="conflicting labels"):
+        load_manifest(
+            manifest,
+            known_labels={"KO_KAI", "BOR_BAI_MAI"},
+            strict_training=True,
+        )
+
+
+def test_strict_manifest_allows_non_overlapping_segments_with_different_labels(tmp_path: Path) -> None:
+    manifest = tmp_path / "manifest.csv"
+    write_manifest(
+        manifest,
+        [
+            base_row(label="KO_KAI", start_s=1.0, end_s=2.0),
+            base_row(label="BOR_BAI_MAI", start_s=2.1, end_s=3.0),
+        ],
+    )
+
+    rows = load_manifest(
+        manifest,
+        known_labels={"KO_KAI", "BOR_BAI_MAI"},
+        strict_training=True,
+    )
+
+    assert [row.label for row in rows] == ["KO_KAI", "BOR_BAI_MAI"]
+
+
+def test_strict_manifest_keeps_extended_metadata(tmp_path: Path) -> None:
+    manifest = tmp_path / "manifest.csv"
+    write_manifest(manifest, [base_row(source_type="consented_recording", segment_id="seg-001")])
+
+    rows = load_manifest(manifest, known_labels={"KO_KAI"}, strict_training=True)
+
+    assert rows[0].source_type == "consented_recording"
+    assert rows[0].rights_status == "own_internal_consent"
+    assert rows[0].segment_id == "seg-001"
     labels = ["KO_KAI", "BOR_BAI_MAI"]
     fs_features = [
         ("KO_KAI", np.ones(63, dtype=np.float32)),

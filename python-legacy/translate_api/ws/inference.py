@@ -33,6 +33,7 @@ def _frame_to_message(result, transcript_text: str, hist: list[float]) -> dict[s
         "type": "prediction",
         "label": result.label,
         "confidence": result.confidence,
+        "committed_label": result.committed_label,
         "topk": [{"label": e.label, "p": e.p} for e in result.topk],
         "topk_text": result.topk_text,
         "status": result.status,
@@ -101,9 +102,13 @@ async def ws_inference(websocket: WebSocket, session_id: str) -> None:
                 session.confidence_hist = session.confidence_hist[-100:]
 
             transcript_text = session.transcript.text if session.transcript else ""
-            if session.transcript and result.status == "ready" and result.label not in ("?", ""):
+            should_update_transcript = (
+                session.transcript is not None
+                and result.committed_label not in (None, "", "?", "Unknown / รอท่าชัดเจน")
+            )
+            if should_update_transcript:
                 update = session.transcript.update(
-                    result.label, result.confidence, session.settings.threshold
+                    result.committed_label, result.confidence, session.settings.threshold
                 )
                 if update is not None:
                     transcript_text = update.text

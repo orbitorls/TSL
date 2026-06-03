@@ -22,6 +22,7 @@ export interface PredictionMessage {
   type: "prediction";
   label: string;
   confidence: number;
+  committed_label: string | null;
   topk: TopKEntry[];
   topk_text: string;
   status: string;
@@ -49,4 +50,30 @@ export interface InferenceSettings {
   alpha: number;
   top_k: number;
   motion_min: number;
+  min_sign_frames?: number;
+  sign_end_frames?: number;
+  min_confidence_margin?: number;
+  commit_on_preview?: boolean;
 }
+
+export type Tsl51Preset = "accurate" | "fast";
+
+export const TSL51_PRESETS: Record<Tsl51Preset, Required<Pick<
+  InferenceSettings,
+  "threshold" | "min_sign_frames" | "sign_end_frames" | "min_confidence_margin" | "commit_on_preview"
+>>> = {
+  accurate: {
+    threshold: 0.65,
+    min_sign_frames: 6,
+    sign_end_frames: 5,
+    min_confidence_margin: 0.12,
+    commit_on_preview: false,
+  },
+  fast: {
+    threshold: 0.55,
+    min_sign_frames: 3,
+    sign_end_frames: 5,
+    min_confidence_margin: 0.08,
+    commit_on_preview: true,
+  },
+};

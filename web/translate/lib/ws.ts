@@ -3,12 +3,14 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { PredictionMessage, TranscriptMessage, WsMessage } from "./types";
 import { getWsUrl } from "./api";
+import { glossLabel } from "./gloss";
 
 export interface LiveState {
   connected: boolean;
   prediction: PredictionMessage | null;
   transcript: string;
-  pendingLabel: string;
+  displayLabel: string;
+  bufferingProgress: string | null;
   hist: number[];
   error: string | null;
 }
@@ -17,10 +19,28 @@ const initial: LiveState = {
   connected: false,
   prediction: null,
   transcript: "",
-  pendingLabel: "",
+  displayLabel: "",
+  bufferingProgress: null,
   hist: [],
   error: null,
 };
+
+const SYSTEM_LABEL_PREFIXES = ["กำลังเก็บเฟรม", "กำลังเซ็น", "ไม่พบมือ"] as const;
+
+function isSystemLabel(label: string): boolean {
+  return SYSTEM_LABEL_PREFIXES.some((prefix) => label.startsWith(prefix));
+}
+
+function derivePredictionUi(msg: PredictionMessage): Pick<LiveState, "displayLabel" | "bufferingProgress"> {
+  const showPrediction = ["previewing", "predicted", "low_confidence"].includes(msg.status);
+  const rawLabel =
+    showPrediction && msg.label && !isSystemLabel(msg.label) ? msg.label : "";
+  const displayLabel = rawLabel ? glossLabel(rawLabel) : "";
+  return {
+    displayLabel,
+    bufferingProgress: msg.buffering,
+  };
+}
 
 export function useInferenceWs(sessionId: string | null, streaming: boolean) {
   const wsRef = useRef<WebSocket | null>(null);
@@ -62,10 +82,12 @@ export function useInferenceWs(sessionId: string | null, streaming: boolean) {
       try {
         const msg = JSON.parse(ev.data as string) as WsMessage;
         if (msg.type === "prediction") {
+          const ui = derivePredictionUi(msg);
           setState((s) => ({
             ...s,
             prediction: msg,
-            pendingLabel: msg.label,
+            displayLabel: ui.displayLabel,
+            bufferingProgress: ui.bufferingProgress,
             hist: msg.confidence_hist,
             transcript: msg.transcript || s.transcript,
           }));
@@ -103,6 +125,7 @@ export function useInferenceWs(sessionId: string | null, streaming: boolean) {
       canvas.height = h;
       const ctx = canvas.getContext("2d");
       if (ctx) {
+        // Video is mirrored for display only; capture unflipped pixels for inference.
         ctx.drawImage(video, 0, 0, w, h);
         const dataUrl = canvas.toDataURL("image/jpeg", 0.65);
         ws.send(JSON.stringify({ type: "frame", jpeg_base64: dataUrl }));

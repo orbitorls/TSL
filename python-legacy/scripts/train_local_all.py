@@ -27,6 +27,13 @@ from typing import Any
 
 import numpy as np
 
+os.environ.setdefault("HF_HUB_DISABLE_PROGRESS_BARS", "1")
+try:
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+    sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+except AttributeError:
+    pass
+
 ROOT = Path(__file__).resolve().parents[1]
 REPO_ROOT = Path(__file__).resolve().parents[2]
 if str(ROOT) not in sys.path:
@@ -63,6 +70,7 @@ class RuntimeConfig:
     fs_batch_size: int
     tsl51_batch_size: int
     max_tsl51_samples: int | None
+    tsl51_class_mode: str
     fs_workers: int
     tsl51_download_workers: int
     tsl51_parse_workers: int
@@ -149,6 +157,70 @@ def _read_metadata_rows(paths: list[Path]) -> list[dict[str, str]]:
             for row in reader:
                 rows.append(row)
     return rows
+
+
+
+
+def _sign_id(row: dict[str, str]) -> str:
+    return str(row.get("sign_id", "")).strip()
+
+
+def _tsl51_row_priority(row: dict[str, str]) -> tuple[int, str]:
+    path = str(row.get("landmark_path", "")).replace("\\", "/")
+    if path.startswith("landmarks/user_sign/"):
+        rank = 0
+    elif path.startswith("landmarks/expert_primary_"):
+        rank = 1
+    elif path.startswith("landmarks/expert_scraped/"):
+        rank = 2
+    else:
+        rank = 3
+    return rank, path
+
+
+def _limit_tsl51_rows_balanced(
+    rows: list[dict[str, str]],
+    max_samples: int | None,
+) -> list[dict[str, str]]:
+    if max_samples is None or max_samples >= len(rows):
+        return rows
+    by_class: dict[str, list[dict[str, str]]] = {}
+    for row in rows:
+        by_class.setdefault(_sign_id(row), []).append(row)
+    for class_rows in by_class.values():
+        class_rows.sort(key=_tsl51_row_priority)
+    class_names = sorted(by_class)
+    if max_samples < len(class_names):
+        raise RuntimeError(
+            f"max_tsl51_samples={max_samples} is smaller than class count {len(class_names)}"
+        )
+    selected: list[dict[str, str]] = []
+    remaining = max_samples
+    for class_index, class_name in enumerate(class_names):
+        classes_left = len(class_names) - class_index
+        quota = max(1, remaining // classes_left)
+        take = min(quota, len(by_class[class_name]))
+        selected.extend(by_class[class_name][:take])
+        remaining -= take
+    if remaining > 0:
+        selected_ids = {id(row) for row in selected}
+        for row in rows:
+            if id(row) in selected_ids:
+                continue
+            selected.append(row)
+            remaining -= 1
+            if remaining == 0:
+                break
+    return selected[:max_samples]
+
+
+def _validate_full_tsl51_classes(
+    expected_classes: set[str],
+    available_classes: set[str],
+) -> None:
+    missing = sorted(expected_classes - available_classes)
+    if missing:
+        raise RuntimeError("missing TSL51 classes: " + ", ".join(missing))
 
 
 def _require_imports(module_names: list[str]) -> dict[str, bool]:
@@ -523,6 +595,7 @@ def _prepare_tsl51_metadata(cfg: RuntimeConfig) -> list[Path]:
         if all(p.exists() for p in nested):
             return nested
 
+    os.environ.setdefault("HF_HUB_DISABLE_PROGRESS_BARS", "1")
     from huggingface_hub import hf_hub_download
 
     out = cfg.work_root / "tsl51_metadata"
@@ -561,12 +634,13 @@ def _ensure_tsl51_landmark(rel_path: str, cache_dir: Path) -> Path | None:
     if os.environ.get("TSL51_DISABLE_HF_DOWNLOAD", "").strip() == "1":
         return None
 
+    os.environ.setdefault("HF_HUB_DISABLE_PROGRESS_BARS", "1")
     from huggingface_hub import hf_hub_download
 
     try:
         local = Path(hf_hub_download(TSL51_REPO_ID, rel, repo_type="dataset"))
     except Exception as exc:
-        print(f"[tsl51] missing landmark skipped: {rel} ({exc})")
+        print(f"[tsl51] missing landmark skipped: {rel} ({type(exc).__name__})")
         return None
     cached.parent.mkdir(parents=True, exist_ok=True)
     shutil.copy2(local, cached)
@@ -600,7 +674,19 @@ def extract_tsl51_features(
             f"Check --tsl51-metadata-dir (loaded from {metadata_paths})."
         )
 
-    signature = f"{len(rows)}|{rows[0]['landmark_path']}|{rows[-1]['landmark_path']}"
+    expected_class_names = sorted({_sign_id(row) for row in rows})
+    requested_max_tsl51_samples = cfg.max_tsl51_samples
+    predownload_max = requested_max_tsl51_samples
+    if cfg.tsl51_class_mode == "full" and requested_max_tsl51_samples is not None:
+        predownload_max = max(requested_max_tsl51_samples, len(expected_class_names) * 3)
+    rows = _limit_tsl51_rows_balanced(rows, predownload_max)
+    if cfg.tsl51_class_mode == "full":
+        _validate_full_tsl51_classes(set(expected_class_names), {_sign_id(row) for row in rows})
+
+    signature = (
+        f"{len(rows)}|{rows[0]['landmark_path']}|{rows[-1]['landmark_path']}|"
+        f"class_mode={cfg.tsl51_class_mode}|max={cfg.max_tsl51_samples}"
+    )
     if cache_path.exists() and not cfg.force_feature_cache:
         data = np.load(cache_path, allow_pickle=True)
         if (
@@ -630,11 +716,19 @@ def extract_tsl51_features(
                 local_csvs[idx] = fut.result()
             except Exception as exc:
                 local_csvs[idx] = None
-                print(f"[tsl51] download failed, row skipped: {exc}")
+                print(f"[tsl51] download failed, row skipped: {type(exc).__name__}")
 
     available_rows = [rows[i] for i in range(len(rows)) if local_csvs[i] is not None]
-    if cfg.max_tsl51_samples is not None:
-        available_rows = available_rows[: cfg.max_tsl51_samples]
+    available_classes = {_sign_id(row) for row in available_rows}
+    if cfg.tsl51_class_mode == "full":
+        _validate_full_tsl51_classes(set(expected_class_names), available_classes)
+    if requested_max_tsl51_samples is not None:
+        available_rows = _limit_tsl51_rows_balanced(available_rows, requested_max_tsl51_samples)
+        if cfg.tsl51_class_mode == "full":
+            _validate_full_tsl51_classes(
+                set(expected_class_names),
+                {_sign_id(row) for row in available_rows},
+            )
 
     if not available_rows:
         raise RuntimeError("No TSL-51 landmark CSV files available after download filtering")
@@ -673,6 +767,21 @@ def extract_tsl51_features(
 
     X_arr = np.asarray(X, dtype=np.float32)
     y_arr = np.asarray(y, dtype=np.int32)
+    class_counts = {
+        class_names[int(class_idx)]: int(count)
+        for class_idx, count in zip(*np.unique(y_arr, return_counts=True))
+    }
+    cache_summary = {
+        "class_mode": cfg.tsl51_class_mode,
+        "metadata_class_count": len(expected_class_names),
+        "cache_class_count": len(class_names),
+        "class_names": class_names,
+        "class_counts": class_counts,
+        "missing_classes": sorted(set(expected_class_names) - set(class_names)),
+        "samples": int(len(y_arr)),
+        "feature_dim": FEATURE_DIM,
+        "seq_len": SEQ_LEN_DEFAULT,
+    }
     cache_path.parent.mkdir(parents=True, exist_ok=True)
     np.savez_compressed(
         cache_path,
@@ -682,8 +791,12 @@ def extract_tsl51_features(
         X=X_arr,
         y=y_arr,
         class_names=np.asarray(class_names, dtype=object),
+        class_counts=np.asarray([class_counts[name] for name in class_names], dtype=np.int32),
     )
+    summary_path = cache_path.with_suffix(".summary.json")
+    summary_path.write_text(json.dumps(cache_summary, ensure_ascii=False, indent=2), encoding="utf-8")
     print("[tsl51] saved feature cache:", cache_path)
+    print("[tsl51] saved cache summary:", summary_path)
     return X_arr, y_arr, class_names
 
 
@@ -866,6 +979,16 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--tsl51-batch-size", type=int, default=64)
     p.add_argument("--max-tsl51-samples", type=int, default=None)
     p.add_argument(
+        "--tsl51-class-mode",
+        choices=("observed", "full"),
+        default="full",
+        help=(
+            "Use 'full' (default) to require all 51 non-null TSL51 metadata classes; "
+            "'observed' keeps only classes present in the sampled subset "
+            "(may silently drop classes and produce a 47-class model)."
+        ),
+    )
+    p.add_argument(
         "--fs-workers",
         type=int,
         default=_default_workers(),
@@ -933,6 +1056,7 @@ def main() -> int:
         fs_batch_size=args.fs_batch_size,
         tsl51_batch_size=args.tsl51_batch_size,
         max_tsl51_samples=args.max_tsl51_samples,
+        tsl51_class_mode=args.tsl51_class_mode,
         fs_workers=max(1, args.fs_workers),
         tsl51_download_workers=max(1, args.tsl51_download_workers),
         tsl51_parse_workers=max(1, args.tsl51_parse_workers),

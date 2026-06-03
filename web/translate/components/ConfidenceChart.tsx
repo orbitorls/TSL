@@ -4,21 +4,48 @@ import { Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "rec
 
 export function ConfidenceChart({ data }: { data: number[] }) {
   const points = data.map((v, i) => ({ i, v }));
+  const latest = points.at(-1)?.v ?? 0;
+  const average = points.length ? points.reduce((sum, p) => sum + p.v, 0) / points.length : 0;
 
   if (!points.length) {
-    return <p className="text-sm text-subtle">ยังไม่มีกระแสข้อมูลทำนาย</p>;
+    return (
+      <div className="flex min-h-40 items-center justify-center rounded-2xl border border-dashed border-border bg-page/60 p-5 text-center">
+        <div>
+          <p className="font-bold text-text">ยังไม่มีกระแสข้อมูลทำนาย</p>
+          <p className="mt-1 text-sm text-subtle">เริ่มกล้องแล้วค่าความมั่นใจจะไหลเข้ามาในกราฟนี้</p>
+        </div>
+      </div>
+    );
   }
 
   return (
-    <div className="h-40 w-full">
-      <ResponsiveContainer width="100%" height="100%">
-        <LineChart data={points}>
-          <XAxis dataKey="i" hide />
-          <YAxis domain={[0, 1]} tick={{ fontSize: 10 }} />
-          <Tooltip formatter={(v: number) => `${(v * 100).toFixed(0)}%`} />
-          <Line type="monotone" dataKey="v" stroke="#13a08f" strokeWidth={2} dot={false} />
-        </LineChart>
-      </ResponsiveContainer>
+    <div className="space-y-3">
+      <div className="flex flex-wrap gap-2 text-xs text-subtle">
+        <span className="rounded-full border border-border bg-page px-3 py-1">
+          ล่าสุด <strong className="ml-1 text-text">{(latest * 100).toFixed(0)}%</strong>
+        </span>
+        <span className="rounded-full border border-border bg-page px-3 py-1">
+          เฉลี่ย <strong className="ml-1 text-text">{(average * 100).toFixed(0)}%</strong>
+        </span>
+        <span className="rounded-full border border-border bg-page px-3 py-1">
+          จุดข้อมูล <strong className="ml-1 text-text">{points.length}</strong>
+        </span>
+      </div>
+
+      <div className="h-40 w-full rounded-2xl border border-border bg-white p-2">
+        <ResponsiveContainer width="100%" height="100%">
+          <LineChart data={points} margin={{ top: 8, right: 8, bottom: 0, left: -22 }}>
+            <XAxis dataKey="i" hide />
+            <YAxis domain={[0, 1]} tick={{ fontSize: 10, fill: "#5f6660" }} tickLine={false} axisLine={false} />
+            <Tooltip
+              formatter={(v: number) => `${(v * 100).toFixed(0)}%`}
+              labelFormatter={() => "ความมั่นใจ"}
+              contentStyle={{ borderRadius: 14, borderColor: "#d8d0bf", fontSize: 12 }}
+            />
+            <Line type="monotone" dataKey="v" stroke="#13a08f" strokeWidth={3} dot={false} isAnimationActive={false} />
+          </LineChart>
+        </ResponsiveContainer>
+      </div>
     </div>
   );
 }

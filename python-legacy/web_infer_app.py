@@ -239,7 +239,7 @@ def process_one_frame(track: TrackSpec, threshold: float, alpha: float, top_k: i
     if loaded is None or service is None or camera is None:
         return
 
-    rgb = camera.read_rgb_flipped()
+    rgb = camera.read_rgb_unflipped()
     result = process_rgb_frame(
         track,
         loaded,

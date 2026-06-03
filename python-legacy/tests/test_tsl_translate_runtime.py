@@ -180,3 +180,46 @@ def test_tsl51_registry_prefers_reviewed_external_evidence_before_mtime(
         / "artifacts"
         / "tsl51",
     ]
+
+
+def test_tsl51_registry_prefers_webcam_finetuned_model_after_finetune(
+    tmp_path: Path,
+) -> None:
+    """After webcam fine-tune, v4_webcam_seed (external_val_samples>0) must
+    automatically outrank v3 even if v3 has higher internal accuracy.
+    This guards against regressions that would cause the runtime to fall back
+    to an unvalidated studio model after the user records their webcam data."""
+    v3 = (
+        tmp_path
+        / ".tools"
+        / "tsl51_experiments"
+        / "full51_v3_external_weighted"
+        / "artifacts"
+        / "tsl51"
+    )
+    v4_webcam = (
+        tmp_path
+        / ".tools"
+        / "tsl51_experiments"
+        / "full51_v4_webcam_seed"
+        / "artifacts"
+        / "tsl51"
+    )
+    write_artifact_stub(v3, 51)
+    write_artifact_stub(v4_webcam, 51)
+    # v3: higher internal accuracy but no real webcam validation
+    write_manifest(v3, external_augmented=True, external_val_samples=0, test_accuracy=0.9747)
+    # v4_webcam: lower internal accuracy but validated on real webcam holdout
+    write_manifest(v4_webcam, external_augmented=True, external_val_samples=12, test_accuracy=0.8500)
+
+    candidates = ModelRegistry(tmp_path).discover(TRACKS["tsl51"])
+
+    assert [Path(candidate.name) for candidate in candidates] == [
+        Path(".tools") / "tsl51_experiments" / "full51_v4_webcam_seed" / "artifacts" / "tsl51",
+        Path(".tools") / "tsl51_experiments" / "full51_v3_external_weighted" / "artifacts" / "tsl51",
+    ], (
+        "full51_v4_webcam_seed must rank first because it has external_val_samples>0 "
+        "(validated on real webcam holdout), even though v3 has higher internal accuracy. "
+        "If this fails, the runtime will silently fall back to a studio-domain model "
+        "after the user records webcam data."
+    )

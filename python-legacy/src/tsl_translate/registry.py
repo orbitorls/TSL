@@ -79,11 +79,15 @@ def _manifest_json(manifest_path: Path) -> dict[str, object]:
     return raw if isinstance(raw, dict) else {}
 
 
-def _candidate_rank(candidate: ArtifactCandidate, track: TrackSpec) -> tuple[int, int, float, float]:
+def _candidate_rank(
+    candidate: ArtifactCandidate,
+    track: TrackSpec,
+) -> tuple[int, int, float, tuple[int, float, float, int], float]:
     manifest = _manifest_json(candidate.manifest) if candidate.manifest else {}
     external_validated = 0
-    clean_rank = 1
+    external_augmented = 0
     if track.key == "tsl51" and manifest.get("external_augmented") is True:
+        external_augmented = 1
         try:
             external_val_samples = int(manifest.get("external_val_samples") or 0)
         except (TypeError, ValueError):
@@ -93,8 +97,56 @@ def _candidate_rank(candidate: ArtifactCandidate, track: TrackSpec) -> tuple[int
         accuracy = float(manifest.get("test_accuracy") or 0.0)
     except (TypeError, ValueError):
         accuracy = 0.0
+    reviewed_external = _reviewed_external_rank(candidate, track)
     try:
         modified = candidate.model.stat().st_mtime
     except OSError:
         modified = 0.0
-    return external_validated, clean_rank, accuracy, modified
+    return external_validated, external_augmented, accuracy, reviewed_external, modified
+
+
+def _reviewed_external_rank(candidate: ArtifactCandidate, track: TrackSpec) -> tuple[int, float, float, int]:
+    if track.key != "tsl51":
+        return 0, 0.0, 0.0, 0
+    root = _candidate_root(candidate)
+    if root is None:
+        return 0, 0.0, 0.0, 0
+    reports = root / "reports"
+    if not reports.exists():
+        return 0, 0.0, 0.0, 0
+
+    candidate_name = _normalised_path(candidate.name)
+    best = (0, 0.0, 0.0, 0)
+    for summary_path in reports.glob("**/summary.json"):
+        summary = _manifest_json(summary_path)
+        artifact_dir = _normalised_path(str(summary.get("artifact_dir") or ""))
+        samples_file = _normalised_path(str(summary.get("samples_file") or ""))
+        report_dir = _normalised_path(str(summary_path.parent.relative_to(root)))
+        if artifact_dir != candidate_name:
+            continue
+        if "reviewed_external" not in samples_file and "reviewed_external" not in report_dir:
+            continue
+        try:
+            top1 = float(summary.get("top1_accuracy") or 0.0)
+            top3 = float(summary.get("top3_accuracy") or 0.0)
+            total_samples = int(summary.get("total_samples") or 0)
+        except (TypeError, ValueError):
+            continue
+        best = max(best, (1, top1, top3, total_samples))
+    return best
+
+
+def _candidate_root(candidate: ArtifactCandidate) -> Path | None:
+    name_parts = Path(candidate.name).parts
+    if not name_parts:
+        return None
+    artifact_dir = candidate.model.parent
+    parent_index = len(name_parts) - 1
+    try:
+        return artifact_dir.parents[parent_index]
+    except IndexError:
+        return None
+
+
+def _normalised_path(value: str) -> str:
+    return value.replace("\\", "/").lstrip("./").lower()

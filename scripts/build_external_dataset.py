@@ -6,8 +6,14 @@ import json
 import sys
 from pathlib import Path
 
-import cv2
-import mediapipe as mp
+try:
+    import cv2
+except ImportError:  # pragma: no cover - --help and non-video smoke checks may run without OpenCV
+    cv2 = None  # type: ignore[assignment]
+try:
+    import mediapipe as mp
+except ImportError:  # pragma: no cover - --help and non-video smoke checks may run without MediaPipe
+    mp = None  # type: ignore[assignment]
 import numpy as np
 
 
@@ -26,7 +32,7 @@ from src.external_dataset import (  # noqa: E402
     load_manifest,
 )
 from src.keypoints import extract_and_normalize  # noqa: E402
-from src.sequence_keypoints import extract_holistic_frame  # noqa: E402
+from src.sequence_keypoints import extract_holistic_frame, resample_frames  # noqa: E402
 
 
 def parse_args() -> argparse.Namespace:
@@ -40,6 +46,9 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--report", type=Path, default=None)
     parser.add_argument("--target-fps", type=float, default=15.0)
     parser.add_argument("--require-reviewed", action="store_true", default=False)
+    parser.add_argument("--require-rights-approved", action="store_true", default=False)
+    parser.add_argument("--manifest-base-dir", type=Path, default=None)
+    parser.add_argument("--cache-split", choices=("train", "val", "external_test"), default=None)
     parser.add_argument("--min-detected-frames", type=int, default=12)
     parser.add_argument("--split", action="append", default=None)
     return parser.parse_args()
@@ -91,6 +100,12 @@ def extract_fs_sample(row: ManifestRow, target_fps: float, hands) -> tuple[list[
         "video_id": row.video_id,
         "label": row.label,
         "split": row.split,
+        "source_type": row.source_type,
+        "rights_status": row.rights_status,
+        "segment_id": row.segment_id,
+        "signer_id": row.signer_id,
+        "session_id": row.session_id,
+        "camera_angle": row.camera_angle,
         "decoded_frames": decoded,
         "detected_frames": len(features),
         "accepted": bool(features),
@@ -99,13 +114,7 @@ def extract_fs_sample(row: ManifestRow, target_fps: float, hands) -> tuple[list[
 
 def sequence_from_features(features: list[np.ndarray], seq_len: int = TSL51_SEQ_LEN) -> np.ndarray:
     arr = np.asarray(features, dtype=np.float32)
-    if arr.shape[0] >= seq_len:
-        idx = np.linspace(0, arr.shape[0] - 1, seq_len).round().astype(int)
-        return arr[idx].astype(np.float32)
-    out = np.zeros((seq_len, TSL51_FEATURE_DIM), dtype=np.float32)
-    if arr.shape[0] > 0:
-        out[seq_len - arr.shape[0] :] = arr
-    return out
+    return resample_frames(arr, seq_len)
 
 
 def extract_tsl51_sample(row: ManifestRow, target_fps: float, holistic) -> tuple[np.ndarray | None, dict[str, object]]:
@@ -132,6 +141,12 @@ def extract_tsl51_sample(row: ManifestRow, target_fps: float, holistic) -> tuple
         "video_id": row.video_id,
         "label": row.label,
         "split": row.split,
+        "source_type": row.source_type,
+        "rights_status": row.rights_status,
+        "segment_id": row.segment_id,
+        "signer_id": row.signer_id,
+        "session_id": row.session_id,
+        "camera_angle": row.camera_angle,
         "decoded_frames": decoded,
         "detected_frames": len(features),
         "accepted": bool(features),
@@ -157,11 +172,39 @@ def main() -> None:
         args.manifest,
         known_labels,
         allowed_tracks={args.track},
-        require_reviewed=args.require_reviewed,
+        require_reviewed=False,
+        strict_training=args.require_rights_approved,
     )
+    if args.manifest_base_dir is not None:
+        base_dir = args.manifest_base_dir
+    else:
+        base_dir = args.manifest.parent
+    rows = [
+        ManifestRow(
+            **{
+                **row.__dict__,
+                "path": row.path if row.path.is_absolute() else base_dir / row.path,
+            }
+        )
+        for row in rows
+    ]
+    if args.require_reviewed:
+        rows = [row for row in rows if row.quality_status == "reviewed"]
+    if args.cache_split:
+        if args.cache_split != "external_test":
+            rows = [row for row in rows if row.split == args.cache_split]
+        else:
+            rows = [row for row in rows if row.split == "external_test"]
     if args.split:
         allowed_splits = set(args.split)
         rows = [row for row in rows if row.split in allowed_splits]
+    if args.require_rights_approved and args.cache_split != "external_test":
+        external_test_rows = [row.video_id for row in rows if row.split == "external_test"]
+        if external_test_rows:
+            raise ValueError(
+                "training cache cannot include external_test rows: "
+                + ", ".join(external_test_rows[:5])
+            )
 
     report_rows: list[dict[str, object]] = []
     if args.track == "fingerspelling":
@@ -196,10 +239,31 @@ def main() -> None:
                     samples.append((row.label, sequence))
         cache = build_tsl51_cache(samples, label_list)
 
+        accepted_rows = [row for row in report_rows if row["accepted"]]
+        cache.update(
+            {
+                "video_id": np.asarray([row["video_id"] for row in accepted_rows], dtype=object),
+                "segment_id": np.asarray([row["segment_id"] for row in accepted_rows], dtype=object),
+                "source_type": np.asarray([row["source_type"] for row in accepted_rows], dtype=object),
+                "rights_status": np.asarray([row["rights_status"] for row in accepted_rows], dtype=object),
+                "split": np.asarray([row["split"] for row in accepted_rows], dtype=object),
+                "signer_id": np.asarray([row["signer_id"] for row in accepted_rows], dtype=object),
+                "session_id": np.asarray([row["session_id"] for row in accepted_rows], dtype=object),
+                "camera_angle": np.asarray([row["camera_angle"] for row in accepted_rows], dtype=object),
+            }
+        )
+
     args.out.parent.mkdir(parents=True, exist_ok=True)
     np.savez_compressed(args.out, **cache)
     report_path = args.report or args.out.with_suffix(".report.csv")
     write_report(report_path, report_rows)
+    def count_by(key: str) -> dict[str, int]:
+        counts: dict[str, int] = {}
+        for row in report_rows:
+            value = str(row.get(key, ""))
+            counts[value] = counts.get(value, 0) + 1
+        return counts
+
     summary = {
         "track": args.track,
         "manifest": str(args.manifest),
@@ -209,6 +273,10 @@ def main() -> None:
         "accepted_rows": sum(1 for row in report_rows if row["accepted"]),
         "samples": int(cache["X"].shape[0]),
         "shape": list(cache["X"].shape),
+        "per_class": count_by("label"),
+        "per_split": count_by("split"),
+        "per_source": count_by("source_type"),
+        "per_signer": count_by("signer_id"),
     }
     summary_path = args.out.with_suffix(".summary.json")
     summary_path.write_text(json.dumps(summary, ensure_ascii=False, indent=2), encoding="utf-8")

@@ -17,7 +17,7 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 PY_LEGACY = REPO_ROOT / "python-legacy"
 sys.path.insert(0, str(PY_LEGACY))
 
-from src.sequence_keypoints import FEATURE_DIM, SEQ_LEN_DEFAULT, extract_holistic_frame  # noqa: E402
+from src.sequence_keypoints import FEATURE_DIM, SEQ_LEN_DEFAULT, extract_holistic_frame, resample_frames  # noqa: E402
 from src.external_benchmark import summarize_predictions  # noqa: E402
 
 
@@ -29,7 +29,9 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--artifact-dir", required=True, type=Path)
     parser.add_argument("--out-dir", default=REPO_ROOT / "reports" / "external_tsl51_eval", type=Path)
     parser.add_argument("--seq-len", type=int, default=SEQ_LEN_DEFAULT)
-    parser.add_argument("--strategy", choices=("uniform", "first", "last"), default="uniform")
+    parser.add_argument("--strategy", choices=("uniform", "first", "last", "sliding"), default="uniform")
+    parser.add_argument("--window-frames", type=int, default=SEQ_LEN_DEFAULT)
+    parser.add_argument("--stride-frames", type=int, default=15)
     parser.add_argument("--target-fps", type=float, default=15.0)
     parser.add_argument("--top-k", type=int, default=5)
     parser.add_argument("--min-detection-confidence", type=float, default=0.5)
@@ -56,12 +58,45 @@ def sequence_from_features(features: list[np.ndarray], seq_len: int, strategy: s
             return arr[:seq_len]
         if strategy == "last":
             return arr[-seq_len:]
-        idx = np.linspace(0, len(arr) - 1, seq_len).round().astype(int)
-        return arr[idx]
-    out = np.zeros((seq_len, FEATURE_DIM), dtype=np.float32)
-    out[seq_len - len(arr) :] = arr
-    return out
+        # "uniform" and any unrecognised strategy: delegate to canonical function
+        return resample_frames(arr, seq_len)
+    # T < seq_len: delegate to canonical function (leading zero-pad)
+    return resample_frames(arr, seq_len)
 
+
+
+
+def sliding_sequences(
+    features: list[np.ndarray],
+    seq_len: int,
+    window_frames: int,
+    stride_frames: int,
+) -> list[np.ndarray]:
+    if not features:
+        raise ValueError("no holistic hand frames detected")
+    arr = np.asarray(features, dtype=np.float32)
+    if len(arr) <= seq_len:
+        return [sequence_from_features(features, seq_len, "uniform")]
+    window = max(seq_len, int(window_frames))
+    stride = max(1, int(stride_frames))
+    sequences: list[np.ndarray] = []
+    for start in range(0, max(1, len(arr) - window + 1), stride):
+        chunk = arr[start : start + window]
+        sequences.append(sequence_from_features(list(chunk), seq_len, "uniform"))
+    last_chunk = arr[-window:]
+    last_seq = sequence_from_features(list(last_chunk), seq_len, "uniform")
+    if not sequences or not np.array_equal(sequences[-1], last_seq):
+        sequences.append(last_seq)
+    return sequences
+
+
+def predict_sequences(model, scaler, sequences: list[np.ndarray], seq_len: int) -> tuple[np.ndarray, int]:
+    batch = np.asarray(sequences, dtype=np.float32)
+    batch_scaled = scaler.transform(batch.reshape(-1, FEATURE_DIM)).reshape(
+        len(batch), seq_len, FEATURE_DIM
+    ).astype(np.float32)
+    probs = model.predict(batch_scaled, verbose=0)
+    return np.max(probs, axis=0), len(batch)
 
 def extract_segment_features(
     video_path: Path,
@@ -138,11 +173,21 @@ def main() -> None:
                 features, meta = extract_segment_features(
                     video_path, start_s, end_s, args.target_fps, holistic
                 )
-                seq = sequence_from_features(features, args.seq_len, args.strategy)
-                seq_scaled = scaler.transform(seq.reshape(-1, FEATURE_DIM)).reshape(
-                    1, args.seq_len, FEATURE_DIM
-                ).astype(np.float32)
-                probs = model.predict(seq_scaled, verbose=0)[0]
+                if args.strategy == "sliding":
+                    sequences = sliding_sequences(
+                        features,
+                        args.seq_len,
+                        args.window_frames,
+                        args.stride_frames,
+                    )
+                    probs, window_count = predict_sequences(model, scaler, sequences, args.seq_len)
+                else:
+                    seq = sequence_from_features(features, args.seq_len, args.strategy)
+                    seq_scaled = scaler.transform(seq.reshape(-1, FEATURE_DIM)).reshape(
+                        1, args.seq_len, FEATURE_DIM
+                    ).astype(np.float32)
+                    probs = model.predict(seq_scaled, verbose=0)[0]
+                    window_count = 1
                 order = np.argsort(probs)[::-1][: args.top_k]
                 predicted = labels[str(int(order[0]))]
                 topk = [
@@ -154,6 +199,7 @@ def main() -> None:
                         **sample,
                         **meta,
                         "used_frames": len(features),
+                        "window_count": window_count,
                         "predicted": predicted,
                         "confidence": round(float(probs[int(order[0])]), 6),
                         "top_k": " | ".join(topk),
@@ -173,6 +219,7 @@ def main() -> None:
                         "decoded_frames": 0,
                         "hand_detected_frames": 0,
                         "used_frames": 0,
+                        "window_count": 0,
                         "predicted": "",
                         "confidence": "",
                         "top_k": "",

@@ -166,6 +166,8 @@ Or: `powershell -File scripts\tsl_translate_dev.ps1` (opens API in a new window,
 
 Open http://localhost:3000 — API health: http://127.0.0.1:8000/health
 
+**Webcam accuracy playbook:** [docs/tsl51-webcam-playbook.md](docs/tsl51-webcam-playbook.md) — preflight with `python scripts/tsl51_doctor.py --run-smoke`.
+
 Checklist:
 1. Train or copy a complete artifact set under `artifacts/fingerspelling/` or `artifacts/tsl51/`.
 2. Allow **browser** camera permission (not only Python).

@@ -13,6 +13,7 @@ class TrackSpec:
     runtime_track: str
     expected_feature_dim: int
     expected_seq_len: int | None
+    expected_num_classes: int | None
     default_model: str
     default_labels: str
     default_scaler: str
@@ -26,6 +27,7 @@ TRACKS: dict[str, TrackSpec] = {
         runtime_track="thai_fingerspelling",
         expected_feature_dim=FEATURE_SIZE,
         expected_seq_len=None,
+        expected_num_classes=None,
         default_model="model.keras",
         default_labels="labels.json",
         default_scaler="scaler.pkl",
@@ -37,6 +39,7 @@ TRACKS: dict[str, TrackSpec] = {
         runtime_track="tsl51_word_signs",
         expected_feature_dim=FEATURE_DIM,
         expected_seq_len=SEQ_LEN_DEFAULT,
+        expected_num_classes=51,
         default_model="tsl51_model.keras",
         default_labels="tsl51_labels.json",
         default_scaler="tsl51_scaler.pkl",

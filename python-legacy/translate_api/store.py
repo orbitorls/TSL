@@ -27,11 +27,21 @@ class SessionStore:
 
     def create(self, track_key: str) -> TranslateSession:
         session_id = uuid.uuid4().hex
-        default_threshold = 0.7 if track_key == "fingerspelling" else 0.55
+        if track_key == "fingerspelling":
+            settings = InferenceSettings(threshold=0.7)
+        else:
+            settings = InferenceSettings(
+                threshold=0.65,
+                min_sign_frames=6,
+                sign_end_frames=5,
+                min_confidence_margin=0.12,
+                commit_on_preview=False,
+                prefer_seq_buf_on_commit=True,
+            )
         session = TranslateSession(
             id=session_id,
             track_key=track_key,
-            settings=InferenceSettings(threshold=default_threshold),
+            settings=settings,
             transcript=TranscriptEngine(track_key),
         )
         self._sessions[session_id] = session

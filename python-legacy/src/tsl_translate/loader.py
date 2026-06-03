@@ -24,6 +24,7 @@ def load_artifacts(
         use_tflite=use_tflite,
         expected_feature_dim=track.expected_feature_dim,
         expected_sequence_len=track.expected_seq_len,
+        expected_num_classes=track.expected_num_classes,
         track=track.runtime_track,
         manifest_path=manifest_path,
     )

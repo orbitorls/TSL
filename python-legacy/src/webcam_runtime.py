@@ -174,6 +174,7 @@ def load_demo_artifacts(
     use_tflite: bool,
     expected_feature_dim: int,
     expected_sequence_len: int | None = None,
+    expected_num_classes: int | None = None,
     track: str = "demo",
     manifest_path: str | Path | None = None,
 ) -> tuple[Predictor, dict[str, str], Any]:
@@ -204,6 +205,10 @@ def load_demo_artifacts(
         predictor = Predictor("keras", _load_keras_model(model_p))
 
     labels = load_labels(labels_p)
+    if expected_num_classes is not None and len(labels) != expected_num_classes:
+        raise ValueError(
+            f"{track} requires {expected_num_classes} classes but labels file has {len(labels)}"
+        )
     predictor.validate_output(len(labels))
     predictor.validate_input(expected_feature_dim, expected_sequence_len)
 

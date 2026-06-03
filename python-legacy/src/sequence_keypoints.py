@@ -217,6 +217,10 @@ class SequenceBuffer:
         """True once ``seq_len`` frames have been pushed."""
         return len(self._frames) >= self.seq_len
 
+    def as_list(self) -> list[np.ndarray]:
+        """Return buffered frames oldest→newest."""
+        return list(self._frames)
+
     def reset(self) -> None:
         """Clear all buffered frames."""
         self._frames.clear()
@@ -298,21 +302,76 @@ def read_landmark_csv(source) -> np.ndarray:
     return _anchor_feature_frames(arr)
 
 
-def pad_truncate_sequence(
-    features: np.ndarray, seq_len: int = SEQ_LEN_DEFAULT
+def resample_frames(
+    features: np.ndarray,
+    seq_len: int = SEQ_LEN_DEFAULT,
+    *,
+    stretch: bool = False,
 ) -> np.ndarray:
-    """Pad/truncate ``(T, FEATURE_DIM)`` → ``(seq_len, FEATURE_DIM)`` (leading pad)."""
+    """Canonical function: resample ``(T, FEATURE_DIM)`` → ``(seq_len, FEATURE_DIM)``.
+
+    Resampling strategy
+    -------------------
+    * **T >= seq_len**: uniform resampling — ``seq_len`` evenly spaced indices
+      picked by ``np.linspace(0, T-1, seq_len).round().astype(int)``.
+    * **T < seq_len, stretch=False** (default): leading zero-pad so actual
+      frames sit at the *end* of the window (matches ``SequenceBuffer.get_padded``
+      and the training-data pipeline for offline clips).
+    * **T < seq_len, stretch=True**: uniform *up*-sampling via the same
+      ``np.linspace`` formula — repeats frames to fill ``seq_len``.  All frames
+      are real; no zero prefix.  Use this in the live-serve path so that short
+      signs produced by a ~15fps webcam receive the same temporal-coverage
+      treatment as full-length training clips.
+    * **T == 0**: returns an all-zeros array of shape ``(seq_len, FEATURE_DIM)``.
+
+    Parameters
+    ----------
+    features:
+        Float32 array of shape ``(T, FEATURE_DIM)``.
+    seq_len:
+        Desired output length (default ``SEQ_LEN_DEFAULT = 60``).
+    stretch:
+        When ``True`` and ``T < seq_len``, uniformly upsample (repeat frames)
+        instead of leading-zero-padding.  Default ``False`` preserves the
+        offline-pipeline behaviour.
+
+    Returns
+    -------
+    np.ndarray, shape ``(seq_len, FEATURE_DIM)``, dtype float32.
+    """
     if features.ndim != 2 or features.shape[1] != FEATURE_DIM:
         raise ValueError(
             f"Expected (T, {FEATURE_DIM}), got {features.shape}"
         )
     t = features.shape[0]
+    if t == 0:
+        return np.zeros((seq_len, FEATURE_DIM), dtype=np.float32)
     if t >= seq_len:
-        return features[:seq_len].astype(np.float32, copy=False)
+        idx = np.linspace(0, t - 1, seq_len).round().astype(int)
+        return features[idx].astype(np.float32, copy=False)
+    if stretch:
+        idx = np.linspace(0, t - 1, seq_len).round().astype(int)
+        return features[idx].astype(np.float32, copy=False)
     pad = np.zeros((seq_len - t, FEATURE_DIM), dtype=np.float32)
     return np.concatenate([pad, features], axis=0).astype(np.float32)
 
 
+def pad_truncate_sequence(
+    features: np.ndarray, seq_len: int = SEQ_LEN_DEFAULT
+) -> np.ndarray:
+    """Pad/truncate ``(T, FEATURE_DIM)`` → ``(seq_len, FEATURE_DIM)`` (leading pad).
+
+    .. deprecated::
+        This function now delegates to :func:`resample_frames`, which uses
+        **uniform resampling** (not head-truncation) when ``T >= seq_len``.
+        Prefer calling :func:`resample_frames` directly.  This wrapper is kept
+        for backward compatibility with external callers (Rust golden parity
+        tests, notebook inline copies, etc.) that only exercise the ``T <
+        seq_len`` padding branch, where behaviour is unchanged.
+    """
+    return resample_frames(features, seq_len)
+
+
 def csv_to_sequence(source, seq_len: int = SEQ_LEN_DEFAULT) -> np.ndarray:
     """Read one landmark CSV → ``(seq_len, FEATURE_DIM)`` for model input."""
-    return pad_truncate_sequence(read_landmark_csv(source), seq_len)
+    return resample_frames(read_landmark_csv(source), seq_len)

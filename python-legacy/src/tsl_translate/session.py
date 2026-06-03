@@ -5,8 +5,14 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-import cv2
-import mediapipe as mp
+try:
+    import cv2
+except ImportError:  # pragma: no cover - exercised only in minimal test envs
+    cv2 = None  # type: ignore[assignment]
+try:
+    import mediapipe as mp
+except ImportError:  # pragma: no cover - exercised only in minimal test envs
+    mp = None  # type: ignore[assignment]
 import numpy as np
 
 from sequence_keypoints import FEATURE_DIM, SequenceBuffer
@@ -34,6 +40,16 @@ class PredictService:
         self.prev_hand_coords: np.ndarray | None = None
         self.last_prediction_time = 0.0
         self.last_hand_time = 0.0
+        # Sign-boundary detection state (matches webcam_word_demo.py)
+        self.sign_frames: list[np.ndarray] = []
+        self.low_motion_count: int = 0
+        # Latch: True once a sign has committed a label; reset on next sign start.
+        # Prevents the sign-end path and the hands-disappear path from both
+        # committing for the same sign when hand detection flickers.
+        self.committed_this_sign: bool = False
+        self.candidate_label: str | None = None
+        self.candidate_count: int = 0
+        self.last_preview_time: float = 0.0
 
     def reset(self) -> None:
         self.smoother.reset()
@@ -41,8 +57,17 @@ class PredictService:
         self.prev_hand_coords = None
         self.last_prediction_time = 0.0
         self.last_hand_time = 0.0
+        self.sign_frames.clear()
+        self.low_motion_count = 0
+        self.committed_this_sign = False
+        self.candidate_label = None
+        self.candidate_count = 0
+        self.last_preview_time = 0.0
 
     def set_alpha(self, alpha: float) -> None:
+        alpha = max(0.05, min(1.0, float(alpha)))
+        if abs(self.smoother.alpha - alpha) < 1e-9:
+            return
         self.smoother = EMABuffer(alpha)
 
 
@@ -50,6 +75,8 @@ class MediaPipeRuntime:
     """MediaPipe hands/holistic without a local OpenCV capture device."""
 
     def __init__(self) -> None:
+        if mp is None:
+            raise ImportError("mediapipe is required for camera inference")
         self.hands = mp.solutions.hands.Hands(
             static_image_mode=False,
             max_num_hands=2,
@@ -75,10 +102,18 @@ class CameraRuntime(MediaPipeRuntime):
     """Server-side webcam used by the legacy Streamlit app."""
 
     def __init__(self, cam_index: int) -> None:
+        if cv2 is None:
+            raise ImportError("opencv-python is required for camera capture")
         super().__init__()
         self.cam_index = cam_index
         self.cap = cv2.VideoCapture(cam_index)
         self.last_ok = time.monotonic()
+
+    def read_rgb_unflipped(self) -> np.ndarray:
+        ok, frame = read_frame_with_retry(self.cap)
+        if not ok or frame is None:
+            raise RuntimeError("อ่านภาพจากกล้องไม่ได้ กรุณาตรวจสอบดัชนีกล้องและสิทธิ์การใช้งาน")
+        return cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
 
     def read_rgb_flipped(self) -> np.ndarray:
         ok, frame = read_frame_with_retry(self.cap)

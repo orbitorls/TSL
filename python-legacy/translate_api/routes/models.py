@@ -60,6 +60,10 @@ class SettingsIn(BaseModel):
     alpha: float | None = None
     top_k: int | None = None
     motion_min: float | None = None
+    min_sign_frames: int | None = None
+    sign_end_frames: int | None = None
+    min_confidence_margin: float | None = None
+    commit_on_preview: bool | None = None
 
 
 class TranscriptActionIn(BaseModel):
@@ -171,6 +175,14 @@ def patch_settings(
         session.settings.top_k = body.top_k
     if body.motion_min is not None:
         session.settings.motion_min = body.motion_min
+    if body.min_sign_frames is not None:
+        session.settings.min_sign_frames = body.min_sign_frames
+    if body.sign_end_frames is not None:
+        session.settings.sign_end_frames = body.sign_end_frames
+    if body.min_confidence_margin is not None:
+        session.settings.min_confidence_margin = body.min_confidence_margin
+    if body.commit_on_preview is not None:
+        session.settings.commit_on_preview = body.commit_on_preview
     return {"ok": True, "settings": session.settings.__dict__}
 
 
