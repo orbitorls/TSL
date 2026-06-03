@@ -60,6 +60,22 @@ def write_manifest(path: Path, **values: object) -> None:
     )
 
 
+def write_eval_summary(path: Path, artifact_dir: Path, samples_file: str, **values: object) -> None:
+    path.mkdir(parents=True)
+    payload = {
+        "samples_file": samples_file,
+        "artifact_dir": str(artifact_dir),
+        "total_samples": 5,
+        "top1_accuracy": 1.0,
+        "top3_accuracy": 1.0,
+    }
+    payload.update(values)
+    (path / "summary.json").write_text(
+        json.dumps(payload),
+        encoding="utf-8",
+    )
+
+
 def test_tsl51_registry_prefers_candidate_with_external_holdout_evidence(tmp_path: Path) -> None:
     baseline = tmp_path / ".tools" / "train_runs_baseline" / "artifacts" / "tsl51"
     external = tmp_path / ".tools" / "train_runs_external" / "artifacts" / "tsl51"
@@ -110,12 +126,57 @@ def test_tsl51_registry_discovers_and_prefers_reviewed_external_experiment(
     ]
 
 
-def test_tsl51_registry_keeps_canonical_artifact_candidate_name_platform_agnostic(
+
+def test_tsl51_registry_prefers_reviewed_external_evidence_before_mtime(
     tmp_path: Path,
 ) -> None:
-    valid = tmp_path / "artifacts" / "tsl51"
-    write_artifact_stub(valid, 51)
+    proven = (
+        tmp_path
+        / ".tools"
+        / "tsl51_experiments"
+        / "full51_v3_external_weighted"
+        / "artifacts"
+        / "tsl51"
+    )
+    newer = (
+        tmp_path
+        / ".tools"
+        / "tsl51_experiments"
+        / "full51_v4_prelabel_weighted"
+        / "artifacts"
+        / "tsl51"
+    )
+    write_artifact_stub(proven, 51)
+    write_artifact_stub(newer, 51)
+    write_manifest(proven, external_augmented=True, external_val_samples=0, test_accuracy=0.9746835231781006)
+    write_manifest(newer, external_augmented=True, external_val_samples=0, test_accuracy=0.9746835231781006)
+    write_eval_summary(
+        tmp_path
+        / "reports"
+        / "current_reviewed_external_eval"
+        / "full51_v3_external_weighted_recheck",
+        Path(".tools")
+        / "tsl51_experiments"
+        / "full51_v3_external_weighted"
+        / "artifacts"
+        / "tsl51",
+        str(Path("work") / "reviewed_external_assets" / "external_test_samples.csv"),
+        total_samples=5,
+        top1_accuracy=1.0,
+        top3_accuracy=1.0,
+    )
 
     candidates = ModelRegistry(tmp_path).discover(TRACKS["tsl51"])
 
-    assert [Path(candidate.name) for candidate in candidates] == [Path("artifacts") / "tsl51"]
+    assert [Path(candidate.name) for candidate in candidates] == [
+        Path(".tools")
+        / "tsl51_experiments"
+        / "full51_v3_external_weighted"
+        / "artifacts"
+        / "tsl51",
+        Path(".tools")
+        / "tsl51_experiments"
+        / "full51_v4_prelabel_weighted"
+        / "artifacts"
+        / "tsl51",
+    ]
