@@ -1,0 +1,3 @@
+## 2024-06-03 - Avoid referencing unexported globals implicitly
+**Learning:** I optimized `_frame_dict_to_vector` by using a list comprehension over `_BASIC_KEYS`. However, `_BASIC_KEYS` was defined later in the file and initially threw a NameError in the reviewer's mental model (even if it worked in Python's actual runtime semantics since Python resolves names at call time, it's safer and clearer to define the global before its first usage). Additionally, reviewers can flag implicit global accesses.
+**Action:** When referring to module-level globals inside functions that execute frequently, ensure the global is fully defined before use, and consider localizing it if it causes issues.
