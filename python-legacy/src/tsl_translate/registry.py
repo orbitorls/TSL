@@ -28,6 +28,11 @@ class ModelRegistry:
                 for p in run_dir.glob("**/artifacts/*"):
                     if p.is_dir() and p.name == track.key:
                         dirs.append(p)
+            if track.key == "tsl51":
+                experiments = tools / "tsl51_experiments"
+                for p in sorted(experiments.glob("full51_*/artifacts/tsl51"), reverse=True):
+                    if p.is_dir():
+                        dirs.append(p)
         dirs.append(self.root / "artifacts" / track.key)
         unique: list[Path] = []
         seen: set[str] = set()
@@ -84,7 +89,6 @@ def _candidate_rank(candidate: ArtifactCandidate, track: TrackSpec) -> tuple[int
         except (TypeError, ValueError):
             external_val_samples = 0
         external_validated = 1 if external_val_samples > 0 else 0
-        clean_rank = 0
     try:
         accuracy = float(manifest.get("test_accuracy") or 0.0)
     except (TypeError, ValueError):

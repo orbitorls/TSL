@@ -76,6 +76,40 @@ def test_tsl51_registry_prefers_candidate_with_external_holdout_evidence(tmp_pat
     ]
 
 
+def test_tsl51_registry_discovers_and_prefers_reviewed_external_experiment(
+    tmp_path: Path,
+) -> None:
+    baseline = tmp_path / ".tools" / "tsl51_experiments" / "full51_v2" / "artifacts" / "tsl51"
+    external = (
+        tmp_path
+        / ".tools"
+        / "tsl51_experiments"
+        / "full51_v3_external_weighted"
+        / "artifacts"
+        / "tsl51"
+    )
+    write_artifact_stub(baseline, 51)
+    write_artifact_stub(external, 51)
+    write_manifest(baseline, test_accuracy=0.9245283007621765)
+    write_manifest(
+        external,
+        external_augmented=True,
+        external_val_samples=0,
+        test_accuracy=0.9746835231781006,
+    )
+
+    candidates = ModelRegistry(tmp_path).discover(TRACKS["tsl51"])
+
+    assert [Path(candidate.name) for candidate in candidates] == [
+        Path(".tools")
+        / "tsl51_experiments"
+        / "full51_v3_external_weighted"
+        / "artifacts"
+        / "tsl51",
+        Path(".tools") / "tsl51_experiments" / "full51_v2" / "artifacts" / "tsl51",
+    ]
+
+
 def test_tsl51_registry_keeps_canonical_artifact_candidate_name_platform_agnostic(
     tmp_path: Path,
 ) -> None:
