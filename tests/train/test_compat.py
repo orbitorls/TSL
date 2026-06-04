@@ -6,19 +6,9 @@ from src.train.compat import setup_windows_encoding
 class _DummyStream:
     def __init__(self):
         self.calls = []
-        self.buffer = self
 
     def reconfigure(self, **kwargs):
         self.calls.append(kwargs)
-
-    def readable(self):
-        return False
-
-    def writable(self):
-        return True
-
-    def seekable(self):
-        return False
 
 
 def test_setup_windows_encoding_reconfigures_streams(monkeypatch):
