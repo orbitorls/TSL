@@ -1,0 +1,8 @@
+{
+  "track": "tsl51_word_signs",
+  "external_augmented": true,
+  "fine_tuned_from": "artifacts\\tsl51",
+  "num_classes": 47,
+  "test_accuracy": 0.9559471607208252,
+  "test_loss": 0.17061197757720947
+}

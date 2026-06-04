@@ -1,19 +1,11 @@
 # ── Trained model artifacts ───────────────────────────────────────────────────
-# Produced by notebooks/train_thai_fingerspelling.ipynb — do not commit binaries.
-artifacts/
+# artifacts/ is now tracked so models can be used on other machines
 model.keras
 model.tflite
 model_best.keras
 tsl51_model.keras
 tsl51_model.tflite
 tsl51_model_best.keras
-*.pkl
-scaler.pkl
-labels.json
-tsl51_scaler.pkl
-tsl51_labels.json
-model_manifest.json
-tsl51_model_manifest.json
 
 # ── Cached feature data ───────────────────────────────────────────────────────
 _runtime/
@@ -41,7 +33,6 @@ session_log.csv
 **/*.rs.bk
 
 # ONNX / vision models (download separately)
-artifacts/
 *.onnx
 
 # ── Python ────────────────────────────────────────────────────────────────────
@@ -92,7 +83,7 @@ datasets/
 .omx/
 .opencode/
 .playwright-mcp/
-.claude/settings.local.json
+.claude/worktrees/
 
 # build outputs
 target/
