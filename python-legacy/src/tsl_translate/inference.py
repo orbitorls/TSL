@@ -7,6 +7,12 @@ import numpy as np
 
 from keypoints import extract_and_normalize
 from sequence_keypoints import extract_holistic_frame, resample_frames
+from tsl_translate.landmarks import (
+    hands_detected_from_hands,
+    hands_detected_from_holistic,
+    landmarks_from_hands,
+    landmarks_from_holistic,
+)
 from tsl_translate.session import LoadedModel, MediaPipeRuntime, PredictService
 from tsl_translate.tracks import TrackSpec
 from webcam_runtime import EMABuffer, format_topk
@@ -27,6 +33,10 @@ class InferenceSettings:
     stretch_live: bool = False  # up-sample short sign_frames to seq_len (live path)
     segment_mode: str = "motion"  # "motion" = sign_frames boundary; "rolling" = full seq_buf
     prefer_seq_buf_on_commit: bool = True  # sign-end uses seq_buf (closer to offline eval)
+    transcript_stable_frames: int = 2
+    transcript_debounce_s: float = 0.4
+    prediction_stable_frames: int = 2  # fingerspelling: consecutive stable frames before commit
+    send_landmarks: bool = True
 
 
 @dataclass
@@ -45,6 +55,10 @@ class FrameResult:
     status: str = "ready"
     buffering: str | None = None
     fps: float = 0.0
+    landmarks: dict[str, list[list[float]] | None] | None = None
+    hands_detected: dict[str, bool] = field(
+        default_factory=lambda: {"left": False, "right": False}
+    )
 
 
 def _extract_hand_coords(results) -> np.ndarray | None:
@@ -95,6 +109,21 @@ def _confidence_margin(smoothed: np.ndarray, pred_idx: int) -> float:
     return float(np.max(top2) - np.min(top2))
 
 
+def _early_commit_eligible(
+    settings: InferenceSettings,
+    *,
+    allow_commit: bool,
+    conf: float,
+    margin: float,
+) -> bool:
+    return (
+        allow_commit
+        and settings.commit_on_preview
+        and conf >= settings.threshold + 0.1
+        and margin >= settings.min_confidence_margin * 1.5
+    )
+
+
 def process_rgb_frame(
     track: TrackSpec,
     loaded: LoadedModel,
@@ -113,12 +142,18 @@ def process_rgb_frame(
     committed_label: str | None = None
     status = "ready"
     buffering: str | None = None
+    landmarks: dict[str, list[list[float]] | None] | None = None
+    hands_detected = {"left": False, "right": False}
 
     if track.key == "fingerspelling":
         results = mp_runtime.hands.process(rgb)
+        landmarks = landmarks_from_hands(results)
+        hands_detected = hands_detected_from_hands(results)
         feat = extract_and_normalize(results)
         if feat is None:
             service.smoother.reset()
+            service.candidate_label = None
+            service.candidate_count = 0
             overlay = "ไม่พบมือ"
             status = "no_hand"
         else:
@@ -127,16 +162,228 @@ def process_rgb_frame(
             smoothed = service.smoother.update(probs)
             pred_idx = int(np.argmax(smoothed))
             conf = float(smoothed[pred_idx])
+            margin = _confidence_margin(smoothed, pred_idx)
             pred_label = loaded.labels.get(str(pred_idx), "?")
-            if conf >= settings.threshold:
+            stable_need = max(1, settings.prediction_stable_frames)
+            confident = (
+                conf >= settings.threshold
+                and margin >= settings.min_confidence_margin
+                and pred_label not in ("", "?")
+            )
+            if confident:
+                if service.candidate_label == pred_label:
+                    service.candidate_count += 1
+                else:
+                    service.candidate_label = pred_label
+                    service.candidate_count = 1
                 overlay = pred_label
-                status = "predicted"
+                if service.candidate_count >= stable_need:
+                    committed_label = pred_label
+                    status = "predicted"
+                else:
+                    status = "previewing"
             else:
                 overlay = "Unknown / รอท่าชัดเจน"
                 status = "low_confidence"
+                service.candidate_label = None
+                service.candidate_count = 0
             topk_text, topk = _topk_entries(smoothed, loaded.labels, settings.top_k)
+    elif track.key == "fingerspelling_dynamic":
+        results = mp_runtime.hands.process(rgb)
+        landmarks = landmarks_from_hands(results)
+        hands_detected = hands_detected_from_hands(results)
+        feat = extract_and_normalize(results)
+        now = time.monotonic()
+        seq_len = track.expected_seq_len or 30
+        feature_dim = track.expected_feature_dim or 63
+
+        def _pad_to_seq_len(frames: list[np.ndarray]) -> np.ndarray:
+            arr = (
+                np.asarray(frames, dtype=np.float32)
+                if frames
+                else np.zeros((0, feature_dim), dtype=np.float32)
+            )
+            t = arr.shape[0]
+            if t == seq_len:
+                return arr
+            if t > seq_len:
+                return arr[-seq_len:]
+            pad = np.zeros((seq_len - t, feature_dim), dtype=np.float32)
+            return np.concatenate([pad, arr], axis=0)
+
+        def _commit_frames() -> np.ndarray:
+            """Frames used for sign-end / no-hand commit, shape (seq_len, feature_dim)."""
+            if (
+                settings.prefer_seq_buf_on_commit
+                and len(service.seq_buf) >= settings.min_sign_frames
+            ):
+                return service.seq_buf.get_padded()
+            if service.sign_frames:
+                return _pad_to_seq_len(service.sign_frames)
+            return service.seq_buf.get_padded()
+
+        def _clear_sign_state() -> None:
+            service.sign_frames.clear()
+            service.low_motion_count = 0
+            service.candidate_label = None
+            service.candidate_count = 0
+
+        def _predict_on_frames(
+            frames: np.ndarray,
+            *,
+            allow_commit: bool,
+            relax_margin: bool = False,
+        ) -> None:
+            nonlocal overlay, conf, committed_label, status, topk_text, topk, buffering
+            if frames.shape != (seq_len, feature_dim):
+                frames = _pad_to_seq_len(list(frames))
+            seq_scaled = loaded.scaler.transform(frames).reshape(1, seq_len, feature_dim)
+            probs = np.asarray(loaded.predictor.predict(seq_scaled), dtype=np.float32).reshape(-1)
+            smoothed = service.smoother.update(probs)
+            pred_idx = int(np.argmax(smoothed))
+            conf = float(smoothed[pred_idx])
+            margin = _confidence_margin(smoothed, pred_idx)
+            pred_label = loaded.labels.get(str(pred_idx), "?")
+            buffering = None
+            confident = (
+                conf >= settings.threshold
+                and (relax_margin or margin >= settings.min_confidence_margin)
+                and pred_label not in ("", "?")
+            )
+            if confident:
+                overlay = pred_label
+                if service.candidate_label == pred_label:
+                    service.candidate_count += 1
+                else:
+                    service.candidate_label = pred_label
+                    service.candidate_count = 1
+                stable_need = max(1, settings.prediction_stable_frames)
+                can_preview_commit = (
+                    allow_commit
+                    and settings.commit_on_preview
+                    and not service.committed_this_sign
+                    and service.candidate_count >= stable_need
+                )
+                can_sign_end_commit = (
+                    not allow_commit
+                    and not service.committed_this_sign
+                )
+                if can_preview_commit or can_sign_end_commit:
+                    committed_label = pred_label
+                    status = "predicted"
+                    service.committed_this_sign = True
+                    service.last_prediction_time = now
+                    if can_preview_commit:
+                        _clear_sign_state()
+                elif allow_commit:
+                    status = "previewing"
+                else:
+                    status = "predicted"
+            else:
+                overlay = "Unknown / รอท่าชัดเจน"
+                status = "low_confidence"
+                service.candidate_label = None
+                service.candidate_count = 0
+            topk_text, topk = _topk_entries(smoothed, loaded.labels, settings.top_k)
+
+        if feat is None:
+            if (
+                len(service.seq_buf) >= settings.min_sign_frames
+                and not service.committed_this_sign
+            ):
+                _predict_on_frames(
+                    _commit_frames(),
+                    allow_commit=False,
+                    relax_margin=True,
+                )
+                if conf >= settings.threshold and overlay not in ("", "?", "Unknown / รอท่าชัดเจน"):
+                    committed_label = overlay
+                    status = "predicted"
+                    service.committed_this_sign = True
+                    service.last_prediction_time = now
+            if now - service.last_hand_time > 0.5:
+                service.reset()
+            else:
+                service.sign_frames.clear()
+                service.low_motion_count = 0
+                service.candidate_label = None
+                service.candidate_count = 0
+            overlay = overlay or "ไม่พบมือ"
+            status = status if status != "ready" else "no_hand"
+        else:
+            service.last_hand_time = now
+            service.seq_buf.push(feat)
+            hand_coords = _extract_hand_coords(results)
+            motion = _mean_hand_displacement(service.prev_hand_coords, hand_coords)
+            if service.prev_hand_coords is None and hand_coords is not None:
+                motion = settings.motion_min
+            service.prev_hand_coords = hand_coords
+
+            if motion >= settings.motion_min:
+                if not service.sign_frames:
+                    service.committed_this_sign = False
+                    service.candidate_label = None
+                    service.candidate_count = 0
+                    service.smoother.reset()
+                service.sign_frames.append(feat)
+                service.low_motion_count = 0
+                n_buf = len(service.seq_buf)
+                preview_gate = _preview_start_frames(settings)
+                if settings.min_sign_frames <= 1 and n_buf == 1:
+                    status = "signing"
+                    overlay = f"กำลังเซ็น {n_buf} เฟรม"
+                    buffering = None
+                elif n_buf <= preview_gate:
+                    status = "buffering"
+                    overlay = f"กำลังเก็บเฟรม {n_buf}/{settings.min_sign_frames}"
+                    buffering = f"{n_buf}/{settings.min_sign_frames}"
+                else:
+                    status = "signing"
+                    overlay = f"กำลังเซ็น {n_buf} เฟรม"
+                    buffering = None
+                    if service.seq_buf.is_full() and not service.committed_this_sign:
+                        _predict_on_frames(
+                            service.seq_buf.get_padded(),
+                            allow_commit=True,
+                        )
+            else:
+                service.low_motion_count += 1
+                n = len(service.seq_buf)
+                total = service.seq_buf.seq_len
+                status = "buffering" if not service.seq_buf.is_full() else "waiting_motion"
+                overlay = f"กำลังเก็บเฟรม {n}/{total}"
+                buffering = f"{n}/{total}"
+
+            has_enough = (
+                len(service.seq_buf) >= settings.min_sign_frames
+                or (
+                    settings.prefer_seq_buf_on_commit
+                    and len(service.seq_buf) >= settings.min_sign_frames
+                )
+            )
+            sign_ended = (
+                service.low_motion_count >= settings.sign_end_frames
+                and has_enough
+                and not service.committed_this_sign
+            )
+            if sign_ended:
+                _predict_on_frames(
+                    _commit_frames(),
+                    allow_commit=False,
+                    relax_margin=True,
+                )
+                if conf >= settings.threshold and overlay not in ("", "?", "Unknown / รอท่าชัดเจน"):
+                    committed_label = overlay
+                    status = "predicted"
+                    service.committed_this_sign = True
+                    service.last_prediction_time = now
+                service.sign_frames.clear()
+                service.candidate_label = None
+                service.candidate_count = 0
     else:
         results = mp_runtime.holistic.process(rgb)
+        landmarks = landmarks_from_holistic(results)
+        hands_detected = hands_detected_from_holistic(results)
         feat = extract_holistic_frame(results)
         now = time.monotonic()
         seq_len = track.expected_seq_len or service.seq_buf.seq_len
@@ -149,6 +396,12 @@ def process_rgb_frame(
             if settings.segment_mode == "rolling" and service.seq_buf.is_full():
                 return buf
             return service.sign_frames
+
+        def _clear_sign_state() -> None:
+            service.sign_frames.clear()
+            service.low_motion_count = 0
+            service.candidate_label = None
+            service.candidate_count = 0
 
         def _predict_on_frames(
             frames: list[np.ndarray],
@@ -179,11 +432,14 @@ def process_rgb_frame(
                 else:
                     service.candidate_label = pred_label
                     service.candidate_count = 1
+                early_commit = _early_commit_eligible(
+                    settings, allow_commit=allow_commit, conf=conf, margin=margin
+                )
                 can_preview_commit = (
                     allow_commit
                     and settings.commit_on_preview
                     and not service.committed_this_sign
-                    and service.candidate_count >= 2
+                    and (early_commit or service.candidate_count >= 2)
                 )
                 can_sign_end_commit = (
                     not allow_commit
@@ -194,6 +450,8 @@ def process_rgb_frame(
                     status = "predicted"
                     service.committed_this_sign = True
                     service.last_prediction_time = now
+                    if can_preview_commit and early_commit:
+                        _clear_sign_state()
                 elif allow_commit:
                     status = "previewing"
                 else:
@@ -327,4 +585,6 @@ def process_rgb_frame(
         status=status,
         buffering=buffering,
         fps=fps,
+        landmarks=landmarks,
+        hands_detected=hands_detected,
     )

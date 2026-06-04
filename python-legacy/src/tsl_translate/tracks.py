@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from keypoints import FEATURE_SIZE
+from keypoints import FEATURE_SIZE, FS_DYNAMIC_FEATURE_DIM, FS_DYNAMIC_SEQ_LEN
 from sequence_keypoints import FEATURE_DIM, SEQ_LEN_DEFAULT
 
 
@@ -32,6 +32,18 @@ TRACKS: dict[str, TrackSpec] = {
         default_labels="labels.json",
         default_scaler="scaler.pkl",
         manifest="model_manifest.json",
+    ),
+    "fingerspelling_dynamic": TrackSpec(
+        key="fingerspelling_dynamic",
+        title="Fingerspelling Dynamic",
+        runtime_track="thai_fingerspelling_dynamic",
+        expected_feature_dim=FS_DYNAMIC_FEATURE_DIM,
+        expected_seq_len=FS_DYNAMIC_SEQ_LEN,
+        expected_num_classes=None,
+        default_model="fs_dynamic_model.keras",
+        default_labels="fs_dynamic_labels.json",
+        default_scaler="fs_dynamic_scaler.pkl",
+        manifest="fs_dynamic_model_manifest.json",
     ),
     "tsl51": TrackSpec(
         key="tsl51",

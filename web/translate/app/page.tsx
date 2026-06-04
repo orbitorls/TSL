@@ -5,7 +5,9 @@ import { CameraStage } from "@/components/CameraStage";
 import { ConfidenceChart } from "@/components/ConfidenceChart";
 import { ControlsBar } from "@/components/ControlsBar";
 import { ModelDrawer } from "@/components/ModelDrawer";
+import { StatusChip } from "@/components/StatusChip";
 import { Stepper } from "@/components/Stepper";
+import { ThemeToggle } from "@/components/ThemeToggle";
 import { TranscriptPanel } from "@/components/TranscriptPanel";
 import {
   createSession,
@@ -15,17 +17,25 @@ import {
   patchSettings,
   transcriptAction,
 } from "@/lib/api";
-import type { Artifact, InferenceSettings, Track, TrackKey, Tsl51Preset } from "@/lib/types";
-import { TSL51_PRESETS } from "@/lib/types";
+import type { Artifact, FsDynamicPreset, FsPreset, InferenceSettings, Track, TrackKey, Tsl51Preset } from "@/lib/types";
+import { FS_DYNAMIC_PRESETS, FS_PRESETS, TSL51_PRESETS } from "@/lib/types";
+import type { Status } from "@/lib/status";
 import { useInferenceWs } from "@/lib/ws";
 import { glossLabel } from "@/lib/gloss";
 
 const defaultSettings = (track: TrackKey): InferenceSettings => ({
-  threshold: track === "fingerspelling" ? 0.7 : TSL51_PRESETS.accurate.threshold,
-  alpha: 0.4,
+  threshold: track === "fingerspelling"
+    ? FS_PRESETS.balanced.threshold
+    : track === "fingerspelling_dynamic"
+      ? FS_DYNAMIC_PRESETS.balanced.threshold
+      : TSL51_PRESETS.balanced.threshold,
+  alpha: track === "fingerspelling" ? FS_PRESETS.balanced.alpha : 0.4,
   top_k: 3,
   motion_min: 0.008,
-  ...(track === "tsl51" ? TSL51_PRESETS.accurate : {}),
+  send_landmarks: true,
+  ...(track === "fingerspelling" ? FS_PRESETS.balanced : {}),
+  ...(track === "fingerspelling_dynamic" ? FS_DYNAMIC_PRESETS.balanced : {}),
+  ...(track === "tsl51" ? TSL51_PRESETS.balanced : {}),
 });
 
 export default function TranslatePage() {
@@ -35,12 +45,16 @@ export default function TranslatePage() {
   const [selectedArtifact, setSelectedArtifact] = useState("");
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [settings, setSettings] = useState<InferenceSettings>(defaultSettings("fingerspelling"));
-  const [tsl51Preset, setTsl51Preset] = useState<Tsl51Preset>("accurate");
+  const [tsl51Preset, setTsl51Preset] = useState<Tsl51Preset>("balanced");
+  const [fsPreset, setFsPreset] = useState<FsPreset>("balanced");
+  const [fsDynamicPreset, setFsDynamicPreset] = useState<FsDynamicPreset>("balanced");
   const [modelLoaded, setModelLoaded] = useState(false);
   const [modelInfo, setModelInfo] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [streaming, setStreaming] = useState(false);
+  const [showSkeleton, setShowSkeleton] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [showDrawer, setShowDrawer] = useState(false); // mobile drawer toggle
 
   const { state, attachVideo, setTranscript } = useInferenceWs(sessionId, streaming);
 
@@ -56,6 +70,9 @@ export default function TranslatePage() {
     [track, tracks],
   );
 
+  // Derived status values for StatusChip components
+  const connectionStatus: Status = state.connected && streaming ? "live" : streaming ? "connecting" : "idle";
+  const modelStatus: Status = modelLoaded ? "success" : selectedArtifact ? "connecting" : "idle";
   const connectionLabel = state.connected && streaming ? "สตรีมสด" : streaming ? "กำลังเชื่อมต่อ" : "พร้อมเริ่ม";
   const modelLabel = modelLoaded ? "โมเดลพร้อม" : selectedArtifact ? "รอโหลดโมเดล" : "รอเลือกไฟล์";
   const artifactLabel = selectedArtifact || "ไม่พบ artifact";
@@ -68,7 +85,9 @@ export default function TranslatePage() {
 
   useEffect(() => {
     setSettings(defaultSettings(track));
-    setTsl51Preset("accurate");
+    setTsl51Preset("balanced");
+    setFsPreset("balanced");
+    setFsDynamicPreset("balanced");
     setModelLoaded(false);
     setModelInfo(null);
     setStreaming(false);
@@ -90,6 +109,11 @@ export default function TranslatePage() {
     }, 300);
     return () => clearTimeout(t);
   }, [sessionId, modelLoaded, settings]);
+
+  useEffect(() => {
+    if (!sessionId || !modelLoaded) return;
+    patchSettings(sessionId, { send_landmarks: showSkeleton }).catch(() => {});
+  }, [sessionId, modelLoaded, showSkeleton]);
 
   const handleLoad = async () => {
     if (!sessionId || !selectedArtifact) return;
@@ -126,84 +150,145 @@ export default function TranslatePage() {
     setSettings((s) => ({ ...s, ...TSL51_PRESETS[preset] }));
   }, []);
 
+  const onFsPresetChange = useCallback((preset: FsPreset) => {
+    setFsPreset(preset);
+    setSettings((s) => ({ ...s, ...FS_PRESETS[preset] }));
+  }, []);
+
+  const onFsDynamicPresetChange = useCallback((preset: FsDynamicPreset) => {
+    setFsDynamicPreset(preset);
+    setSettings((s) => ({ ...s, ...FS_DYNAMIC_PRESETS[preset] }));
+  }, []);
+
   const handleCameraError = useCallback((message: string) => {
     setStreaming(false);
     setError(message);
   }, []);
 
+  const drawerProps = {
+    tracks,
+    track,
+    onTrackChange: setTrack,
+    artifacts,
+    selectedArtifact,
+    onArtifactChange: setSelectedArtifact,
+    settings,
+    onSettingsChange,
+    tsl51Preset,
+    onTsl51PresetChange,
+    fsPreset,
+    onFsPresetChange,
+    fsDynamicPreset,
+    onFsDynamicPresetChange,
+    modelLoaded,
+    modelInfo,
+    onLoad: handleLoad,
+    loading,
+    showSkeleton,
+    onShowSkeletonChange: setShowSkeleton,
+  };
+
   return (
-    <main className="mx-auto min-h-screen max-w-[1800px] px-3 py-5 pb-12 sm:px-5 lg:px-6">
-      <div className="operator-shell overflow-hidden rounded-[2rem]">
-        <header className="border-b border-line bg-panel/88 px-5 py-5 sm:px-7 lg:px-8">
-          <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
-            <div className="max-w-3xl">
-              <div className="section-kicker">TSL Translation Console</div>
-              <h1 className="mt-2 text-3xl font-bold leading-tight text-ink md:text-4xl">TSL แปลภาษามือ</h1>
-              <p className="mt-2 max-w-2xl text-sm leading-6 text-subtle md:text-base">
-                พื้นที่ปฏิบัติงานสำหรับโหลดโมเดล เปิดกล้อง และตรวจผลถอดความภาษามือไทยแบบเรียลไทม์
+    <main className="mx-auto min-h-screen max-w-[1600px] px-3 py-4 pb-12 sm:px-5 lg:px-6">
+      <div className="app-shell overflow-hidden rounded-panel">
+
+        {/* ── Header ───────────────────────────────────────────────── */}
+        <header
+          className="border-b border-line bg-panel px-5 py-5 sm:px-7 lg:px-8 animate-fade-rise"
+          style={{ animationDelay: "0ms" }}
+        >
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+            <div className="max-w-2xl">
+              {/* ONE eyebrow — the only .section-kicker in the app */}
+              <p className="section-kicker">TSL Translation Console</p>
+              <h1 className="mt-2 text-[clamp(1.75rem,1.2rem+2vw,2.75rem)] font-bold leading-tight tracking-[-0.01em] text-ink">
+                TSL แปลภาษามือ
+              </h1>
+              <p className="mt-2 max-w-lg text-sm leading-7 text-subtle">
+                โหลดโมเดล เปิดกล้อง และตรวจผลถอดความภาษามือไทยแบบเรียลไทม์
               </p>
             </div>
 
-            <div className="grid gap-2 sm:grid-cols-3 lg:min-w-[520px]">
-              <div className="status-chip">
-                <span className={`status-dot ${streaming ? "bg-success" : "bg-muted"}`} />
-                {connectionLabel}
+            {/* Status chips + theme toggle */}
+            <div className="flex flex-col gap-3 lg:items-end">
+              <div className="flex items-center gap-2">
+                <div className="flex flex-wrap gap-2">
+                  <StatusChip status={connectionStatus} label={connectionLabel} />
+                  <StatusChip status={modelStatus} label={modelLabel} />
+                  <StatusChip status="idle" label={selectedTrackTitle} />
+                </div>
+                <ThemeToggle />
               </div>
-              <div className="status-chip">
-                <span className={`status-dot ${modelLoaded ? "bg-success" : selectedArtifact ? "bg-warning" : "bg-muted"}`} />
-                {modelLabel}
-              </div>
-              <div className="status-chip min-w-0" title={artifactLabel}>
-                <span className="status-dot bg-brand" />
-                <span className="truncate">{selectedTrackTitle}</span>
-              </div>
-            </div>
-          </div>
 
-          <div className="mt-5 grid gap-3 border-t border-line pt-4 text-xs text-subtle sm:grid-cols-3">
-            <div>
-              <span className="font-semibold text-ink">Session</span> {sessionId ? sessionId.slice(0, 8) : "กำลังเตรียม"}
-            </div>
-            <div className="min-w-0">
-              <span className="font-semibold text-ink">Artifact</span>{" "}
-              <span className="truncate align-bottom">{artifactLabel}</span>
-            </div>
-            <div>
-              <span className="font-semibold text-ink">FPS</span> {(state.prediction?.fps ?? 0).toFixed(1)}
+              {/* Meta row — Session / Artifact / FPS */}
+              <div className="flex flex-wrap gap-x-5 gap-y-1 text-xs text-subtle">
+                <span>
+                  Session{" "}
+                  <span className="font-mono font-medium text-text">
+                    {sessionId ? sessionId.slice(0, 8) : "—"}
+                  </span>
+                </span>
+                <span className="min-w-0 max-w-[22ch] truncate">
+                  Artifact{" "}
+                  <span className="font-mono font-medium text-text">{artifactLabel}</span>
+                </span>
+                <span>
+                  FPS{" "}
+                  <span className="font-mono font-medium text-text">
+                    {(state.prediction?.fps ?? 0).toFixed(1)}
+                  </span>
+                </span>
+              </div>
             </div>
           </div>
         </header>
 
-        <section className="bg-page/55 px-4 py-5 sm:px-6 lg:px-8 xl:px-10">
-          <Stepper active={step} />
+        {/* ── Workspace ─────────────────────────────────────────────── */}
+        <section className="bg-page px-4 py-5 sm:px-6 lg:px-8 xl:px-10">
 
+          {/* Step indicator */}
+          <div
+            className="animate-fade-rise"
+            style={{ animationDelay: "60ms" }}
+          >
+            <Stepper active={step} />
+          </div>
+
+          {/* Error banner */}
           {error && (
-            <div className="mt-4 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-800 shadow-sm">
+            <div className="mt-4 rounded-card border border-danger/30 bg-danger/10 px-4 py-3 text-sm font-medium text-danger shadow-sm">
               {error}
             </div>
           )}
 
-          <div className="mt-5 grid gap-5 xl:grid-cols-[260px_minmax(0,1fr)] 2xl:grid-cols-[280px_minmax(0,1fr)]">
-            <div className="xl:self-start">
-              <ModelDrawer
-                tracks={tracks}
-                track={track}
-                onTrackChange={setTrack}
-                artifacts={artifacts}
-                selectedArtifact={selectedArtifact}
-                onArtifactChange={setSelectedArtifact}
-                settings={settings}
-                onSettingsChange={onSettingsChange}
-                tsl51Preset={tsl51Preset}
-                onTsl51PresetChange={onTsl51PresetChange}
-                modelLoaded={modelLoaded}
-                modelInfo={modelInfo}
-                onLoad={handleLoad}
-                loading={loading}
-              />
+          {/* Mobile drawer toggle — only visible below lg */}
+          <div className="mt-4 lg:hidden">
+            <button
+              type="button"
+              onClick={() => setShowDrawer((v) => !v)}
+              className="flex w-full items-center justify-between rounded-field border border-line bg-panel px-4 py-2.5 text-sm font-semibold text-text shadow-card"
+            >
+              <span>⚙ ตั้งค่าระบบ — {selectedTrackTitle}</span>
+              <span className="text-muted" aria-hidden>{showDrawer ? "▲" : "▼"}</span>
+            </button>
+          </div>
+
+          {/* Main workspace grid */}
+          <div className="mt-4 grid gap-5 lg:grid-cols-[260px_minmax(0,1fr)] xl:grid-cols-[280px_minmax(0,1fr)] 2xl:grid-cols-[300px_minmax(0,1fr)]">
+
+            {/* Drawer — disclosure on mobile/tablet, sticky rail on >=lg */}
+            <div
+              className={`${showDrawer ? "block" : "hidden"} lg:block xl:self-start animate-fade-rise`}
+              style={{ animationDelay: "100ms" }}
+            >
+              <ModelDrawer {...drawerProps} />
             </div>
 
-            <div className="min-w-0 space-y-5">
+            {/* Main content column */}
+            <div
+              className="min-w-0 space-y-4 animate-fade-rise"
+              style={{ animationDelay: "140ms" }}
+            >
               <ControlsBar
                 streaming={streaming}
                 modelLoaded={modelLoaded}
@@ -217,15 +302,24 @@ export default function TranslatePage() {
                 confidence={state.prediction?.confidence ?? null}
                 topk={state.prediction?.topk ?? []}
                 bufferingProgress={state.bufferingProgress}
+                track={track}
               />
 
-              <div className="grid gap-5 2xl:grid-cols-[minmax(0,1.7fr)_minmax(320px,0.72fr)]">
+              {/* Camera + Transcript */}
+              <div
+                className="grid gap-4 xl:grid-cols-[minmax(0,1.6fr)_minmax(300px,0.8fr)] 2xl:grid-cols-[minmax(0,1.7fr)_minmax(320px,0.74fr)] animate-fade-rise"
+                style={{ animationDelay: "180ms" }}
+              >
                 <CameraStage
                   streaming={streaming}
                   onReady={attachVideo}
                   onError={handleCameraError}
                   overlayLabel={state.displayLabel}
                   live={state.connected && streaming}
+                  landmarks={state.landmarks}
+                  handsDetected={state.handsDetected}
+                  showSkeleton={showSkeleton}
+                  predictionStatus={state.predictionStatus}
                 />
                 <TranscriptPanel
                   transcript={state.transcript}
@@ -240,16 +334,20 @@ export default function TranslatePage() {
                 />
               </div>
 
-              <section className="workspace-panel rounded-[1.35rem] p-4 sm:p-5">
+              {/* Confidence chart */}
+              <section
+                className="rounded-panel border border-line bg-panel p-4 shadow-card sm:p-5 animate-fade-rise"
+                style={{ animationDelay: "220ms" }}
+              >
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <div>
-                    <p className="section-kicker">Signal confidence</p>
-                    <h3 className="mt-1 text-lg font-bold text-brand">แนวโน้มความมั่นใจ</h3>
+                    <h3 className="text-base font-bold text-ink">แนวโน้มความมั่นใจ</h3>
+                    <p className="mt-0.5 text-xs text-subtle">Signal confidence over time</p>
                   </div>
-                  <div className="status-chip">
-                    <span className={`status-dot ${state.hist.length ? "bg-success" : "bg-muted"}`} />
-                    {state.hist.length ? `${state.hist.length} จุดข้อมูล` : "รอสัญญาณ"}
-                  </div>
+                  <StatusChip
+                    status={state.hist.length ? "success" : "idle"}
+                    label={state.hist.length ? `${state.hist.length} จุดข้อมูล` : "รอสัญญาณ"}
+                  />
                 </div>
                 <div className="mt-4">
                   <ConfidenceChart data={state.hist} />

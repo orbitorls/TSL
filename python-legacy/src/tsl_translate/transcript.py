@@ -29,6 +29,17 @@ class TranscriptEngine:
         self._stable_count = 0
         self._last_committed: str | None = None
 
+    def configure(
+        self,
+        *,
+        stable_frames: int | None = None,
+        debounce_s: float | None = None,
+    ) -> None:
+        if stable_frames is not None:
+            self.stable_frames = max(1, int(stable_frames))
+        if debounce_s is not None:
+            self.debounce_s = max(0.0, float(debounce_s))
+
     @property
     def text(self) -> str:
         return self._text

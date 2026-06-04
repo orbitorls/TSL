@@ -36,7 +36,10 @@ class PredictService:
     def __init__(self, track: TrackSpec, alpha: float = 0.4) -> None:
         self.track = track
         self.smoother = EMABuffer(alpha)
-        self.seq_buf = SequenceBuffer(seq_len=track.expected_seq_len or 1, feature_dim=FEATURE_DIM)
+        self.seq_buf = SequenceBuffer(
+            seq_len=track.expected_seq_len or 1,
+            feature_dim=track.expected_feature_dim or FEATURE_DIM,
+        )
         self.prev_hand_coords: np.ndarray | None = None
         self.last_prediction_time = 0.0
         self.last_hand_time = 0.0
@@ -80,14 +83,15 @@ class MediaPipeRuntime:
         self.hands = mp.solutions.hands.Hands(
             static_image_mode=False,
             max_num_hands=2,
-            min_detection_confidence=0.6,
+            min_detection_confidence=0.5,
             min_tracking_confidence=0.5,
         )
         self.holistic = mp.solutions.holistic.Holistic(
             static_image_mode=False,
             model_complexity=1,
-            min_detection_confidence=0.5,
-            min_tracking_confidence=0.5,
+            smooth_landmarks=True,
+            min_detection_confidence=0.4,
+            min_tracking_confidence=0.4,
         )
 
     def close(self) -> None:

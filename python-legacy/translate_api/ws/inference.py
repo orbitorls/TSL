@@ -28,8 +28,14 @@ def _decode_jpeg_frame(data: str | bytes) -> np.ndarray:
     return cv2.cvtColor(bgr, cv2.COLOR_BGR2RGB)
 
 
-def _frame_to_message(result, transcript_text: str, hist: list[float]) -> dict[str, Any]:
-    return {
+def _frame_to_message(
+    result,
+    transcript_text: str,
+    hist: list[float],
+    *,
+    include_landmarks: bool = True,
+) -> dict[str, Any]:
+    msg: dict[str, Any] = {
         "type": "prediction",
         "label": result.label,
         "confidence": result.confidence,
@@ -41,7 +47,14 @@ def _frame_to_message(result, transcript_text: str, hist: list[float]) -> dict[s
         "fps": result.fps,
         "transcript": transcript_text,
         "confidence_hist": hist[-100:],
+        "hands_detected": dict(result.hands_detected),
     }
+    if include_landmarks and result.landmarks is not None:
+        msg["landmarks"] = result.landmarks
+        msg["landmark_counts"] = {
+            key: len(points) if points else 0 for key, points in result.landmarks.items()
+        }
+    return msg
 
 
 @router.websocket("/ws/session/{session_id}")
@@ -121,7 +134,12 @@ async def ws_inference(websocket: WebSocket, session_id: str) -> None:
                     )
 
             await websocket.send_json(
-                _frame_to_message(result, transcript_text, session.confidence_hist)
+                _frame_to_message(
+                    result,
+                    transcript_text,
+                    session.confidence_hist,
+                    include_landmarks=session.send_landmarks,
+                )
             )
     except WebSocketDisconnect:
         pass

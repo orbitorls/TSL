@@ -14,6 +14,14 @@ FEATURE_SIZE = 63          # 21 landmarks × 3 coords
 NUM_LANDMARKS = 21
 WRIST_IDX = 0              # MediaPipe Hands: landmark 0 is the wrist
 
+# Fingerspelling Dynamic — sequence contract for two-stroke / motion-rich signs.
+# Per-frame feature is the same 63-D wrist-relative, scale-normalised vector used
+# by the static Fingerspelling track, but the model consumes a fixed-length
+# window of frames.  ``FS_DYNAMIC_SEQ_LEN`` MUST match the training pipeline
+# (scripts/train_local_all.py) and the runtime inference buffer.
+FS_DYNAMIC_SEQ_LEN = 30
+FS_DYNAMIC_FEATURE_DIM = FEATURE_SIZE  # alias for clarity in dynamic-track code
+
 
 # ── Core functions ─────────────────────────────────────────────────────────────
 

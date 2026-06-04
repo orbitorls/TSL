@@ -29,6 +29,8 @@ class DummyResult:
         self.topk_text = ""
         self.buffering = None
         self.fps = 15.0
+        self.hands_detected = {"left": False, "right": False}
+        self.landmarks = None
 
 
 def test_tsl51_predicted_status_is_eligible_for_transcript_commit(monkeypatch) -> None:

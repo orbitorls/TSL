@@ -31,7 +31,7 @@ class ArtifactOut(BaseModel):
 
 
 class CreateSessionIn(BaseModel):
-    track: str = Field(..., description="fingerspelling or tsl51")
+    track: str = Field(..., description="fingerspelling, fingerspelling_dynamic, or tsl51")
 
 
 class CreateSessionOut(BaseModel):
@@ -64,6 +64,10 @@ class SettingsIn(BaseModel):
     sign_end_frames: int | None = None
     min_confidence_margin: float | None = None
     commit_on_preview: bool | None = None
+    transcript_stable_frames: int | None = None
+    transcript_debounce_s: float | None = None
+    prediction_stable_frames: int | None = None
+    send_landmarks: bool | None = None
 
 
 class TranscriptActionIn(BaseModel):
@@ -147,7 +151,11 @@ def load_session_model(
 
     session.loaded = loaded
     session.service = PredictService(track, alpha=session.settings.alpha)
-    session.transcript = TranscriptEngine(session.track_key)
+    session.transcript = TranscriptEngine(
+        session.track_key,
+        debounce_s=session.settings.transcript_debounce_s,
+        stable_frames=session.settings.transcript_stable_frames,
+    )
     session.confidence_hist = []
     return LoadSessionOut(
         ok=True,
@@ -183,6 +191,21 @@ def patch_settings(
         session.settings.min_confidence_margin = body.min_confidence_margin
     if body.commit_on_preview is not None:
         session.settings.commit_on_preview = body.commit_on_preview
+    if body.transcript_stable_frames is not None:
+        session.settings.transcript_stable_frames = body.transcript_stable_frames
+    if body.transcript_debounce_s is not None:
+        session.settings.transcript_debounce_s = body.transcript_debounce_s
+    if body.prediction_stable_frames is not None:
+        session.settings.prediction_stable_frames = max(1, body.prediction_stable_frames)
+    if body.send_landmarks is not None:
+        session.send_landmarks = body.send_landmarks
+    if session.transcript is not None and (
+        body.transcript_stable_frames is not None or body.transcript_debounce_s is not None
+    ):
+        session.transcript.configure(
+            stable_frames=body.transcript_stable_frames,
+            debounce_s=body.transcript_debounce_s,
+        )
     return {"ok": True, "settings": session.settings.__dict__}
 
 

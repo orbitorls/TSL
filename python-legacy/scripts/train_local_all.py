@@ -39,9 +39,20 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from src.keypoints import FEATURE_SIZE, extract_and_normalize
+from src.keypoints import (
+    FEATURE_SIZE,
+    FS_DYNAMIC_FEATURE_DIM,
+    FS_DYNAMIC_SEQ_LEN,
+    extract_and_normalize,
+)
 from src.sequence_keypoints import FEATURE_DIM, SEQ_LEN_DEFAULT, csv_to_sequence
-from src.train_paths import discover_fs_zip, resolve_fs_dataset_root, resolve_tsl51_metadata_dir
+from src.train_paths import (
+    discover_fs_zip,
+    discover_fsd_manifest,
+    resolve_fs_dataset_root,
+    resolve_fsd_dataset_root,
+    resolve_tsl51_metadata_dir,
+)
 
 
 IMAGE_EXTS = {".jpg", ".jpeg", ".png", ".JPG", ".JPEG", ".PNG"}
@@ -61,14 +72,19 @@ class RuntimeConfig:
     fs_dataset_root: Path | None
     tsl51_metadata_dir: Path | None
     tsl51_file_cache: Path
+    fsd_dataset_root: Path | None
     force_feature_cache: bool
+    force_feature_cache_dynamic: bool
     fs_only_cache: bool
     tsl51_only_cache: bool
+    fs_dynamic_only_cache: bool
     mixed_precision: bool
     fs_epochs: int
     tsl51_epochs: int
+    fs_dynamic_epochs: int
     fs_batch_size: int
     tsl51_batch_size: int
+    fs_dynamic_batch_size: int
     max_tsl51_samples: int | None
     tsl51_class_mode: str
     fs_workers: int
@@ -156,6 +172,60 @@ def _read_metadata_rows(paths: list[Path]) -> list[dict[str, str]]:
             reader = csv.DictReader(f)
             for row in reader:
                 rows.append(row)
+    return rows
+
+
+# ── Fingerspelling Dynamic helpers ────────────────────────────────────────────
+
+FSD_SPLIT_TO_IDX = {"train": 0, "val": 1, "test": 2}
+FSD_IDX_TO_SPLIT = {0: "train", 1: "val", 2: "test"}
+FSD_MIN_VALID_FRAMES = max(8, FS_DYNAMIC_SEQ_LEN // 4)
+
+
+def _resample_frames(frames: np.ndarray, seq_len: int) -> np.ndarray:
+    """Resample ``(T, F)`` → ``(seq_len, F)`` to match ``sequence_keypoints.resample_frames``.
+
+    - ``T == 0``        → all-zeros of shape ``(seq_len, F)``.
+    - ``T >= seq_len``  → uniform down-sample via ``np.linspace``.
+    - ``T <  seq_len``  → leading zero-pad so real frames sit at the tail
+      (lets ``Masking(mask_value=0.0)`` skip the padded prefix at fit time).
+    """
+    if frames.ndim != 2:
+        raise ValueError(f"_resample_frames expects (T, F), got {frames.shape}")
+    t, feat_dim = frames.shape
+    if t == 0:
+        return np.zeros((seq_len, feat_dim), dtype=np.float32)
+    if t >= seq_len:
+        idx = np.linspace(0, t - 1, seq_len).round().astype(int)
+        return frames[idx].astype(np.float32)
+    pad = np.zeros((seq_len - t, feat_dim), dtype=np.float32)
+    return np.concatenate([pad, frames], axis=0).astype(np.float32)
+
+
+def _read_fsd_manifest_rows(path: Path) -> list[dict[str, str]]:
+    """Read the ``fingerspelling_dynamic`` manifest, filtering by quality + split.
+
+    Schema (CSV header):
+        ``video_id,path,label,start_s,end_s,split,quality_status``
+    Reject rows where ``quality_status != reviewed`` (case-insensitive) and
+    ``split not in {"train","val","test"}``. Drop rows with empty ``path`` /
+    ``label``.
+    """
+    rows: list[dict[str, str]] = []
+    with open(path, newline="", encoding="utf-8") as f:
+        reader = csv.DictReader(f)
+        for row in reader:
+            quality = str(row.get("quality_status", "")).strip().lower()
+            split = str(row.get("split", "")).strip().lower()
+            path_val = str(row.get("path", "")).strip()
+            label = str(row.get("label", "")).strip()
+            if quality != "reviewed":
+                continue
+            if split not in FSD_SPLIT_TO_IDX:
+                continue
+            if not path_val or not label:
+                continue
+            rows.append(row)
     return rows
 
 
@@ -440,6 +510,345 @@ def extract_fingerspelling_features(
     )
     print("[fs] saved feature cache:", cache_path)
     return X_train, y_train, X_test, y_test, class_names
+
+
+def _fsd_extract_clip(
+    payload: tuple[str, float, float, int, int, int],
+) -> tuple[list[np.ndarray], list[int], list[str], int]:
+    """ProcessPool worker: one MediaPipe Hands instance per video clip.
+
+    payload
+    -------
+    (video_path, start_s, end_s, class_idx, split_idx, seq_len)
+    """
+    video_path_str, start_s, end_s, class_idx, split_idx, seq_len = payload
+    import cv2
+    import mediapipe as mp
+
+    kept: list[np.ndarray] = []
+    cap = cv2.VideoCapture(video_path_str)
+    if not cap.isOpened():
+        return [], [], [], class_idx
+
+    fps = cap.get(cv2.CAP_PROP_FPS) or 30.0
+    if fps <= 0:
+        fps = 30.0
+    total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+    start_frame = max(0, int(start_s * fps))
+    if end_s > 0:
+        end_frame = int(end_s * fps)
+    else:
+        end_frame = total_frames
+    if end_frame <= 0 or end_frame > total_frames:
+        end_frame = total_frames
+    if start_frame >= end_frame:
+        cap.release()
+        return [], [], [], class_idx
+
+    cap.set(cv2.CAP_PROP_POS_FRAMES, start_frame)
+    with mp.solutions.hands.Hands(
+        static_image_mode=False,
+        max_num_hands=2,
+        min_detection_confidence=0.5,
+    ) as hands:
+        for _ in range(end_frame - start_frame):
+            ok, frame = cap.read()
+            if not ok:
+                break
+            rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+            feat = extract_and_normalize(hands.process(rgb))
+            if feat is not None:
+                kept.append(feat)
+    cap.release()
+
+    if len(kept) < FSD_MIN_VALID_FRAMES:
+        return [], [], [], class_idx
+
+    seq = _resample_frames(np.stack(kept, axis=0).astype(np.float32), seq_len)
+    return [seq], [class_idx], [FSD_IDX_TO_SPLIT[split_idx]], class_idx
+
+
+def extract_fingerspelling_dynamic_features(
+    cfg: RuntimeConfig,
+    force: bool,
+    workers: int,
+) -> tuple[np.ndarray, np.ndarray, list[str], list[str]]:
+    """Extract (or load from cache) the fingerspelling_dynamic clip dataset.
+
+    Returns ``(X, y, class_names, splits)`` where
+    ``X`` is ``(n, FS_DYNAMIC_SEQ_LEN, FS_DYNAMIC_FEATURE_DIM)`` and ``splits``
+    is a parallel list of ``{"train","val","test"}`` strings.
+    """
+    dataset_root = cfg.fsd_dataset_root
+    if dataset_root is None or not dataset_root.is_dir():
+        raise FileNotFoundError(
+            "No fingerspelling_dynamic dataset found. "
+            f"Provide --fs-dynamic-dataset-root (resolved: {dataset_root})."
+        )
+
+    manifest_path = discover_fsd_manifest(REPO_ROOT, dataset_root)
+    if not manifest_path.is_file():
+        raise FileNotFoundError(
+            f"No manifest CSV found for fingerspelling_dynamic under {dataset_root}. "
+            f"Expected one of: {[dataset_root / n for n in FS_DYNAMIC_MANIFEST_ALIASES]}"
+        )
+
+    rows = _read_fsd_manifest_rows(manifest_path)
+    if not rows:
+        raise RuntimeError(
+            f"No valid rows in manifest {manifest_path} after quality/split filtering"
+        )
+
+    cache_path = cfg.work_root / "features" / "fingerspelling_dynamic_cache.npz"
+    signature = (
+        f"{manifest_path}|n={len(rows)}|"
+        f"first={rows[0].get('video_id', '')}|"
+        f"last={rows[-1].get('video_id', '')}"
+    )
+    if cache_path.exists() and not force:
+        data = np.load(cache_path, allow_pickle=True)
+        if (
+            int(data["feature_size"]) == FS_DYNAMIC_FEATURE_DIM
+            and int(data["seq_len"]) == FS_DYNAMIC_SEQ_LEN
+            and str(data["manifest_signature"]) == signature
+        ):
+            print("[fsd] loaded feature cache:", cache_path)
+            return (
+                data["X"],
+                data["y"],
+                list(data["class_names"]),
+                list(data["splits"]),
+            )
+
+    class_names = sorted({str(r["label"]).strip() for r in rows})
+    class_to_idx = {name: i for i, name in enumerate(class_names)}
+
+    payloads: list[tuple[str, float, float, int, int, int]] = []
+    skipped_missing = 0
+    for row in rows:
+        raw_path = str(row["path"]).strip()
+        p = Path(raw_path)
+        if not p.is_absolute():
+            p = dataset_root / p
+        if not p.exists():
+            skipped_missing += 1
+            continue
+        label = str(row["label"]).strip()
+        try:
+            start_s = float(row.get("start_s") or 0.0)
+            end_s = float(row.get("end_s") or 0.0)
+        except (TypeError, ValueError):
+            start_s = 0.0
+            end_s = 0.0
+        split_idx = FSD_SPLIT_TO_IDX[str(row["split"]).strip().lower()]
+        payloads.append(
+            (str(p), start_s, end_s, class_to_idx[label], split_idx, FS_DYNAMIC_SEQ_LEN)
+        )
+
+    if skipped_missing:
+        print(f"[fsd] skipped {skipped_missing} rows with missing video path")
+
+    if not payloads:
+        raise RuntimeError(
+            "No fingerspelling_dynamic clips with valid paths found "
+            f"(dataset root: {dataset_root})"
+        )
+
+    worker_count = max(1, min(workers, len(payloads)))
+    print(f"[fsd] extracting {len(payloads)} clips with {worker_count} workers")
+
+    X_all: list[np.ndarray] = []
+    y_all: list[int] = []
+    splits_all: list[str] = []
+    with ProcessPoolExecutor(max_workers=worker_count) as pool:
+        futures = [pool.submit(_fsd_extract_clip, p) for p in payloads]
+        for fut in as_completed(futures):
+            X_part, y_part, splits_part, _ = fut.result()
+            if X_part:
+                X_all.extend(X_part)
+                y_all.extend(y_part)
+                splits_all.extend(splits_part)
+
+    if not X_all:
+        raise RuntimeError("No valid MediaPipe hands features for fingerspelling_dynamic")
+
+    X_arr = np.asarray(X_all, dtype=np.float32)
+    y_arr = np.asarray(y_all, dtype=np.int32)
+    class_names_arr = np.asarray(class_names, dtype=object)
+    splits_arr = np.asarray(splits_all, dtype=object)
+
+    cache_path.parent.mkdir(parents=True, exist_ok=True)
+    np.savez_compressed(
+        cache_path,
+        X=X_arr,
+        y=y_arr,
+        class_names=class_names_arr,
+        splits=splits_arr,
+        feature_size=FS_DYNAMIC_FEATURE_DIM,
+        seq_len=FS_DYNAMIC_SEQ_LEN,
+        manifest_signature=signature,
+    )
+    print("[fsd] saved feature cache:", cache_path)
+    return X_arr, y_arr, class_names, splits_all
+
+
+def train_fingerspelling_dynamic(cfg: RuntimeConfig, tf) -> None:
+    import joblib
+    from sklearn.metrics import classification_report
+    from sklearn.model_selection import train_test_split
+    from sklearn.preprocessing import StandardScaler
+
+    X_all, y_all, class_names, splits_all = extract_fingerspelling_dynamic_features(
+        cfg, cfg.force_feature_cache_dynamic, cfg.fs_workers
+    )
+    if cfg.fs_dynamic_only_cache:
+        print("[fsd] --fs-dynamic-only-cache: skipping fit")
+        return
+
+    cls_ids, cls_counts = np.unique(y_all, return_counts=True)
+    keep_ids = {int(i) for i, c in zip(cls_ids, cls_counts) if int(c) >= 2}
+    if len(keep_ids) < len(cls_ids):
+        mask = np.asarray([int(v) in keep_ids for v in y_all], dtype=bool)
+        dropped = int((~mask).sum())
+        X_all = X_all[mask]
+        y_all = y_all[mask]
+        splits_all = [s for s, m in zip(splits_all, mask) if m]
+        remap = {old: new for new, old in enumerate(sorted(keep_ids))}
+        y_all = np.asarray([remap[int(v)] for v in y_all], dtype=np.int32)
+        class_names = [class_names[i] for i in sorted(keep_ids)]
+        print(f"[fsd] dropped {dropped} samples from rare classes (<2)")
+
+    splits_arr = np.asarray(splits_all)
+    test_present = bool((splits_arr == "test").any())
+    if test_present:
+        train_mask = splits_arr == "train"
+        val_mask = splits_arr == "val"
+        test_mask = splits_arr == "test"
+        X_train, y_train = X_all[train_mask], y_all[train_mask]
+        X_val, y_val = X_all[val_mask], y_all[val_mask]
+        X_test, y_test = X_all[test_mask], y_all[test_mask]
+        if len(X_val) == 0 and len(X_train) >= 2:
+            print("[fsd] no val rows in manifest; carving 10% of train for val")
+            X_train, X_val, y_train, y_val = train_test_split(
+                X_train,
+                y_train,
+                test_size=0.10,
+                stratify=y_train,
+                random_state=42,
+            )
+    else:
+        X_tmp, X_test, y_tmp, y_test = train_test_split(
+            X_all, y_all, test_size=0.10, stratify=y_all, random_state=42
+        )
+        X_train, X_val, y_train, y_val = train_test_split(
+            X_tmp, y_tmp, test_size=0.111, stratify=y_tmp, random_state=42
+        )
+
+    splits_present = sorted(set(splits_all))
+
+    scaler = StandardScaler()
+    scaler.fit(X_train.reshape(-1, FS_DYNAMIC_FEATURE_DIM))
+
+    def scale(X: np.ndarray) -> np.ndarray:
+        return scaler.transform(X.reshape(-1, FS_DYNAMIC_FEATURE_DIM)).reshape(
+            -1, FS_DYNAMIC_SEQ_LEN, FS_DYNAMIC_FEATURE_DIM
+        ).astype(np.float32)
+
+    X_tr_s = scale(X_train)
+    X_val_s = scale(X_val)
+    X_test_s = scale(X_test)
+
+    train_ds = (
+        tf.data.Dataset.from_tensor_slices((X_tr_s, y_train))
+        .shuffle(min(len(X_tr_s), 8192), seed=42, reshuffle_each_iteration=True)
+        .batch(cfg.fs_dynamic_batch_size)
+        .prefetch(tf.data.AUTOTUNE)
+    )
+    val_ds = (
+        tf.data.Dataset.from_tensor_slices((X_val_s, y_val))
+        .batch(cfg.fs_dynamic_batch_size)
+        .prefetch(tf.data.AUTOTUNE)
+    )
+
+    model = tf.keras.Sequential(
+        [
+            tf.keras.layers.Input(shape=(FS_DYNAMIC_SEQ_LEN, FS_DYNAMIC_FEATURE_DIM)),
+            tf.keras.layers.Masking(mask_value=0.0),
+            tf.keras.layers.Conv1D(128, kernel_size=5, padding="same", activation="relu"),
+            tf.keras.layers.BatchNormalization(),
+            tf.keras.layers.Dropout(0.25),
+            tf.keras.layers.Bidirectional(
+                tf.keras.layers.GRU(96, return_sequences=True)
+            ),
+            tf.keras.layers.Dropout(0.25),
+            tf.keras.layers.Bidirectional(tf.keras.layers.GRU(64)),
+            tf.keras.layers.Dropout(0.25),
+            tf.keras.layers.Dense(128, activation="relu"),
+            tf.keras.layers.Dropout(0.20),
+            tf.keras.layers.Dense(len(class_names), activation="softmax", dtype="float32"),
+        ]
+    )
+    model.compile(
+        optimizer=tf.keras.optimizers.Adam(1e-3),
+        loss="sparse_categorical_crossentropy",
+        metrics=["accuracy"],
+    )
+    callbacks = [
+        tf.keras.callbacks.EarlyStopping(
+            monitor="val_accuracy", patience=20, restore_best_weights=True
+        ),
+        tf.keras.callbacks.ReduceLROnPlateau(
+            monitor="val_loss", factor=0.5, patience=6, min_lr=1e-6
+        ),
+    ]
+    model.fit(
+        train_ds,
+        validation_data=val_ds,
+        epochs=cfg.fs_dynamic_epochs,
+        callbacks=callbacks,
+        verbose=1,
+    )
+
+    loss, acc = model.evaluate(X_test_s, y_test, verbose=0)
+    y_pred = np.argmax(model.predict(X_test_s, verbose=0), axis=1)
+    print("[fsd] test accuracy:", acc)
+    try:
+        print(classification_report(y_test, y_pred, target_names=class_names))
+    except UnicodeEncodeError:
+        print("[fingerspelling_dynamic] classification report omitted (console encoding)")
+
+    out = cfg.artifact_dir / "fingerspelling_dynamic"
+    out.mkdir(parents=True, exist_ok=True)
+    model.save(out / "fs_dynamic_model.keras")
+    joblib.dump(scaler, out / "fs_dynamic_scaler.pkl")
+    _json_dump(
+        out / "fs_dynamic_labels.json",
+        {str(i): name for i, name in enumerate(class_names)},
+    )
+    _json_dump(
+        out / "fs_dynamic_model_manifest.json",
+        {
+            "track": "thai_fingerspelling_dynamic",
+            "feature_size": FS_DYNAMIC_FEATURE_DIM,
+            "seq_len": FS_DYNAMIC_SEQ_LEN,
+            "num_classes": len(class_names),
+            "test_accuracy": float(acc),
+            "test_loss": float(loss),
+            "class_names": class_names,
+            "splits_present": splits_present,
+            "artifacts": [
+                "fs_dynamic_model.keras",
+                "fs_dynamic_model.tflite",
+                "fs_dynamic_labels.json",
+                "fs_dynamic_scaler.pkl",
+            ],
+        },
+    )
+    if not cfg.skip_tflite:
+        _try_export_tflite(tf, model, out / "fs_dynamic_model.tflite", "fsd")
+    else:
+        print("[fingerspelling_dynamic] TFLite export skipped (--skip-tflite)")
+    print("[fsd] artifacts:", out)
 
 
 def train_fingerspelling(cfg: RuntimeConfig, tf) -> None:
@@ -947,7 +1356,11 @@ def default_work_root() -> Path:
 def parse_args() -> argparse.Namespace:
     p = argparse.ArgumentParser(description="Train both TSL tracks locally.")
     p.set_defaults(**_config_defaults_for_argparse())
-    p.add_argument("--tracks", choices=("both", "fingerspelling", "tsl51"), default="both")
+    p.add_argument(
+        "--tracks",
+        choices=("both", "fingerspelling", "tsl51", "fingerspelling_dynamic"),
+        default="both",
+    )
     p.add_argument("--preflight", action="store_true", help="Check deps/GPU and exit")
     p.add_argument("--work-root", default=str(default_work_root()))
     p.add_argument("--artifact-dir", default=str(REPO_ROOT / "artifacts"))
@@ -957,11 +1370,21 @@ def parse_args() -> argparse.Namespace:
         default=str(REPO_ROOT / "data" / "fingerspelling"),
     )
     p.add_argument(
+        "--fs-dynamic-dataset-root",
+        default=str(REPO_ROOT / "data" / "fingerspelling_dynamic"),
+        help="Root directory containing the fingerspelling_dynamic clip manifest",
+    )
+    p.add_argument(
         "--tsl51-metadata-dir",
         default=str(REPO_ROOT / "data" / "tsl51" / "metadata"),
     )
     p.add_argument("--tsl51-file-cache", default=str(default_work_root() / "tsl51_files"))
     p.add_argument("--force-feature-cache", action="store_true")
+    p.add_argument(
+        "--force-feature-cache-dynamic",
+        action="store_true",
+        help="Rebuild the fingerspelling_dynamic NPZ cache even if present",
+    )
     p.add_argument(
         "--fs-only-cache",
         action="store_true",
@@ -972,11 +1395,18 @@ def parse_args() -> argparse.Namespace:
         action="store_true",
         help="Build TSL-51 NPZ cache only (no fit)",
     )
+    p.add_argument(
+        "--fs-dynamic-only-cache",
+        action="store_true",
+        help="Build fingerspelling_dynamic NPZ cache only (no fit)",
+    )
     p.add_argument("--no-mixed-precision", action="store_true")
     p.add_argument("--fs-epochs", type=int, default=120)
     p.add_argument("--tsl51-epochs", type=int, default=120)
+    p.add_argument("--fs-dynamic-epochs", type=int, default=80)
     p.add_argument("--fs-batch-size", type=int, default=128)
     p.add_argument("--tsl51-batch-size", type=int, default=64)
+    p.add_argument("--fs-dynamic-batch-size", type=int, default=32)
     p.add_argument("--max-tsl51-samples", type=int, default=None)
     p.add_argument(
         "--tsl51-class-mode",
@@ -992,7 +1422,8 @@ def parse_args() -> argparse.Namespace:
         "--fs-workers",
         type=int,
         default=_default_workers(),
-        help="Parallel MediaPipe workers for fingerspelling extraction",
+        help="Parallel MediaPipe workers for fingerspelling extraction "
+        "(also used for fingerspelling_dynamic clip extraction)",
     )
     p.add_argument(
         "--tsl51-download-workers",
@@ -1032,6 +1463,14 @@ def main() -> int:
         if args.fs_dataset_root
         else None
     )
+    fsd_dataset_root = (
+        resolve_fsd_dataset_root(
+            REPO_ROOT,
+            Path(args.fs_dynamic_dataset_root).expanduser().resolve(),
+        )
+        if args.fs_dynamic_dataset_root
+        else None
+    )
     tsl51_metadata_dir = (
         resolve_tsl51_metadata_dir(
             REPO_ROOT,
@@ -1047,14 +1486,19 @@ def main() -> int:
         fs_dataset_root=fs_dataset_root,
         tsl51_metadata_dir=tsl51_metadata_dir,
         tsl51_file_cache=Path(args.tsl51_file_cache).expanduser().resolve(),
+        fsd_dataset_root=fsd_dataset_root,
         force_feature_cache=args.force_feature_cache,
+        force_feature_cache_dynamic=args.force_feature_cache_dynamic,
         fs_only_cache=args.fs_only_cache,
         tsl51_only_cache=args.tsl51_only_cache,
+        fs_dynamic_only_cache=args.fs_dynamic_only_cache,
         mixed_precision=not args.no_mixed_precision,
         fs_epochs=args.fs_epochs,
         tsl51_epochs=args.tsl51_epochs,
+        fs_dynamic_epochs=args.fs_dynamic_epochs,
         fs_batch_size=args.fs_batch_size,
         tsl51_batch_size=args.tsl51_batch_size,
+        fs_dynamic_batch_size=args.fs_dynamic_batch_size,
         max_tsl51_samples=args.max_tsl51_samples,
         tsl51_class_mode=args.tsl51_class_mode,
         fs_workers=max(1, args.fs_workers),
@@ -1067,13 +1511,20 @@ def main() -> int:
 
     run_fs = args.tracks in ("both", "fingerspelling")
     run_tsl51 = args.tracks in ("both", "tsl51")
-    need_tf = (run_fs and not cfg.fs_only_cache) or (run_tsl51 and not cfg.tsl51_only_cache)
+    run_fsd = args.tracks in ("both", "fingerspelling_dynamic")
+    need_tf = (
+        (run_fs and not cfg.fs_only_cache)
+        or (run_tsl51 and not cfg.tsl51_only_cache)
+        or (run_fsd and not cfg.fs_dynamic_only_cache)
+    )
     tf = configure_tensorflow(mixed_precision=cfg.mixed_precision) if need_tf else None
 
     if run_fs:
         train_fingerspelling(cfg, tf)
     if run_tsl51:
         train_tsl51(cfg, tf)
+    if run_fsd:
+        train_fingerspelling_dynamic(cfg, tf)
     return 0
 
 

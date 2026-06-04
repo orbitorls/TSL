@@ -1,0 +1,13 @@
+{
+  "track": "thai_fingerspelling",
+  "feature_size": 63,
+  "num_classes": 15,
+  "test_accuracy": 0.9825174808502197,
+  "test_loss": 0.0904444009065628,
+  "artifacts": [
+    "model.keras",
+    "model.tflite",
+    "labels.json",
+    "scaler.pkl"
+  ]
+}
