@@ -23,7 +23,7 @@ class DummyScaler:
 
 class DummyPredictor:
     def predict(self, values):
-        return np.array([[0.9, 0.1]], dtype=np.float32)
+        return np.array([[0.75, 0.24]], dtype=np.float32)
 
 
 class DummyHolistic:
@@ -83,6 +83,8 @@ def test_tsl51_fast_mode_commits_on_second_preview(monkeypatch) -> None:
     assert result.status == "predicted"
     assert result.buffering is None
     assert result.committed_label == "ทดสอบ"
+
+    # Moderate confidence: pred index 0 -> "ทดสอบ" at 0.75
 
     result = process_rgb_frame(TRACKS["tsl51"], loaded, service, runtime, np.zeros((4, 4, 3), dtype=np.uint8), settings)
     assert result.status == "signing"
@@ -146,3 +148,68 @@ def test_tsl51_accuracy_mode_commits_at_sign_end(monkeypatch) -> None:
     result = process_rgb_frame(TRACKS["tsl51"], loaded, service, runtime, rgb, settings)
     assert result.status == "predicted"
     assert result.committed_label == "ทดสอบ"
+
+
+def test_early_commit_eligible_threshold_and_margin() -> None:
+    settings = InferenceSettings(
+        threshold=0.62,
+        min_confidence_margin=0.10,
+        commit_on_preview=True,
+    )
+    assert inference_module._early_commit_eligible(
+        settings, allow_commit=True, conf=0.96, margin=0.94
+    )
+    assert not inference_module._early_commit_eligible(
+        settings, allow_commit=True, conf=0.68, margin=0.38
+    )
+
+
+def test_tsl51_balanced_early_commit_clears_sign_frames(monkeypatch) -> None:
+    """High-confidence preview commits once and clears sign_frames (skips sign-end wait)."""
+    frame = np.ones(162, dtype=np.float32)
+    motion_times = iter([0.05 * i for i in range(1, 30)])
+    predict_calls = {"n": 0}
+
+    monkeypatch.setattr(inference_module, "extract_holistic_frame", lambda results: frame)
+    monkeypatch.setattr(inference_module, "_extract_hand_coords", lambda results: np.ones(126, dtype=np.float32))
+    monkeypatch.setattr(inference_module, "_mean_hand_displacement", lambda prev, curr: 0.02)
+    monkeypatch.setattr(inference_module.time, "monotonic", lambda: next(motion_times))
+
+    class RampingPredictor:
+        def predict(self, values):
+            predict_calls["n"] += 1
+            if predict_calls["n"] < 6:
+                return np.array([[0.68, 0.30]], dtype=np.float32)
+            return np.array([[0.96, 0.02]], dtype=np.float32)
+
+    loaded = LoadedModel(
+        predictor=RampingPredictor(),
+        labels={"0": "ทดสอบ", "1": "อื่น"},
+        scaler=DummyScaler(),
+        backend="keras",
+        model_path=Path("model.keras"),
+        labels_path=Path("labels.json"),
+        scaler_path=Path("scaler.pkl"),
+        load_time_ms=0.0,
+    )
+    service = PredictService(TRACKS["tsl51"], alpha=0.4)
+    runtime = DummyRuntime()
+    settings = InferenceSettings(
+        threshold=0.75,
+        min_sign_frames=4,
+        sign_end_frames=3,
+        min_confidence_margin=0.10,
+        commit_on_preview=True,
+    )
+    rgb = np.zeros((4, 4, 3), dtype=np.uint8)
+
+    high_commit = None
+    for _ in range(15):
+        result = process_rgb_frame(TRACKS["tsl51"], loaded, service, runtime, rgb, settings)
+        if result.committed_label and result.confidence >= 0.9:
+            high_commit = result
+            break
+
+    assert high_commit is not None
+    assert high_commit.committed_label == "ทดสอบ"
+    assert len(service.sign_frames) == 0

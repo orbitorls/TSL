@@ -1,0 +1,284 @@
+{
+  "target_accuracy": 0.9,
+  "expected_classes": 51,
+  "internal_pass": true,
+  "external_holdout_pass": false,
+  "ready": false,
+  "best_internal_candidate": {
+    "artifact_dir": ".tools\\tsl51_experiments\\full51_v2\\artifacts\\tsl51",
+    "manifest": ".tools\\tsl51_experiments\\full51_v2\\artifacts\\tsl51\\tsl51_model_manifest.json",
+    "class_count": 51,
+    "label_count": 51,
+    "internal_accuracy": 0.9245283007621765,
+    "internal_accuracy_source": "tsl51_model_manifest.test_accuracy",
+    "external_augmented": false,
+    "external_val_samples": 0
+  },
+  "best_external_holdout": null,
+  "internal_candidate_rule": "51 classes and internal accuracy above target; external-augmented artifacts must include external_val_samples > 0 to be eligible",
+  "artifacts": [
+    {
+      "artifact_dir": ".tools\\tsl51_experiments\\full51_v2\\artifacts\\tsl51",
+      "manifest": ".tools\\tsl51_experiments\\full51_v2\\artifacts\\tsl51\\tsl51_model_manifest.json",
+      "class_count": 51,
+      "label_count": 51,
+      "internal_accuracy": 0.9245283007621765,
+      "internal_accuracy_source": "tsl51_model_manifest.test_accuracy",
+      "external_augmented": false,
+      "external_val_samples": 0
+    },
+    {
+      "artifact_dir": ".tools\\tsl51_experiments\\full51_v3_external_weighted\\artifacts\\tsl51",
+      "manifest": ".tools\\tsl51_experiments\\full51_v3_external_weighted\\artifacts\\tsl51\\tsl51_model_manifest.json",
+      "class_count": 51,
+      "label_count": 51,
+      "internal_accuracy": 0.9746835231781006,
+      "internal_accuracy_source": "tsl51_model_manifest.test_accuracy",
+      "external_augmented": true,
+      "external_val_samples": 0
+    }
+  ],
+  "external_reports": [
+    {
+      "summary": "reports\\current_reviewed_external_eval\\full51_v2\\summary.json",
+      "artifact_dir": ".tools\\tsl51_experiments\\full51_v2\\artifacts\\tsl51",
+      "samples_file": "work\\reviewed_external_assets\\external_test_samples.csv",
+      "total_samples": 5,
+      "top1_accuracy": 0.0,
+      "top3_accuracy": 0.0,
+      "accepted_as_holdout": false,
+      "rejection_reason": "external report was not marked as trusted holdout"
+    }
+  ],
+  "reviewed_split_summary": {
+    "reviewed_rows": 5,
+    "reviewed_groups": 4,
+    "reviewed_labels": 4,
+    "splits": {
+      "train": {
+        "rows": 0,
+        "groups": 0,
+        "labels": 0
+      },
+      "val": {
+        "rows": 0,
+        "groups": 0,
+        "labels": 0
+      },
+      "external_test": {
+        "rows": 5,
+        "groups": 4,
+        "labels": 4
+      }
+    },
+    "ready_for_external_holdout": false,
+    "reason": "not enough reviewed rows/groups to create train, val, and external_test splits without video/session leakage"
+  },
+  "review_queue_summary": {
+    "reviewed_rows": 5,
+    "prelabel_rows": 101,
+    "queue_rows": 15,
+    "queue_groups": 15,
+    "queue_labels": 7,
+    "targets": {
+      "holdout_rows": 10,
+      "holdout_labels": 5,
+      "val_rows": 5,
+      "train_rows": 5
+    },
+    "queued_by_recommended_split": {
+      "external_test": {
+        "rows": 5,
+        "groups": 5,
+        "labels": 5
+      },
+      "train": {
+        "rows": 5,
+        "groups": 5,
+        "labels": 2
+      },
+      "val": {
+        "rows": 5,
+        "groups": 5,
+        "labels": 3
+      }
+    },
+    "ready_to_review": true
+  },
+  "review_validate_summary": {
+    "input_rows": 15,
+    "approved_rows": 0,
+    "rejected_rows": 0,
+    "missing_decisions": 15,
+    "splits": {
+      "train": {
+        "rows": 0,
+        "labels": 0,
+        "groups": 0
+      },
+      "val": {
+        "rows": 0,
+        "labels": 0,
+        "groups": 0
+      },
+      "external_test": {
+        "rows": 0,
+        "labels": 0,
+        "groups": 0
+      }
+    },
+    "errors": [
+      "train has 0 approved rows; need at least 1",
+      "train has 0 approved groups; need at least 1",
+      "val has 0 approved rows; need at least 1",
+      "val has 0 approved groups; need at least 1",
+      "external_test has 0 approved rows; need at least 1",
+      "external_test has 0 approved groups; need at least 1"
+    ],
+    "warnings": [
+      "15 rows have no review_decision and were ignored"
+    ],
+    "ready": false
+  },
+  "review_apply_summary": {
+    "input_rows": 15,
+    "approved_rows": 0,
+    "rejected_rows": 0,
+    "output_splits": {
+      "train": {
+        "rows": 0,
+        "labels": 0,
+        "groups": 0
+      },
+      "val": {
+        "rows": 0,
+        "labels": 0,
+        "groups": 0
+      },
+      "external_test": {
+        "rows": 0,
+        "labels": 0,
+        "groups": 0
+      }
+    },
+    "ready_for_splitter": false,
+    "base_reviewed_rows": 5,
+    "output_reviewed_rows": 5,
+    "merged_output_splits": {
+      "train": {
+        "rows": 5,
+        "labels": 4,
+        "groups": 4
+      },
+      "val": {
+        "rows": 0,
+        "labels": 0,
+        "groups": 0
+      },
+      "external_test": {
+        "rows": 0,
+        "labels": 0,
+        "groups": 0
+      }
+    }
+  },
+  "reviewed_assets_summary": {
+    "splits": {
+      "train": {
+        "rows": 0,
+        "labels": 0,
+        "groups": 0
+      },
+      "val": {
+        "rows": 0,
+        "labels": 0,
+        "groups": 0
+      },
+      "external_test": {
+        "rows": 5,
+        "labels": 4,
+        "groups": 4
+      }
+    },
+    "files": {
+      "train_manifest": "work\\reviewed_external_assets\\train_manifest.csv",
+      "val_manifest": "work\\reviewed_external_assets\\val_manifest.csv",
+      "external_test_manifest": "work\\reviewed_external_assets\\external_test_manifest.csv",
+      "external_test_samples": "work\\reviewed_external_assets\\external_test_samples.csv"
+    },
+    "ready_for_training": false,
+    "ready_for_eval": true
+  },
+  "strategy_summary": {
+    "reports": [
+      {
+        "summary": "reports\\current_reviewed_external_eval\\full51_v2\\summary.json",
+        "strategy": "uniform",
+        "samples_file": "work\\reviewed_external_assets\\external_test_samples.csv",
+        "artifact_dir": ".tools\\tsl51_experiments\\full51_v2\\artifacts\\tsl51",
+        "total_samples": 5,
+        "detected_samples": 5,
+        "top1_accuracy": 0.0,
+        "top3_accuracy": 0.0,
+        "predictions_csv": "reports\\current_reviewed_external_eval\\full51_v2\\predictions.csv"
+      },
+      {
+        "summary": "reports\\current_reviewed_external_eval\\full51_v2_first\\summary.json",
+        "strategy": "first",
+        "samples_file": "work\\reviewed_external_assets\\external_test_samples.csv",
+        "artifact_dir": ".tools\\tsl51_experiments\\full51_v2\\artifacts\\tsl51",
+        "total_samples": 5,
+        "detected_samples": 5,
+        "top1_accuracy": 0.0,
+        "top3_accuracy": 0.0,
+        "predictions_csv": "reports\\current_reviewed_external_eval\\full51_v2_first\\predictions.csv"
+      },
+      {
+        "summary": "reports\\current_reviewed_external_eval\\full51_v2_last\\summary.json",
+        "strategy": "last",
+        "samples_file": "work\\reviewed_external_assets\\external_test_samples.csv",
+        "artifact_dir": ".tools\\tsl51_experiments\\full51_v2\\artifacts\\tsl51",
+        "total_samples": 5,
+        "detected_samples": 5,
+        "top1_accuracy": 0.0,
+        "top3_accuracy": 0.0,
+        "predictions_csv": "reports\\current_reviewed_external_eval\\full51_v2_last\\predictions.csv"
+      },
+      {
+        "summary": "reports\\current_reviewed_external_eval\\full51_v2_sliding\\summary.json",
+        "strategy": "sliding",
+        "samples_file": "work\\reviewed_external_assets\\external_test_samples.csv",
+        "artifact_dir": ".tools\\tsl51_experiments\\full51_v2\\artifacts\\tsl51",
+        "total_samples": 5,
+        "detected_samples": 5,
+        "top1_accuracy": 0.0,
+        "top3_accuracy": 0.0,
+        "predictions_csv": "reports\\current_reviewed_external_eval\\full51_v2_sliding\\predictions.csv"
+      }
+    ],
+    "best_top1": {
+      "summary": "reports\\current_reviewed_external_eval\\full51_v2\\summary.json",
+      "strategy": "uniform",
+      "samples_file": "work\\reviewed_external_assets\\external_test_samples.csv",
+      "artifact_dir": ".tools\\tsl51_experiments\\full51_v2\\artifacts\\tsl51",
+      "total_samples": 5,
+      "detected_samples": 5,
+      "top1_accuracy": 0.0,
+      "top3_accuracy": 0.0,
+      "predictions_csv": "reports\\current_reviewed_external_eval\\full51_v2\\predictions.csv"
+    },
+    "best_top3": {
+      "summary": "reports\\current_reviewed_external_eval\\full51_v2\\summary.json",
+      "strategy": "uniform",
+      "samples_file": "work\\reviewed_external_assets\\external_test_samples.csv",
+      "artifact_dir": ".tools\\tsl51_experiments\\full51_v2\\artifacts\\tsl51",
+      "total_samples": 5,
+      "detected_samples": 5,
+      "top1_accuracy": 0.0,
+      "top3_accuracy": 0.0,
+      "predictions_csv": "reports\\current_reviewed_external_eval\\full51_v2\\predictions.csv"
+    },
+    "all_strategies_failed": true
+  },
+  "decision": "not_ready_without_external_holdout_pass"
+}

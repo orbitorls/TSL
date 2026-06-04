@@ -1,0 +1,24 @@
+{
+  "reviewed_rows": 5,
+  "reviewed_groups": 4,
+  "reviewed_labels": 4,
+  "splits": {
+    "train": {
+      "rows": 0,
+      "groups": 0,
+      "labels": 0
+    },
+    "val": {
+      "rows": 0,
+      "groups": 0,
+      "labels": 0
+    },
+    "external_test": {
+      "rows": 5,
+      "groups": 4,
+      "labels": 4
+    }
+  },
+  "ready_for_external_holdout": false,
+  "reason": "not enough reviewed rows/groups to create train, val, and external_test splits without video/session leakage"
+}

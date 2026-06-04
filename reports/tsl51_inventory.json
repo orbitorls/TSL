@@ -1,0 +1,322 @@
+{
+  "metadata": "data\\tsl51_raw_local\\metadata\\combined_metadata.csv",
+  "labels": "artifacts\\tsl51\\tsl51_labels.json",
+  "total_rows": 45672,
+  "null_rows": 1111,
+  "non_null_rows": 44561,
+  "non_null_class_count": 51,
+  "artifact_class_count": 47,
+  "missing_from_artifact": [
+    "ขอบคุณ_เปิดมือสองข้าง",
+    "ด้วยกัน_var_1",
+    "ตลาด_var_4",
+    "เกิด_var_2"
+  ],
+  "extra_in_artifact": [],
+  "artifact_labels": [
+    "กรุงเทพ_var_1",
+    "กลัว_var_1",
+    "กิน_var_1",
+    "ขนมปัง_var_1",
+    "ขอโทษ_อายุเท่ากันหรือน้อยกว่า",
+    "ข้าว_var_1",
+    "คุณ_var_1",
+    "ง่วง_var_1",
+    "ฉัน_var_1",
+    "ฉัน_var_2",
+    "ชอบ_var_1",
+    "ชื่อ_var_1",
+    "ดี_var_1",
+    "ถาม_ทำท่ามือถามไปยังผู้นั้น",
+    "ทำงาน_var_2",
+    "ทำไม_var_1",
+    "ที่ไหน_var_1",
+    "น้อง_var_1",
+    "บ้าน_var_1",
+    "พรุ่งนี้_var_1",
+    "พี่_var_1",
+    "ภาษามือ_var_1",
+    "ยาย_var_1",
+    "ร้อน_สองมือ",
+    "วันนี้_var_1",
+    "วันหยุด_var_1",
+    "สบายดี_var_1",
+    "สวัสดี_อายุเท่ากันหรือน้อยกว่า",
+    "หูหนวก_var_2",
+    "อยู่บ้าน_var_1",
+    "อย่า_var_1",
+    "อะไร_var_1",
+    "เช้า_var_1",
+    "เที่ยว_var_1",
+    "เรียก_var_1",
+    "เรียน_var_1",
+    "เหงา_var_1",
+    "เหนื่อย_var_1",
+    "แต่งงาน_var_1",
+    "แฟน_var_1",
+    "แมว_var_1",
+    "แม่_var_1",
+    "โกรธ_var_1",
+    "โรงเรียน_var_1",
+    "โสด_var_1",
+    "ไข่_var_2",
+    "ไป_var_2"
+  ],
+  "per_class": {
+    "กรุงเทพ_var_1": {
+      "metadata_rows": 1078,
+      "unique_video_ids": 25,
+      "in_artifact": true
+    },
+    "กลัว_var_1": {
+      "metadata_rows": 947,
+      "unique_video_ids": 23,
+      "in_artifact": true
+    },
+    "กิน_var_1": {
+      "metadata_rows": 947,
+      "unique_video_ids": 23,
+      "in_artifact": true
+    },
+    "ขนมปัง_var_1": {
+      "metadata_rows": 1110,
+      "unique_video_ids": 26,
+      "in_artifact": true
+    },
+    "ขอบคุณ_เปิดมือสองข้าง": {
+      "metadata_rows": 682,
+      "unique_video_ids": 21,
+      "in_artifact": false
+    },
+    "ขอโทษ_อายุเท่ากันหรือน้อยกว่า": {
+      "metadata_rows": 947,
+      "unique_video_ids": 23,
+      "in_artifact": true
+    },
+    "ข้าว_var_1": {
+      "metadata_rows": 979,
+      "unique_video_ids": 24,
+      "in_artifact": true
+    },
+    "คุณ_var_1": {
+      "metadata_rows": 947,
+      "unique_video_ids": 23,
+      "in_artifact": true
+    },
+    "ง่วง_var_1": {
+      "metadata_rows": 659,
+      "unique_video_ids": 14,
+      "in_artifact": true
+    },
+    "ฉัน_var_1": {
+      "metadata_rows": 749,
+      "unique_video_ids": 21,
+      "in_artifact": true
+    },
+    "ฉัน_var_2": {
+      "metadata_rows": 848,
+      "unique_video_ids": 22,
+      "in_artifact": true
+    },
+    "ชอบ_var_1": {
+      "metadata_rows": 947,
+      "unique_video_ids": 23,
+      "in_artifact": true
+    },
+    "ชื่อ_var_1": {
+      "metadata_rows": 781,
+      "unique_video_ids": 22,
+      "in_artifact": true
+    },
+    "ดี_var_1": {
+      "metadata_rows": 749,
+      "unique_video_ids": 21,
+      "in_artifact": true
+    },
+    "ด้วยกัน_var_1": {
+      "metadata_rows": 684,
+      "unique_video_ids": 21,
+      "in_artifact": false
+    },
+    "ตลาด_var_4": {
+      "metadata_rows": 652,
+      "unique_video_ids": 20,
+      "in_artifact": false
+    },
+    "ถาม_ทำท่ามือถามไปยังผู้นั้น": {
+      "metadata_rows": 1078,
+      "unique_video_ids": 25,
+      "in_artifact": true
+    },
+    "ทำงาน_var_2": {
+      "metadata_rows": 749,
+      "unique_video_ids": 21,
+      "in_artifact": true
+    },
+    "ทำไม_var_1": {
+      "metadata_rows": 947,
+      "unique_video_ids": 23,
+      "in_artifact": true
+    },
+    "ที่ไหน_var_1": {
+      "metadata_rows": 749,
+      "unique_video_ids": 21,
+      "in_artifact": true
+    },
+    "น้อง_var_1": {
+      "metadata_rows": 947,
+      "unique_video_ids": 23,
+      "in_artifact": true
+    },
+    "บ้าน_var_1": {
+      "metadata_rows": 947,
+      "unique_video_ids": 23,
+      "in_artifact": true
+    },
+    "พรุ่งนี้_var_1": {
+      "metadata_rows": 528,
+      "unique_video_ids": 12,
+      "in_artifact": true
+    },
+    "พี่_var_1": {
+      "metadata_rows": 947,
+      "unique_video_ids": 23,
+      "in_artifact": true
+    },
+    "ภาษามือ_var_1": {
+      "metadata_rows": 1045,
+      "unique_video_ids": 26,
+      "in_artifact": true
+    },
+    "ยาย_var_1": {
+      "metadata_rows": 659,
+      "unique_video_ids": 14,
+      "in_artifact": true
+    },
+    "ร้อน_สองมือ": {
+      "metadata_rows": 1011,
+      "unique_video_ids": 25,
+      "in_artifact": true
+    },
+    "วันนี้_var_1": {
+      "metadata_rows": 1011,
+      "unique_video_ids": 25,
+      "in_artifact": true
+    },
+    "วันหยุด_var_1": {
+      "metadata_rows": 752,
+      "unique_video_ids": 21,
+      "in_artifact": true
+    },
+    "สบายดี_var_1": {
+      "metadata_rows": 848,
+      "unique_video_ids": 22,
+      "in_artifact": true
+    },
+    "สวัสดี_อายุเท่ากันหรือน้อยกว่า": {
+      "metadata_rows": 979,
+      "unique_video_ids": 24,
+      "in_artifact": true
+    },
+    "หูหนวก_var_2": {
+      "metadata_rows": 749,
+      "unique_video_ids": 21,
+      "in_artifact": true
+    },
+    "อยู่บ้าน_var_1": {
+      "metadata_rows": 429,
+      "unique_video_ids": 11,
+      "in_artifact": true
+    },
+    "อย่า_var_1": {
+      "metadata_rows": 781,
+      "unique_video_ids": 22,
+      "in_artifact": true
+    },
+    "อะไร_var_1": {
+      "metadata_rows": 429,
+      "unique_video_ids": 11,
+      "in_artifact": true
+    },
+    "เกิด_var_2": {
+      "metadata_rows": 650,
+      "unique_video_ids": 20,
+      "in_artifact": false
+    },
+    "เช้า_var_1": {
+      "metadata_rows": 1078,
+      "unique_video_ids": 25,
+      "in_artifact": true
+    },
+    "เที่ยว_var_1": {
+      "metadata_rows": 979,
+      "unique_video_ids": 24,
+      "in_artifact": true
+    },
+    "เรียก_var_1": {
+      "metadata_rows": 749,
+      "unique_video_ids": 21,
+      "in_artifact": true
+    },
+    "เรียน_var_1": {
+      "metadata_rows": 950,
+      "unique_video_ids": 23,
+      "in_artifact": true
+    },
+    "เหงา_var_1": {
+      "metadata_rows": 1110,
+      "unique_video_ids": 26,
+      "in_artifact": true
+    },
+    "เหนื่อย_var_1": {
+      "metadata_rows": 871,
+      "unique_video_ids": 23,
+      "in_artifact": true
+    },
+    "แต่งงาน_var_1": {
+      "metadata_rows": 1177,
+      "unique_video_ids": 26,
+      "in_artifact": true
+    },
+    "แฟน_var_1": {
+      "metadata_rows": 947,
+      "unique_video_ids": 23,
+      "in_artifact": true
+    },
+    "แมว_var_1": {
+      "metadata_rows": 947,
+      "unique_video_ids": 23,
+      "in_artifact": true
+    },
+    "แม่_var_1": {
+      "metadata_rows": 1209,
+      "unique_video_ids": 27,
+      "in_artifact": true
+    },
+    "โกรธ_var_1": {
+      "metadata_rows": 947,
+      "unique_video_ids": 23,
+      "in_artifact": true
+    },
+    "โรงเรียน_var_1": {
+      "metadata_rows": 947,
+      "unique_video_ids": 23,
+      "in_artifact": true
+    },
+    "โสด_var_1": {
+      "metadata_rows": 979,
+      "unique_video_ids": 24,
+      "in_artifact": true
+    },
+    "ไข่_var_2": {
+      "metadata_rows": 949,
+      "unique_video_ids": 23,
+      "in_artifact": true
+    },
+    "ไป_var_2": {
+      "metadata_rows": 781,
+      "unique_video_ids": 22,
+      "in_artifact": true
+    }
+  }
+}

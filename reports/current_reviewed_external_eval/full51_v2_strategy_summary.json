@@ -1,0 +1,71 @@
+{
+  "reports": [
+    {
+      "summary": "reports\\current_reviewed_external_eval\\full51_v2\\summary.json",
+      "strategy": "uniform",
+      "samples_file": "work\\reviewed_external_assets\\external_test_samples.csv",
+      "artifact_dir": ".tools\\tsl51_experiments\\full51_v2\\artifacts\\tsl51",
+      "total_samples": 5,
+      "detected_samples": 5,
+      "top1_accuracy": 0.0,
+      "top3_accuracy": 0.0,
+      "predictions_csv": "reports\\current_reviewed_external_eval\\full51_v2\\predictions.csv"
+    },
+    {
+      "summary": "reports\\current_reviewed_external_eval\\full51_v2_first\\summary.json",
+      "strategy": "first",
+      "samples_file": "work\\reviewed_external_assets\\external_test_samples.csv",
+      "artifact_dir": ".tools\\tsl51_experiments\\full51_v2\\artifacts\\tsl51",
+      "total_samples": 5,
+      "detected_samples": 5,
+      "top1_accuracy": 0.0,
+      "top3_accuracy": 0.0,
+      "predictions_csv": "reports\\current_reviewed_external_eval\\full51_v2_first\\predictions.csv"
+    },
+    {
+      "summary": "reports\\current_reviewed_external_eval\\full51_v2_last\\summary.json",
+      "strategy": "last",
+      "samples_file": "work\\reviewed_external_assets\\external_test_samples.csv",
+      "artifact_dir": ".tools\\tsl51_experiments\\full51_v2\\artifacts\\tsl51",
+      "total_samples": 5,
+      "detected_samples": 5,
+      "top1_accuracy": 0.0,
+      "top3_accuracy": 0.0,
+      "predictions_csv": "reports\\current_reviewed_external_eval\\full51_v2_last\\predictions.csv"
+    },
+    {
+      "summary": "reports\\current_reviewed_external_eval\\full51_v2_sliding\\summary.json",
+      "strategy": "sliding",
+      "samples_file": "work\\reviewed_external_assets\\external_test_samples.csv",
+      "artifact_dir": ".tools\\tsl51_experiments\\full51_v2\\artifacts\\tsl51",
+      "total_samples": 5,
+      "detected_samples": 5,
+      "top1_accuracy": 0.0,
+      "top3_accuracy": 0.0,
+      "predictions_csv": "reports\\current_reviewed_external_eval\\full51_v2_sliding\\predictions.csv"
+    }
+  ],
+  "best_top1": {
+    "summary": "reports\\current_reviewed_external_eval\\full51_v2\\summary.json",
+    "strategy": "uniform",
+    "samples_file": "work\\reviewed_external_assets\\external_test_samples.csv",
+    "artifact_dir": ".tools\\tsl51_experiments\\full51_v2\\artifacts\\tsl51",
+    "total_samples": 5,
+    "detected_samples": 5,
+    "top1_accuracy": 0.0,
+    "top3_accuracy": 0.0,
+    "predictions_csv": "reports\\current_reviewed_external_eval\\full51_v2\\predictions.csv"
+  },
+  "best_top3": {
+    "summary": "reports\\current_reviewed_external_eval\\full51_v2\\summary.json",
+    "strategy": "uniform",
+    "samples_file": "work\\reviewed_external_assets\\external_test_samples.csv",
+    "artifact_dir": ".tools\\tsl51_experiments\\full51_v2\\artifacts\\tsl51",
+    "total_samples": 5,
+    "detected_samples": 5,
+    "top1_accuracy": 0.0,
+    "top3_accuracy": 0.0,
+    "predictions_csv": "reports\\current_reviewed_external_eval\\full51_v2\\predictions.csv"
+  },
+  "all_strategies_failed": true
+}

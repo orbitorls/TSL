@@ -1,0 +1,31 @@
+{
+  "reviewed_rows": 5,
+  "prelabel_rows": 101,
+  "queue_rows": 15,
+  "queue_groups": 15,
+  "queue_labels": 7,
+  "targets": {
+    "holdout_rows": 10,
+    "holdout_labels": 5,
+    "val_rows": 5,
+    "train_rows": 5
+  },
+  "queued_by_recommended_split": {
+    "external_test": {
+      "rows": 5,
+      "groups": 5,
+      "labels": 5
+    },
+    "train": {
+      "rows": 5,
+      "groups": 5,
+      "labels": 2
+    },
+    "val": {
+      "rows": 5,
+      "groups": 5,
+      "labels": 3
+    }
+  },
+  "ready_to_review": true
+}

@@ -96,6 +96,7 @@ datasets/
 
 # build outputs
 target/
+.target/
 target-codex/
 target-codex-msvc/
 target-codexE94Lus/

@@ -1,0 +1,16 @@
+{
+  "samples_file": "D:\\TSL\\reports\\external_tsl51_eval\\short_word_samples.csv",
+  "artifact_dir": "D:\\TSL\\.tools\\tsl51_experiments\\full51_v3_external_weighted\\artifacts\\tsl51",
+  "strategy": "uniform",
+  "target_fps": 15.0,
+  "total_samples": 6,
+  "detected_samples": 0,
+  "rejected_samples": 6,
+  "detection_rate": 0.0,
+  "top1_correct": 0,
+  "top3_correct": 0,
+  "top1_accuracy": 0.0,
+  "top3_accuracy": 0.0,
+  "confusion_pairs": [],
+  "predictions_csv": "D:\\TSL\\reports\\video_clip_eval\\short_word\\predictions.csv"
+}

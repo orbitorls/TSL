@@ -1,0 +1,27 @@
+{
+  "splits": {
+    "train": {
+      "rows": 0,
+      "labels": 0,
+      "groups": 0
+    },
+    "val": {
+      "rows": 0,
+      "labels": 0,
+      "groups": 0
+    },
+    "external_test": {
+      "rows": 5,
+      "labels": 4,
+      "groups": 4
+    }
+  },
+  "files": {
+    "train_manifest": "work\\reviewed_external_pipeline\\assets\\train_manifest.csv",
+    "val_manifest": "work\\reviewed_external_pipeline\\assets\\val_manifest.csv",
+    "external_test_manifest": "work\\reviewed_external_pipeline\\assets\\external_test_manifest.csv",
+    "external_test_samples": "work\\reviewed_external_pipeline\\assets\\external_test_samples.csv"
+  },
+  "ready_for_training": false,
+  "ready_for_eval": true
+}

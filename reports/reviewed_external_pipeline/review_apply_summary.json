@@ -1,0 +1,42 @@
+{
+  "input_rows": 15,
+  "approved_rows": 0,
+  "rejected_rows": 0,
+  "output_splits": {
+    "train": {
+      "rows": 0,
+      "labels": 0,
+      "groups": 0
+    },
+    "val": {
+      "rows": 0,
+      "labels": 0,
+      "groups": 0
+    },
+    "external_test": {
+      "rows": 0,
+      "labels": 0,
+      "groups": 0
+    }
+  },
+  "ready_for_splitter": false,
+  "base_reviewed_rows": 5,
+  "output_reviewed_rows": 5,
+  "merged_output_splits": {
+    "train": {
+      "rows": 5,
+      "labels": 4,
+      "groups": 4
+    },
+    "val": {
+      "rows": 0,
+      "labels": 0,
+      "groups": 0
+    },
+    "external_test": {
+      "rows": 0,
+      "labels": 0,
+      "groups": 0
+    }
+  }
+}

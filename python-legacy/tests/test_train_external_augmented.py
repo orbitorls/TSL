@@ -115,3 +115,57 @@ def test_validate_training_args_reuse_requires_base_artifacts() -> None:
     module.validate_tsl51_training_args("refit", None)
     with pytest.raises(ValueError, match="requires --base-artifact-dir"):
         module.validate_tsl51_training_args("reuse", None)
+
+
+# --- augment_external_sequences ---
+
+def test_augment_external_sequences_multiplies_samples() -> None:
+    """n_copies=5 gives original + 5 copies = 6× the samples."""
+    module = load_module()
+    rng = np.random.default_rng(0)
+    X = np.random.default_rng(1).random((4, 60, 162), dtype=np.float32)
+    y = np.array([0, 1, 2, 3], dtype=np.int32)
+
+    X_aug, y_aug = module.augment_external_sequences(X, y, rng, n_copies=5)
+
+    assert X_aug.shape == (4 * 6, 60, 162)
+    assert y_aug.shape == (4 * 6,)
+
+
+def test_augment_external_sequences_preserves_labels() -> None:
+    """Every original label appears exactly (n_copies+1) times."""
+    module = load_module()
+    rng = np.random.default_rng(0)
+    X = np.zeros((3, 60, 162), dtype=np.float32)
+    y = np.array([0, 1, 2], dtype=np.int32)
+
+    _, y_aug = module.augment_external_sequences(X, y, rng, n_copies=3)
+
+    for label in [0, 1, 2]:
+        assert np.sum(y_aug == label) == 4  # original + 3 copies
+
+
+def test_augment_external_sequences_produces_variation() -> None:
+    """Augmented copies differ from the original (noise/scale/speed applied)."""
+    module = load_module()
+    rng = np.random.default_rng(42)
+    X = np.ones((2, 60, 162), dtype=np.float32)
+    y = np.array([0, 1], dtype=np.int32)
+
+    X_aug, _ = module.augment_external_sequences(X, y, rng, n_copies=1)
+
+    original = X_aug[:2]
+    copy = X_aug[2:4]
+    assert not np.allclose(original, copy), "augmented copies must differ from originals"
+
+
+def test_augment_external_sequences_preserves_seq_shape() -> None:
+    """Output sequences always have shape (60, 162) regardless of speed jitter."""
+    module = load_module()
+    rng = np.random.default_rng(7)
+    X = np.random.default_rng(9).random((6, 60, 162), dtype=np.float32)
+    y = np.zeros(6, dtype=np.int32)
+
+    X_aug, _ = module.augment_external_sequences(X, y, rng, n_copies=4)
+
+    assert X_aug.shape[1:] == (60, 162), "all sequences must remain (60, 162)"

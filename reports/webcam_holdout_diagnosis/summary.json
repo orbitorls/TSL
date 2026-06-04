@@ -1,0 +1,329 @@
+{
+  "holdout_csv": "D:\\TSL\\data\\webcam_holdout\\webcam_holdout.csv",
+  "reviewed_diagnosis": {
+    "samples_file": "D:\\TSL\\work\\reviewed_external_assets\\external_test_samples.csv",
+    "artifact_dir": "D:\\TSL\\.tools\\tsl51_experiments\\full51_v3_external_weighted\\artifacts\\tsl51",
+    "target_fps": 15.0,
+    "baseline_offline_top1": 1.0,
+    "baseline_live_top1": 1.0,
+    "baseline_offline_live_agreement": 1.0,
+    "pipeline_gap": 0.0,
+    "pipeline_gap_is_primary": false,
+    "model_domain_is_primary": false,
+    "variant_summaries": [
+      {
+        "variant": "baseline",
+        "total_samples": 5,
+        "detected_samples": 5,
+        "offline_top1_accuracy": 1.0,
+        "live_committed_top1_accuracy": 1.0,
+        "offline_live_agreement": 1.0,
+        "live_no_commit": 0
+      }
+    ],
+    "ab_ranking": [
+      {
+        "variant": "baseline",
+        "total_samples": 5,
+        "detected_samples": 5,
+        "offline_top1_accuracy": 1.0,
+        "live_committed_top1_accuracy": 1.0,
+        "offline_live_agreement": 1.0,
+        "live_no_commit": 0
+      }
+    ],
+    "recommended_variant": "baseline",
+    "predictions_csv": "D:\\TSL\\reports\\live_vs_clip_diagnosis\\reviewed_external_postfix\\predictions.csv",
+    "settings_baseline": {
+      "threshold": 0.65,
+      "alpha": 0.4,
+      "top_k": 3,
+      "motion_min": 0.008,
+      "sign_end_frames": 5,
+      "min_sign_frames": 6,
+      "live_predict_cooldown_s": 0.35,
+      "preview_interval_s": 0.12,
+      "min_confidence_margin": 0.12,
+      "commit_on_preview": false,
+      "stretch_live": false,
+      "segment_mode": "motion",
+      "prefer_seq_buf_on_commit": true
+    }
+  },
+  "thsl_failed_diagnosis": {
+    "samples_file": "D:\\TSL\\work\\thsl_crossval\\thsl_failed_10.csv",
+    "artifact_dir": "D:\\TSL\\.tools\\tsl51_experiments\\full51_v3_external_weighted\\artifacts\\tsl51",
+    "target_fps": 15.0,
+    "baseline_offline_top1": 0.0,
+    "baseline_live_top1": 0.0,
+    "baseline_offline_live_agreement": 0.3,
+    "pipeline_gap": 0.0,
+    "pipeline_gap_is_primary": false,
+    "model_domain_is_primary": true,
+    "variant_summaries": [
+      {
+        "variant": "baseline",
+        "total_samples": 10,
+        "detected_samples": 10,
+        "offline_top1_accuracy": 0.0,
+        "live_committed_top1_accuracy": 0.0,
+        "offline_live_agreement": 0.3,
+        "live_no_commit": 7
+      }
+    ],
+    "ab_ranking": [
+      {
+        "variant": "baseline",
+        "total_samples": 10,
+        "detected_samples": 10,
+        "offline_top1_accuracy": 0.0,
+        "live_committed_top1_accuracy": 0.0,
+        "offline_live_agreement": 0.3,
+        "live_no_commit": 7
+      }
+    ],
+    "recommended_variant": "baseline",
+    "predictions_csv": "D:\\TSL\\reports\\live_vs_clip_diagnosis\\thsl_failed_10\\predictions.csv",
+    "settings_baseline": {
+      "threshold": 0.65,
+      "alpha": 0.4,
+      "top_k": 3,
+      "motion_min": 0.008,
+      "sign_end_frames": 8,
+      "min_sign_frames": 10,
+      "live_predict_cooldown_s": 0.35,
+      "preview_interval_s": 0.12,
+      "min_confidence_margin": 0.12,
+      "commit_on_preview": false,
+      "stretch_live": false,
+      "segment_mode": "motion"
+    }
+  },
+  "mode": "proxy_only",
+  "note": "No webcam holdout recorded. Run: python scripts/record_webcam_holdout.py --out-dir data/webcam_holdout",
+  "thsl_domain_proxy": {
+    "samples_file": "D:\\TSL\\work\\thsl_crossval\\thsl_samples.csv",
+    "artifact_dir": "D:\\TSL\\.tools\\tsl51_experiments\\full51_v3_external_weighted\\artifacts\\tsl51",
+    "strategy": "uniform",
+    "target_fps": 15.0,
+    "total_samples": 45,
+    "detected_samples": 45,
+    "rejected_samples": 0,
+    "detection_rate": 1.0,
+    "top1_correct": 4,
+    "top3_correct": 10,
+    "top1_accuracy": 0.08888888888888889,
+    "top3_accuracy": 0.2222222222222222,
+    "confusion_pairs": [
+      {
+        "expected": "กรุงเทพ_var_1",
+        "predicted": "ชื่อ_var_1",
+        "count": 1
+      },
+      {
+        "expected": "กลัว_var_1",
+        "predicted": "ชื่อ_var_1",
+        "count": 1
+      },
+      {
+        "expected": "กิน_var_1",
+        "predicted": "ขอโทษ_อายุเท่ากันหรือน้อยกว่า",
+        "count": 1
+      },
+      {
+        "expected": "ขนมปัง_var_1",
+        "predicted": "ชื่อ_var_1",
+        "count": 1
+      },
+      {
+        "expected": "ขอบคุณ_เปิดมือสองข้าง",
+        "predicted": "ชื่อ_var_1",
+        "count": 1
+      },
+      {
+        "expected": "ขอโทษ_อายุเท่ากันหรือน้อยกว่า",
+        "predicted": "ชื่อ_var_1",
+        "count": 1
+      },
+      {
+        "expected": "คุณ_var_1",
+        "predicted": "กิน_var_1",
+        "count": 1
+      },
+      {
+        "expected": "ฉัน_var_1",
+        "predicted": "เหงา_var_1",
+        "count": 1
+      },
+      {
+        "expected": "ฉัน_var_2",
+        "predicted": "กิน_var_1",
+        "count": 1
+      },
+      {
+        "expected": "ชอบ_var_1",
+        "predicted": "ข้าว_var_1",
+        "count": 1
+      },
+      {
+        "expected": "ตลาด_var_4",
+        "predicted": "ขอโทษ_อายุเท่ากันหรือน้อยกว่า",
+        "count": 1
+      },
+      {
+        "expected": "ถาม_ทำท่ามือถามไปยังผู้นั้น",
+        "predicted": "กิน_var_1",
+        "count": 1
+      },
+      {
+        "expected": "ทำงาน_var_2",
+        "predicted": "ชื่อ_var_1",
+        "count": 1
+      },
+      {
+        "expected": "ทำไม_var_1",
+        "predicted": "กิน_var_1",
+        "count": 1
+      },
+      {
+        "expected": "ที่ไหน_var_1",
+        "predicted": "ทำไม_var_1",
+        "count": 1
+      },
+      {
+        "expected": "บ้าน_var_1",
+        "predicted": "ชื่อ_var_1",
+        "count": 1
+      },
+      {
+        "expected": "พรุ่งนี้_var_1",
+        "predicted": "สวัสดี_อายุเท่ากันหรือน้อยกว่า",
+        "count": 1
+      },
+      {
+        "expected": "พี่_var_1",
+        "predicted": "กิน_var_1",
+        "count": 1
+      },
+      {
+        "expected": "ภาษามือ_var_1",
+        "predicted": "ชื่อ_var_1",
+        "count": 1
+      },
+      {
+        "expected": "ร้อน_สองมือ",
+        "predicted": "กิน_var_1",
+        "count": 1
+      },
+      {
+        "expected": "วันนี้_var_1",
+        "predicted": "ชื่อ_var_1",
+        "count": 1
+      },
+      {
+        "expected": "วันหยุด_var_1",
+        "predicted": "ชื่อ_var_1",
+        "count": 1
+      },
+      {
+        "expected": "สบายดี_var_1",
+        "predicted": "ชื่อ_var_1",
+        "count": 1
+      },
+      {
+        "expected": "สวัสดี_อายุเท่ากันหรือน้อยกว่า",
+        "predicted": "ชื่อ_var_1",
+        "count": 1
+      },
+      {
+        "expected": "หูหนวก_var_2",
+        "predicted": "กิน_var_1",
+        "count": 1
+      },
+      {
+        "expected": "อย่า_var_1",
+        "predicted": "กิน_var_1",
+        "count": 1
+      },
+      {
+        "expected": "อะไร_var_1",
+        "predicted": "ข้าว_var_1",
+        "count": 1
+      },
+      {
+        "expected": "เกิด_var_2",
+        "predicted": "ชื่อ_var_1",
+        "count": 1
+      },
+      {
+        "expected": "เช้า_var_1",
+        "predicted": "ชื่อ_var_1",
+        "count": 1
+      },
+      {
+        "expected": "เที่ยว_var_1",
+        "predicted": "ขอโทษ_อายุเท่ากันหรือน้อยกว่า",
+        "count": 1
+      },
+      {
+        "expected": "เรียก_var_1",
+        "predicted": "กิน_var_1",
+        "count": 1
+      },
+      {
+        "expected": "เหนื่อย_var_1",
+        "predicted": "ชื่อ_var_1",
+        "count": 1
+      },
+      {
+        "expected": "แต่งงาน_var_1",
+        "predicted": "ขอโทษ_อายุเท่ากันหรือน้อยกว่า",
+        "count": 1
+      },
+      {
+        "expected": "แฟน_var_1",
+        "predicted": "กิน_var_1",
+        "count": 1
+      },
+      {
+        "expected": "แมว_var_1",
+        "predicted": "สวัสดี_อายุเท่ากันหรือน้อยกว่า",
+        "count": 1
+      },
+      {
+        "expected": "แม่_var_1",
+        "predicted": "ขอโทษ_อายุเท่ากันหรือน้อยกว่า",
+        "count": 1
+      },
+      {
+        "expected": "โกรธ_var_1",
+        "predicted": "ยาย_var_1",
+        "count": 1
+      },
+      {
+        "expected": "โรงเรียน_var_1",
+        "predicted": "ขอโทษ_อายุเท่ากันหรือน้อยกว่า",
+        "count": 1
+      },
+      {
+        "expected": "โสด_var_1",
+        "predicted": "กิน_var_1",
+        "count": 1
+      },
+      {
+        "expected": "ไข่_var_2",
+        "predicted": "ชื่อ_var_1",
+        "count": 1
+      },
+      {
+        "expected": "ไป_var_2",
+        "predicted": "ชื่อ_var_1",
+        "count": 1
+      }
+    ],
+    "predictions_csv": "D:\\TSL\\reports\\webcam_holdout_diagnosis\\thsl_domain_proxy\\predictions.csv"
+  },
+  "conclusions": [
+    "Model domain shift is primary for th-sl / webcam-like input (~9% offline). Runtime tuning alone cannot fix; Phase 3 retrain recommended after holdout."
+  ]
+}

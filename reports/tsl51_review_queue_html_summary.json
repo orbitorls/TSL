@@ -1,0 +1,11 @@
+{
+  "rows": 15,
+  "pending": 15,
+  "approved": 0,
+  "rejected": 0,
+  "recommended_splits": {
+    "external_test": 5,
+    "val": 5,
+    "train": 5
+  }
+}

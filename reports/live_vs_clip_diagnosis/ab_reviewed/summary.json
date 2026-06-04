@@ -1,0 +1,175 @@
+{
+  "samples_file": "D:\\TSL\\work\\reviewed_external_assets\\external_test_samples.csv",
+  "artifact_dir": "D:\\TSL\\.tools\\tsl51_experiments\\full51_v3_external_weighted\\artifacts\\tsl51",
+  "target_fps": 15.0,
+  "baseline_offline_top1": 1.0,
+  "baseline_live_top1": 0.6,
+  "baseline_offline_live_agreement": 0.6,
+  "pipeline_gap": 0.4,
+  "pipeline_gap_is_primary": true,
+  "model_domain_is_primary": false,
+  "variant_summaries": [
+    {
+      "variant": "baseline",
+      "total_samples": 5,
+      "detected_samples": 5,
+      "offline_top1_accuracy": 1.0,
+      "live_committed_top1_accuracy": 0.6,
+      "offline_live_agreement": 0.6,
+      "live_no_commit": 2
+    },
+    {
+      "variant": "jpeg_q65_640",
+      "total_samples": 5,
+      "detected_samples": 5,
+      "offline_top1_accuracy": 1.0,
+      "live_committed_top1_accuracy": 0.6,
+      "offline_live_agreement": 0.6,
+      "live_no_commit": 2
+    },
+    {
+      "variant": "jpeg_q85_960",
+      "total_samples": 5,
+      "detected_samples": 5,
+      "offline_top1_accuracy": 1.0,
+      "live_committed_top1_accuracy": 0.6,
+      "offline_live_agreement": 0.6,
+      "live_no_commit": 2
+    },
+    {
+      "variant": "flip",
+      "total_samples": 5,
+      "detected_samples": 5,
+      "offline_top1_accuracy": 0.4,
+      "live_committed_top1_accuracy": 0.4,
+      "offline_live_agreement": 0.4,
+      "live_no_commit": 3
+    },
+    {
+      "variant": "stretch_live",
+      "total_samples": 5,
+      "detected_samples": 5,
+      "offline_top1_accuracy": 1.0,
+      "live_committed_top1_accuracy": 0.0,
+      "offline_live_agreement": 0.0,
+      "live_no_commit": 5
+    },
+    {
+      "variant": "rolling_segment",
+      "total_samples": 5,
+      "detected_samples": 5,
+      "offline_top1_accuracy": 1.0,
+      "live_committed_top1_accuracy": 0.6,
+      "offline_live_agreement": 0.6,
+      "live_no_commit": 2
+    },
+    {
+      "variant": "min_sign_6",
+      "total_samples": 5,
+      "detected_samples": 5,
+      "offline_top1_accuracy": 1.0,
+      "live_committed_top1_accuracy": 0.6,
+      "offline_live_agreement": 0.6,
+      "live_no_commit": 2
+    },
+    {
+      "variant": "lower_gates",
+      "total_samples": 5,
+      "detected_samples": 5,
+      "offline_top1_accuracy": 1.0,
+      "live_committed_top1_accuracy": 0.6,
+      "offline_live_agreement": 0.6,
+      "live_no_commit": 2
+    }
+  ],
+  "ab_ranking": [
+    {
+      "variant": "baseline",
+      "total_samples": 5,
+      "detected_samples": 5,
+      "offline_top1_accuracy": 1.0,
+      "live_committed_top1_accuracy": 0.6,
+      "offline_live_agreement": 0.6,
+      "live_no_commit": 2
+    },
+    {
+      "variant": "jpeg_q65_640",
+      "total_samples": 5,
+      "detected_samples": 5,
+      "offline_top1_accuracy": 1.0,
+      "live_committed_top1_accuracy": 0.6,
+      "offline_live_agreement": 0.6,
+      "live_no_commit": 2
+    },
+    {
+      "variant": "jpeg_q85_960",
+      "total_samples": 5,
+      "detected_samples": 5,
+      "offline_top1_accuracy": 1.0,
+      "live_committed_top1_accuracy": 0.6,
+      "offline_live_agreement": 0.6,
+      "live_no_commit": 2
+    },
+    {
+      "variant": "rolling_segment",
+      "total_samples": 5,
+      "detected_samples": 5,
+      "offline_top1_accuracy": 1.0,
+      "live_committed_top1_accuracy": 0.6,
+      "offline_live_agreement": 0.6,
+      "live_no_commit": 2
+    },
+    {
+      "variant": "min_sign_6",
+      "total_samples": 5,
+      "detected_samples": 5,
+      "offline_top1_accuracy": 1.0,
+      "live_committed_top1_accuracy": 0.6,
+      "offline_live_agreement": 0.6,
+      "live_no_commit": 2
+    },
+    {
+      "variant": "lower_gates",
+      "total_samples": 5,
+      "detected_samples": 5,
+      "offline_top1_accuracy": 1.0,
+      "live_committed_top1_accuracy": 0.6,
+      "offline_live_agreement": 0.6,
+      "live_no_commit": 2
+    },
+    {
+      "variant": "flip",
+      "total_samples": 5,
+      "detected_samples": 5,
+      "offline_top1_accuracy": 0.4,
+      "live_committed_top1_accuracy": 0.4,
+      "offline_live_agreement": 0.4,
+      "live_no_commit": 3
+    },
+    {
+      "variant": "stretch_live",
+      "total_samples": 5,
+      "detected_samples": 5,
+      "offline_top1_accuracy": 1.0,
+      "live_committed_top1_accuracy": 0.0,
+      "offline_live_agreement": 0.0,
+      "live_no_commit": 5
+    }
+  ],
+  "recommended_variant": "baseline",
+  "predictions_csv": "D:\\TSL\\reports\\live_vs_clip_diagnosis\\ab_reviewed\\predictions.csv",
+  "settings_baseline": {
+    "threshold": 0.65,
+    "alpha": 0.4,
+    "top_k": 3,
+    "motion_min": 0.008,
+    "sign_end_frames": 8,
+    "min_sign_frames": 10,
+    "live_predict_cooldown_s": 0.35,
+    "preview_interval_s": 0.12,
+    "min_confidence_margin": 0.12,
+    "commit_on_preview": false,
+    "stretch_live": false,
+    "segment_mode": "motion"
+  }
+}

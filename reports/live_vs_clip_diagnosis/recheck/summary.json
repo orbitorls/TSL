@@ -1,0 +1,50 @@
+{
+  "samples_file": "work\\thsl_crossval\\thsl_samples.csv",
+  "artifact_dir": "D:\\TSL\\.tools\\tsl51_experiments\\full51_v3_external_weighted\\artifacts\\tsl51",
+  "target_fps": 15.0,
+  "baseline_offline_top1": 0.0889,
+  "baseline_live_top1": 0.0222,
+  "baseline_offline_live_agreement": 0.4,
+  "pipeline_gap": 0.0667,
+  "pipeline_gap_is_primary": false,
+  "model_domain_is_primary": true,
+  "variant_summaries": [
+    {
+      "variant": "baseline",
+      "total_samples": 45,
+      "detected_samples": 45,
+      "offline_top1_accuracy": 0.0889,
+      "live_committed_top1_accuracy": 0.0222,
+      "offline_live_agreement": 0.4,
+      "live_no_commit": 27
+    }
+  ],
+  "ab_ranking": [
+    {
+      "variant": "baseline",
+      "total_samples": 45,
+      "detected_samples": 45,
+      "offline_top1_accuracy": 0.0889,
+      "live_committed_top1_accuracy": 0.0222,
+      "offline_live_agreement": 0.4,
+      "live_no_commit": 27
+    }
+  ],
+  "recommended_variant": "baseline",
+  "predictions_csv": "reports\\live_vs_clip_diagnosis\\recheck\\predictions.csv",
+  "settings_baseline": {
+    "threshold": 0.65,
+    "alpha": 0.4,
+    "top_k": 3,
+    "motion_min": 0.008,
+    "sign_end_frames": 5,
+    "min_sign_frames": 6,
+    "live_predict_cooldown_s": 0.35,
+    "preview_interval_s": 0.12,
+    "min_confidence_margin": 0.12,
+    "commit_on_preview": false,
+    "stretch_live": false,
+    "segment_mode": "motion",
+    "prefer_seq_buf_on_commit": true
+  }
+}

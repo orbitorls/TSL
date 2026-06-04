@@ -2,47 +2,99 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ─── OKLCH Design Token Channels ─────────────────────────────────────────
+   Values are "L C H" channel triplets so Tailwind's oklch(var(--token) / α)
+   pattern and CSS's oklch(var(--token) / 0.5) both work.
+   Light theme in :root; dark overrides in .dark.
+──────────────────────────────────────────────────────────────────────────── */
 :root {
-  --tsl-brand: #0f4f4a;
-  --tsl-brand-dark: #083a36;
-  --tsl-page: #f6f4ef;
-  --tsl-panel: #ffffff;
-  --tsl-border: #d8d0bf;
-  --tsl-line: #ebe4d6;
-  --tsl-subtle: #5f6660;
-  --tsl-text: #23312f;
-  --tsl-ink: #172522;
-  --tsl-success: #16755f;
-  --tsl-warning: #9a5b13;
-  --tsl-danger: #b42318;
+  /* Backgrounds */
+  --page:    0.983 0.003 190;  /* cool off-white  ≈ #f7f9f9 */
+  --panel:   1 0 0;            /* pure white */
+  --panel-2: 0.975 0.004 190;  /* inset / recessed surfaces */
+
+  /* Text */
+  --ink:    0.22 0.02 185;   /* headings — contrast 16.5:1 on panel */
+  --text:   0.27 0.02 185;   /* body — contrast 14.7:1 on panel */
+  --subtle: 0.46 0.015 185;  /* secondary — contrast 6.6:1 on panel */
+  --muted:  0.60 0.012 185;  /* tertiary / idle dots */
+
+  /* Borders */
+  --border: 0.90 0.008 190;  /* primary border (inputs, cards) */
+  --line:   0.94 0.006 190;  /* hairline dividers */
+
+  /* Brand — vivid teal hue 184, distinct from status green hue 150 */
+  --brand:       0.58 0.11 184;   /* primary teal  ≈ contrast 5.1:1 on white */
+  --brand-strong: 0.50 0.115 184; /* hover / active */
+  --brand-soft:  0.95 0.03 184;   /* light teal fill (chips, pending rows) */
+  --brand-fg:    0.99 0.01 184;   /* text ON a brand-filled surface */
+
+  /* Status — green (hue 150) deliberately separate from teal brand */
+  --success: 0.55 0.13 150;
+  --warning: 0.62 0.13 75;
+  --danger:  0.55 0.18 28;
 }
 
+.dark {
+  --page:    0.16 0.012 190;
+  --panel:   0.21 0.012 190;
+  --panel-2: 0.26 0.012 190;
+
+  --ink:    0.94 0.01 185;
+  --text:   0.92 0.012 185;
+  --subtle: 0.70 0.018 185;
+  --muted:  0.55 0.015 185;
+
+  --border: 0.34 0.015 190;
+  --line:   0.29 0.012 190;
+
+  --brand:        0.66 0.11 184;
+  --brand-strong: 0.72 0.10 184;
+  --brand-soft:   0.30 0.05 184;
+  --brand-fg:     0.15 0.02 184;
+
+  --success: 0.72 0.15 150;
+  --warning: 0.78 0.14 80;
+  --danger:  0.68 0.18 28;
+}
+
+/* ─── Base layer ─────────────────────────────────────────────────────────── */
 @layer base {
   html {
-    background: var(--tsl-page);
+    /* Page bg on html covers any scroll-bounce gap */
+    background: oklch(var(--page));
+    /* Themed scrollbar (Firefox) */
+    scrollbar-color: oklch(var(--border)) transparent;
+    scrollbar-width: thin;
   }
+
+  /* Webkit scrollbar — auto-themes via CSS vars */
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-thumb {
+    background: oklch(var(--border));
+    border-radius: 3px;
+  }
+  ::-webkit-scrollbar-track { background: transparent; }
 
   body {
     @apply font-thai text-text antialiased;
     min-height: 100vh;
-    background:
-      linear-gradient(180deg, rgba(255, 255, 255, 0.44) 0%, rgba(246, 244, 239, 0) 38%),
-      radial-gradient(900px 420px at -8% -12%, rgba(15, 79, 74, 0.16) 0%, transparent 64%),
-      radial-gradient(760px 360px at 105% -8%, rgba(185, 126, 44, 0.16) 0%, transparent 62%),
-      linear-gradient(90deg, rgba(15, 79, 74, 0.035) 1px, transparent 1px),
-      var(--tsl-page);
-    background-size: auto, auto, auto, 56px 56px, auto;
+    background: oklch(var(--page));
+    /* Minimal brand wash at top — replaces warm-cream radial blobs */
+    background-image: linear-gradient(
+      to bottom,
+      oklch(var(--brand) / 0.025) 0%,
+      transparent 28vh
+    );
   }
 
   ::selection {
-    background: rgba(15, 79, 74, 0.18);
-    color: var(--tsl-ink);
+    background: oklch(var(--brand) / 0.15);
+    color: oklch(var(--ink));
   }
 
-  button,
-  select,
-  input {
-    @apply outline-none transition;
+  button, select, input {
+    @apply outline-none transition-colors;
   }
 
   button:focus-visible,
@@ -51,31 +103,66 @@
     @apply ring-2 ring-brand/30 ring-offset-2 ring-offset-page;
   }
 
+  /* Intentional per-button motion in each component — no blanket lift here */
   button:not(:disabled) {
-    @apply hover:-translate-y-0.5 active:translate-y-0;
+    transition: background-color 150ms ease, color 150ms ease,
+                border-color 150ms ease, transform 100ms ease,
+                box-shadow 150ms ease;
+  }
+  button:not(:disabled):active {
+    transform: scale(0.98);
   }
 }
 
+/* ─── Component layer ─────────────────────────────────────────────────────── */
 @layer components {
-  .operator-shell {
-    @apply border border-line shadow-shell backdrop-blur-sm;
-    background-color: rgba(255, 255, 255, 0.72);
+  /* Main application shell — border only, no paired wide shadow */
+  .app-shell {
+    @apply border border-line bg-panel;
   }
 
-  .workspace-panel {
-    @apply border border-line bg-panel shadow-panel;
-  }
-
-  .status-chip {
-    @apply inline-flex items-center gap-2 rounded-full border border-line px-3 py-1.5 text-xs font-semibold text-subtle shadow-chip;
-    background-color: rgba(255, 255, 255, 0.78);
-  }
-
-  .status-dot {
-    @apply h-2 w-2 rounded-full bg-muted;
-  }
-
+  /* Single deliberate eyebrow — used ONCE in the app header only */
   .section-kicker {
     @apply text-[0.68rem] font-bold uppercase tracking-operator text-muted;
+  }
+}
+
+/* ─── Keyframes & motion utilities ─────────────────────────────────────────
+   All gated behind prefers-reduced-motion: no-preference.
+   Elements are already visible by default (opacity:1, no transform).
+   Animation enhances an already-readable page — it never gates visibility.
+──────────────────────────────────────────────────────────────────────────── */
+@media (prefers-reduced-motion: no-preference) {
+  @keyframes fade-rise {
+    from {
+      opacity: 0;
+      transform: translateY(10px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  @keyframes pulse-live {
+    0%, 100% { box-shadow: 0 0 0 0 oklch(var(--success) / 0.45); }
+    50%       { box-shadow: 0 0 0 5px oklch(var(--success) / 0); }
+  }
+
+  .animate-fade-rise {
+    animation: fade-rise 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
+  }
+
+  /* Applied to the live status dot only */
+  .animate-pulse-live {
+    animation: pulse-live 2.2s ease-in-out infinite;
+  }
+}
+
+/* Reduced-motion safety net — prevents any inadvertent animation */
+@media (prefers-reduced-motion: reduce) {
+  .animate-fade-rise,
+  .animate-pulse-live {
+    animation: none;
   }
 }

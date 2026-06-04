@@ -1,0 +1,9 @@
+{
+  "top1_accuracy": 1.0,
+  "recommended_threshold": 0.65,
+  "recommended_min_confidence_margin": 0.12,
+  "recommended_commit_on_preview": false,
+  "notes": [
+    "Runtime accuracy profile is sufficient; keep accurate preset defaults."
+  ]
+}

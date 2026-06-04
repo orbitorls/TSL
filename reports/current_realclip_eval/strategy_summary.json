@@ -1,0 +1,71 @@
+{
+  "reports": [
+    {
+      "summary": "reports\\current_realclip_eval\\uniform\\summary.json",
+      "strategy": "uniform",
+      "samples_file": "work\\reviewed_external_assets\\external_test_samples.csv",
+      "artifact_dir": ".tools\\tsl51_experiments\\full51_v3_external_weighted\\artifacts\\tsl51",
+      "total_samples": 5,
+      "detected_samples": 5,
+      "top1_accuracy": 1.0,
+      "top3_accuracy": 1.0,
+      "predictions_csv": "reports\\current_realclip_eval\\uniform\\predictions.csv"
+    },
+    {
+      "summary": "reports\\current_realclip_eval\\first\\summary.json",
+      "strategy": "first",
+      "samples_file": "work\\reviewed_external_assets\\external_test_samples.csv",
+      "artifact_dir": ".tools\\tsl51_experiments\\full51_v3_external_weighted\\artifacts\\tsl51",
+      "total_samples": 5,
+      "detected_samples": 5,
+      "top1_accuracy": 1.0,
+      "top3_accuracy": 1.0,
+      "predictions_csv": "reports\\current_realclip_eval\\first\\predictions.csv"
+    },
+    {
+      "summary": "reports\\current_realclip_eval\\last\\summary.json",
+      "strategy": "last",
+      "samples_file": "work\\reviewed_external_assets\\external_test_samples.csv",
+      "artifact_dir": ".tools\\tsl51_experiments\\full51_v3_external_weighted\\artifacts\\tsl51",
+      "total_samples": 5,
+      "detected_samples": 5,
+      "top1_accuracy": 1.0,
+      "top3_accuracy": 1.0,
+      "predictions_csv": "reports\\current_realclip_eval\\last\\predictions.csv"
+    },
+    {
+      "summary": "reports\\current_realclip_eval\\sliding\\summary.json",
+      "strategy": "sliding",
+      "samples_file": "work\\reviewed_external_assets\\external_test_samples.csv",
+      "artifact_dir": ".tools\\tsl51_experiments\\full51_v3_external_weighted\\artifacts\\tsl51",
+      "total_samples": 5,
+      "detected_samples": 5,
+      "top1_accuracy": 1.0,
+      "top3_accuracy": 1.0,
+      "predictions_csv": "reports\\current_realclip_eval\\sliding\\predictions.csv"
+    }
+  ],
+  "best_top1": {
+    "summary": "reports\\current_realclip_eval\\uniform\\summary.json",
+    "strategy": "uniform",
+    "samples_file": "work\\reviewed_external_assets\\external_test_samples.csv",
+    "artifact_dir": ".tools\\tsl51_experiments\\full51_v3_external_weighted\\artifacts\\tsl51",
+    "total_samples": 5,
+    "detected_samples": 5,
+    "top1_accuracy": 1.0,
+    "top3_accuracy": 1.0,
+    "predictions_csv": "reports\\current_realclip_eval\\uniform\\predictions.csv"
+  },
+  "best_top3": {
+    "summary": "reports\\current_realclip_eval\\uniform\\summary.json",
+    "strategy": "uniform",
+    "samples_file": "work\\reviewed_external_assets\\external_test_samples.csv",
+    "artifact_dir": ".tools\\tsl51_experiments\\full51_v3_external_weighted\\artifacts\\tsl51",
+    "total_samples": 5,
+    "detected_samples": 5,
+    "top1_accuracy": 1.0,
+    "top3_accuracy": 1.0,
+    "predictions_csv": "reports\\current_realclip_eval\\uniform\\predictions.csv"
+  },
+  "all_strategies_failed": false
+}

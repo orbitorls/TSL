@@ -1,0 +1,87 @@
+{
+  "artifact_dir": "D:\\TSL\\.tools\\train_runs_25690531-131843\\fs_e80_b64\\artifacts\\fingerspelling",
+  "cache_path": "D:\\TSL\\.tools\\train_runs_25690531-131843\\fs_e80_b64\\work\\features\\keypoints_cache.npz",
+  "test_samples": 1430,
+  "test_accuracy": 0.9846153846153847,
+  "class_names": [
+    "BOR_BAI_MAI",
+    "DOR_DEK",
+    "FOR_FUN",
+    "HOR_HEEP",
+    "KO_KAI",
+    "LOR_LING",
+    "MOR_MAH",
+    "NOR_NOO",
+    "OR_ANG",
+    "POR_PHAN",
+    "RAO_RUEA",
+    "SOR_SUEA",
+    "TOR_TAO",
+    "WOR_WAEN",
+    "YOR_YAK"
+  ],
+  "top_confusion_pairs": [
+    {
+      "count": 3,
+      "true": "TOR_TAO",
+      "pred": "DOR_DEK"
+    },
+    {
+      "count": 2,
+      "true": "WOR_WAEN",
+      "pred": "FOR_FUN"
+    },
+    {
+      "count": 2,
+      "true": "KO_KAI",
+      "pred": "RAO_RUEA"
+    },
+    {
+      "count": 1,
+      "true": "TOR_TAO",
+      "pred": "SOR_SUEA"
+    },
+    {
+      "count": 1,
+      "true": "SOR_SUEA",
+      "pred": "YOR_YAK"
+    },
+    {
+      "count": 1,
+      "true": "SOR_SUEA",
+      "pred": "POR_PHAN"
+    },
+    {
+      "count": 1,
+      "true": "SOR_SUEA",
+      "pred": "BOR_BAI_MAI"
+    },
+    {
+      "count": 1,
+      "true": "RAO_RUEA",
+      "pred": "HOR_HEEP"
+    },
+    {
+      "count": 1,
+      "true": "POR_PHAN",
+      "pred": "OR_ANG"
+    },
+    {
+      "count": 1,
+      "true": "NOR_NOO",
+      "pred": "TOR_TAO"
+    }
+  ],
+  "ko_kai_vs_bor_bai_mai": {
+    "a_to_b": 0,
+    "b_to_a": 0,
+    "total": 0
+  },
+  "margin_buckets": {
+    "margin_threshold": 0.08,
+    "low_margin_count": 2,
+    "high_margin_count": 1428,
+    "accuracy_margin_low": 0.0,
+    "accuracy_margin_high": 0.9859943977591037
+  }
+}

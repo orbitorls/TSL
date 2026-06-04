@@ -1,0 +1,28 @@
+{
+  "presets": {
+    "accurate": {
+      "preset": "accurate",
+      "frames_to_commit": 13,
+      "frames_sign_end_path": 9,
+      "frames_saved_vs_accurate": 0,
+      "fraction_faster_vs_accurate": 0.0
+    },
+    "balanced": {
+      "preset": "balanced",
+      "frames_to_commit": 3,
+      "frames_sign_end_path": null,
+      "frames_saved_vs_accurate": 10,
+      "fraction_faster_vs_accurate": 0.769
+    },
+    "fast": {
+      "preset": "fast",
+      "frames_to_commit": 3,
+      "frames_sign_end_path": null,
+      "frames_saved_vs_accurate": 10,
+      "fraction_faster_vs_accurate": 0.769
+    }
+  },
+  "notes": [
+    "frames_to_commit counts motion+stillness frames until committed_label; lower is faster. Run evaluate_webcam_holdout.py for Top-1 accuracy gate."
+  ]
+}

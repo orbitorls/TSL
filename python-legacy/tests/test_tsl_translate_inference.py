@@ -32,6 +32,13 @@ class AmbiguousPredictor:
         return np.array([0.45, 0.55], dtype=np.float32)
 
 
+class ModeratePredictor:
+    """High enough to pass threshold but below early-commit bar (threshold + 0.1)."""
+
+    def predict(self, _data: np.ndarray) -> np.ndarray:
+        return np.array([0.75, 0.24], dtype=np.float32)
+
+
 class DummyHolistic:
     def process(self, _rgb: np.ndarray):
         return object()
@@ -79,7 +86,7 @@ def test_tsl51_fast_sign_preview_gate_uses_half_min_frames(monkeypatch) -> None:
     track = TRACKS["tsl51"]
     service = PredictService(track, alpha=0.4)
     runtime = DummyRuntime()
-    loaded = make_loaded_model()
+    loaded = make_loaded_model(predictor=ModeratePredictor())
     settings = InferenceSettings(
         threshold=0.7,
         alpha=0.4,
@@ -102,12 +109,12 @@ def test_tsl51_fast_sign_preview_gate_uses_half_min_frames(monkeypatch) -> None:
 
     preview_result = process_rgb_frame(track, loaded, service, runtime, rgb, settings)
     assert preview_result.status == "previewing"
-    assert preview_result.label == "label_1"
+    assert preview_result.label == "label_0"
     assert preview_result.committed_label is None
 
     commit_result = process_rgb_frame(track, loaded, service, runtime, rgb, settings)
     assert commit_result.status == "predicted"
-    assert commit_result.committed_label == "label_1"
+    assert commit_result.committed_label == "label_0"
 
 
 def test_tsl51_accuracy_mode_does_not_commit_on_preview(monkeypatch) -> None:
@@ -275,7 +282,7 @@ def test_tsl51_preview_then_commit_after_stable_predictions(monkeypatch) -> None
     track = TRACKS["tsl51"]
     service = PredictService(track, alpha=0.4)
     runtime = DummyRuntime()
-    loaded = make_loaded_model()
+    loaded = make_loaded_model(predictor=ModeratePredictor())
     settings = InferenceSettings(
         threshold=0.7,
         alpha=0.4,
@@ -296,13 +303,13 @@ def test_tsl51_preview_then_commit_after_stable_predictions(monkeypatch) -> None
 
     assert preview_result is not None
     assert preview_result.status == "previewing"
-    assert preview_result.label == "label_1"
+    assert preview_result.label == "label_0"
     assert preview_result.committed_label is None
 
     interim = process_rgb_frame(track, loaded, service, runtime, rgb, settings)
     assert interim.status == "predicted"
-    assert interim.label == "label_1"
-    assert interim.committed_label == "label_1"
+    assert interim.label == "label_0"
+    assert interim.committed_label == "label_0"
 
     commit_result = process_rgb_frame(track, loaded, service, runtime, rgb, settings)
     assert commit_result.status == "signing"
@@ -336,3 +343,123 @@ def test_tsl51_previews_within_three_frames_when_min_sign_frames_is_three(monkey
     assert preview_result.status == "previewing"
     assert preview_result.label == "label_1"
     assert preview_result.committed_label is None
+
+
+class DummyHands:
+    def process(self, _rgb: np.ndarray):
+        return object()
+
+
+class FsDummyRuntime(DummyRuntime):
+    def __init__(self) -> None:
+        super().__init__()
+        self.hands = DummyHands()
+
+
+class FsHighMarginPredictor:
+    def predict(self, _data: np.ndarray) -> np.ndarray:
+        return np.array([0.88, 0.08], dtype=np.float32)
+
+
+class FsLowMarginPredictor:
+    def predict(self, _data: np.ndarray) -> np.ndarray:
+        return np.array([0.52, 0.48], dtype=np.float32)
+
+
+def make_fs_loaded_model(*, predictor: object) -> LoadedModel:
+    return LoadedModel(
+        predictor=predictor,
+        labels={"0": "KO_KAI", "1": "BOR_BAI_MAI"},
+        scaler=IdentityScaler(),
+        backend="test",
+        model_path=Path("model.keras"),
+        labels_path=Path("labels.json"),
+        scaler_path=Path("scaler.pkl"),
+        load_time_ms=0.0,
+    )
+
+
+def _patch_fs_hand(monkeypatch) -> None:
+    monkeypatch.setattr(
+        inference_module,
+        "extract_and_normalize",
+        lambda _results: np.ones(63, dtype=np.float32),
+    )
+    monkeypatch.setattr(
+        inference_module,
+        "landmarks_from_hands",
+        lambda _results: {"left_hand": None, "right_hand": None},
+    )
+    monkeypatch.setattr(
+        inference_module,
+        "hands_detected_from_hands",
+        lambda _results: {"left": True, "right": False},
+    )
+
+
+def test_fingerspelling_rejects_low_margin(monkeypatch) -> None:
+    track = TRACKS["fingerspelling"]
+    service = PredictService(track, alpha=1.0)
+    runtime = FsDummyRuntime()
+    loaded = make_fs_loaded_model(predictor=FsLowMarginPredictor())
+    settings = InferenceSettings(
+        threshold=0.7,
+        alpha=1.0,
+        min_confidence_margin=0.10,
+        prediction_stable_frames=2,
+    )
+    _patch_fs_hand(monkeypatch)
+    rgb = np.zeros((8, 8, 3), dtype=np.uint8)
+    result = process_rgb_frame(track, loaded, service, runtime, rgb, settings)
+    assert result.status == "low_confidence"
+    assert result.committed_label is None
+    assert "Unknown" in result.label
+
+
+def test_fingerspelling_stable_frames_commit(monkeypatch) -> None:
+    track = TRACKS["fingerspelling"]
+    service = PredictService(track, alpha=1.0)
+    runtime = FsDummyRuntime()
+    loaded = make_fs_loaded_model(predictor=FsHighMarginPredictor())
+    settings = InferenceSettings(
+        threshold=0.7,
+        alpha=1.0,
+        min_confidence_margin=0.10,
+        prediction_stable_frames=2,
+    )
+    _patch_fs_hand(monkeypatch)
+    rgb = np.zeros((8, 8, 3), dtype=np.uint8)
+    first = process_rgb_frame(track, loaded, service, runtime, rgb, settings)
+    assert first.status == "previewing"
+    assert first.label == "KO_KAI"
+    assert first.committed_label is None
+
+    second = process_rgb_frame(track, loaded, service, runtime, rgb, settings)
+    assert second.status == "predicted"
+    assert second.committed_label == "KO_KAI"
+
+
+def test_fingerspelling_no_hand_resets_candidate(monkeypatch) -> None:
+    track = TRACKS["fingerspelling"]
+    service = PredictService(track, alpha=1.0)
+    runtime = FsDummyRuntime()
+    loaded = make_fs_loaded_model(predictor=FsHighMarginPredictor())
+    settings = InferenceSettings(
+        threshold=0.7,
+        alpha=1.0,
+        min_confidence_margin=0.10,
+        prediction_stable_frames=2,
+    )
+    _patch_fs_hand(monkeypatch)
+    rgb = np.zeros((8, 8, 3), dtype=np.uint8)
+    process_rgb_frame(track, loaded, service, runtime, rgb, settings)
+    monkeypatch.setattr(inference_module, "extract_and_normalize", lambda _results: None)
+    process_rgb_frame(track, loaded, service, runtime, rgb, settings)
+    monkeypatch.setattr(
+        inference_module,
+        "extract_and_normalize",
+        lambda _results: np.ones(63, dtype=np.float32),
+    )
+    again = process_rgb_frame(track, loaded, service, runtime, rgb, settings)
+    assert again.status == "previewing"
+    assert again.committed_label is None

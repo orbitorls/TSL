@@ -1,0 +1,16 @@
+{
+  "samples_file": "work\\full51_v2_reviewed_samples.csv",
+  "artifact_dir": ".tools\\tsl51_experiments\\full51_v3_external_weighted\\artifacts\\tsl51",
+  "strategy": "uniform",
+  "target_fps": 15.0,
+  "total_samples": 6,
+  "detected_samples": 6,
+  "rejected_samples": 0,
+  "detection_rate": 1.0,
+  "top1_correct": 6,
+  "top3_correct": 6,
+  "top1_accuracy": 1.0,
+  "top3_accuracy": 1.0,
+  "confusion_pairs": [],
+  "predictions_csv": "reports\\full51_v3_external_weighted_reviewed_eval\\predictions.csv"
+}

@@ -1,0 +1,11 @@
+id,path,expected,split
+thsl_กรุงเทพ_var_1,D:\TSL\work\thsl_crossval\clips\กรุงเทพ_var_1.mp4,กรุงเทพ_var_1,test
+thsl_กลัว_var_1,D:\TSL\work\thsl_crossval\clips\กลัว_var_1.mp4,กลัว_var_1,test
+thsl_กิน_var_1,D:\TSL\work\thsl_crossval\clips\กิน_var_1.mp4,กิน_var_1,test
+thsl_ขนมปัง_var_1,D:\TSL\work\thsl_crossval\clips\ขนมปัง_var_1.mp4,ขนมปัง_var_1,test
+thsl_ขอบคุณ_เปิดมือสองข้าง,D:\TSL\work\thsl_crossval\clips\ขอบคุณ_เปิดมือสองข้าง.mp4,ขอบคุณ_เปิดมือสองข้าง,test
+thsl_ขอโทษ_อายุเท่ากันหรือน้อยกว่า,D:\TSL\work\thsl_crossval\clips\ขอโทษ_อายุเท่ากันหรือน้อยกว่า.mp4,ขอโทษ_อายุเท่ากันหรือน้อยกว่า,test
+thsl_คุณ_var_1,D:\TSL\work\thsl_crossval\clips\คุณ_var_1.mp4,คุณ_var_1,test
+thsl_ฉัน_var_1,D:\TSL\work\thsl_crossval\clips\ฉัน_var_1.mp4,ฉัน_var_1,test
+thsl_ฉัน_var_2,D:\TSL\work\thsl_crossval\clips\ฉัน_var_2.mp4,ฉัน_var_2,test
+thsl_ชอบ_var_1,D:\TSL\work\thsl_crossval\clips\ชอบ_var_1.mp4,ชอบ_var_1,test

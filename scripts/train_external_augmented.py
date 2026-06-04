@@ -12,6 +12,53 @@ TSL51_SEQ_LEN = 60
 TSL51_FEATURE_DIM = 162
 
 
+def augment_external_sequences(
+    X: np.ndarray,
+    y: np.ndarray,
+    rng: np.random.Generator,
+    *,
+    n_copies: int = 5,
+    noise_sigma: float = 0.015,
+    scale_range: tuple[float, float] = (0.88, 1.12),
+    speed_range: tuple[float, float] = (0.82, 1.18),
+) -> tuple[np.ndarray, np.ndarray]:
+    """Return original + n_copies augmented copies of webcam sequences.
+
+    Augmentations applied independently per copy:
+      - Gaussian coordinate noise  (simulates signing style variation)
+      - Uniform scale jitter        (simulates different arm length / camera distance)
+      - Temporal speed jitter       (simulates different signing speed)
+
+    Output shape: (N * (n_copies + 1), SEQ_LEN, FEATURE_DIM).
+    Labels are repeated to match.
+    """
+    if len(X) == 0:
+        return X, y
+    batches_X = [X]
+    batches_y = [y]
+    for _ in range(n_copies):
+        X_c = X.copy()
+        # Gaussian noise
+        X_c = X_c + rng.standard_normal(X_c.shape).astype(np.float32) * noise_sigma
+        # Uniform scale jitter per sequence
+        scales = rng.uniform(scale_range[0], scale_range[1], size=(len(X_c), 1, 1)).astype(np.float32)
+        X_c = X_c * scales
+        # Temporal speed jitter: stretch/compress each sequence then resample to SEQ_LEN
+        speed_factors = rng.uniform(speed_range[0], speed_range[1], size=len(X_c))
+        X_jittered = np.empty_like(X_c)
+        for i, (seq, factor) in enumerate(zip(X_c, speed_factors)):
+            n_mid = max(1, int(TSL51_SEQ_LEN * factor))
+            # Resample to n_mid frames
+            idx_mid = np.linspace(0, TSL51_SEQ_LEN - 1, n_mid).round().astype(int)
+            seq_mid = seq[idx_mid]
+            # Resample back to TSL51_SEQ_LEN
+            idx_final = np.linspace(0, len(seq_mid) - 1, TSL51_SEQ_LEN).round().astype(int)
+            X_jittered[i] = seq_mid[idx_final]
+        batches_X.append(X_jittered)
+        batches_y.append(y)
+    return np.concatenate(batches_X, axis=0), np.concatenate(batches_y, axis=0)
+
+
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Train or prepare augmented models from base + external NPZ caches."
@@ -32,6 +79,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--unfreeze-last-n", type=int, default=0)
     parser.add_argument("--combine-only", action="store_true", default=False)
     parser.add_argument("--dry-run", action="store_true", default=False)
+    parser.add_argument("--augment-external", action=argparse.BooleanOptionalAction, default=True)
+    parser.add_argument("--augment-copies", type=int, default=5)
     parser.add_argument(
         "--require-external-val",
         action="store_true",
@@ -282,6 +331,8 @@ def train_tsl51(
     unfreeze_last_n: int = 0,
     external_cache_splits: Sequence[str | None] | None = None,
     require_external_val: bool = False,
+    augment_external: bool = False,
+    augment_copies: int = 5,
 ) -> dict[str, object]:
     import tensorflow as tf
     from sklearn.model_selection import train_test_split
@@ -304,6 +355,11 @@ def train_tsl51(
     X_ext_val, y_ext_val = external["val"]
     if len(y_ext_train) == 0:
         raise ValueError("at least one external train sample is required")
+    if augment_external and len(X_ext_train) > 0:
+        rng = np.random.default_rng(42)
+        X_ext_train, y_ext_train = augment_external_sequences(
+            X_ext_train, y_ext_train, rng, n_copies=augment_copies
+        )
     validate_external_validation_requirement(require_external_val, len(y_ext_val))
 
     if len(np.unique(y_base)) > 1 and min(np.bincount(y_base)) >= 2:
@@ -478,6 +534,8 @@ def main() -> None:
                 unfreeze_last_n=args.unfreeze_last_n,
                 external_cache_splits=args.external_cache_split,
                 require_external_val=args.require_external_val,
+                augment_external=args.augment_external,
+                augment_copies=args.augment_copies,
             )
             summary.update({"model_manifest": manifest})
         summary["trained"] = True

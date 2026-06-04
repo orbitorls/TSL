@@ -1,0 +1,35 @@
+{
+  "input_rows": 15,
+  "approved_rows": 0,
+  "rejected_rows": 0,
+  "missing_decisions": 15,
+  "splits": {
+    "train": {
+      "rows": 0,
+      "labels": 0,
+      "groups": 0
+    },
+    "val": {
+      "rows": 0,
+      "labels": 0,
+      "groups": 0
+    },
+    "external_test": {
+      "rows": 0,
+      "labels": 0,
+      "groups": 0
+    }
+  },
+  "errors": [
+    "train has 0 approved rows; need at least 1",
+    "train has 0 approved groups; need at least 1",
+    "val has 0 approved rows; need at least 1",
+    "val has 0 approved groups; need at least 1",
+    "external_test has 0 approved rows; need at least 1",
+    "external_test has 0 approved groups; need at least 1"
+  ],
+  "warnings": [
+    "15 rows have no review_decision and were ignored"
+  ],
+  "ready": false
+}

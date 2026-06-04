@@ -1,0 +1,45 @@
+{
+  "validate_summary": "reports\\reviewed_external_pipeline\\review_validate_summary.json",
+  "apply_summary": "reports\\reviewed_external_pipeline\\review_apply_summary.json",
+  "split_summary": "reports\\reviewed_external_pipeline\\reviewed_split_summary.json",
+  "assets_summary": "reports\\reviewed_external_pipeline\\reviewed_assets_summary.json",
+  "trained": false,
+  "evaluated": false,
+  "validation": {
+    "input_rows": 15,
+    "approved_rows": 0,
+    "rejected_rows": 0,
+    "missing_decisions": 15,
+    "splits": {
+      "train": {
+        "rows": 0,
+        "labels": 0,
+        "groups": 0
+      },
+      "val": {
+        "rows": 0,
+        "labels": 0,
+        "groups": 0
+      },
+      "external_test": {
+        "rows": 0,
+        "labels": 0,
+        "groups": 0
+      }
+    },
+    "errors": [
+      "train has 0 approved rows; need at least 1",
+      "train has 0 approved groups; need at least 1",
+      "val has 0 approved rows; need at least 1",
+      "val has 0 approved groups; need at least 1",
+      "external_test has 0 approved rows; need at least 1",
+      "external_test has 0 approved groups; need at least 1"
+    ],
+    "warnings": [
+      "15 rows have no review_decision and were ignored"
+    ],
+    "ready": false
+  },
+  "status": "blocked_review_queue_not_ready",
+  "blocker": "review queue must have approved, label-valid, leakage-safe train/val/external_test rows"
+}

@@ -1,7 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { PredictionMessage, TranscriptMessage, WsMessage } from "./types";
+import type { HandsDetected, PredictionMessage, TranscriptMessage, WsMessage } from "./types";
+import { parseHolisticLandmarks, type HolisticLandmarks } from "./drawLandmarks";
 import { getWsUrl } from "./api";
 import { glossLabel } from "./gloss";
 
@@ -13,6 +14,9 @@ export interface LiveState {
   bufferingProgress: string | null;
   hist: number[];
   error: string | null;
+  landmarks: HolisticLandmarks | null;
+  handsDetected: HandsDetected;
+  predictionStatus: string;
 }
 
 const initial: LiveState = {
@@ -23,6 +27,9 @@ const initial: LiveState = {
   bufferingProgress: null,
   hist: [],
   error: null,
+  landmarks: null,
+  handsDetected: { left: false, right: false },
+  predictionStatus: "ready",
 };
 
 const SYSTEM_LABEL_PREFIXES = ["กำลังเก็บเฟรม", "กำลังเซ็น", "ไม่พบมือ"] as const;
@@ -83,6 +90,8 @@ export function useInferenceWs(sessionId: string | null, streaming: boolean) {
         const msg = JSON.parse(ev.data as string) as WsMessage;
         if (msg.type === "prediction") {
           const ui = derivePredictionUi(msg);
+          const landmarks = parseHolisticLandmarks(msg.landmarks);
+          const handsDetected = msg.hands_detected ?? { left: false, right: false };
           setState((s) => ({
             ...s,
             prediction: msg,
@@ -90,6 +99,9 @@ export function useInferenceWs(sessionId: string | null, streaming: boolean) {
             bufferingProgress: ui.bufferingProgress,
             hist: msg.confidence_hist,
             transcript: msg.transcript || s.transcript,
+            landmarks,
+            handsDetected,
+            predictionStatus: msg.status,
           }));
         } else if (msg.type === "transcript") {
           const t = msg as TranscriptMessage;
@@ -117,9 +129,9 @@ export function useInferenceWs(sessionId: string | null, streaming: boolean) {
         frameLoopRef.current = requestAnimationFrame(sendFrame);
         return;
       }
-      const w = 640;
       const sourceW = video.videoWidth || 640;
       const sourceH = video.videoHeight || 480;
+      const w = Math.min(640, sourceW);
       const h = Math.round((sourceH / sourceW) * w);
       canvas.width = w;
       canvas.height = h;
@@ -127,7 +139,7 @@ export function useInferenceWs(sessionId: string | null, streaming: boolean) {
       if (ctx) {
         // Video is mirrored for display only; capture unflipped pixels for inference.
         ctx.drawImage(video, 0, 0, w, h);
-        const dataUrl = canvas.toDataURL("image/jpeg", 0.65);
+        const dataUrl = canvas.toDataURL("image/jpeg", 0.75);
         ws.send(JSON.stringify({ type: "frame", jpeg_base64: dataUrl }));
       }
       frameLoopRef.current = requestAnimationFrame(() => {

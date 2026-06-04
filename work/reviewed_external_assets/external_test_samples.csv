@@ -1,0 +1,6 @@
+id,path,expected,start_s,end_s,split,source
+aAr48vJQCzg_กิน_var_1,D:\TSL\data\external_tsl51\videos\aAr48vJQCzg.mp4,กิน_var_1,1.0,2.2,external_test,reviewed_external_manifest
+aAr48vJQCzg_ข้าว_var_1,D:\TSL\data\external_tsl51\videos\aAr48vJQCzg.mp4,ข้าว_var_1,4.5,6.1,external_test,reviewed_external_manifest
+Uowd70zu_2Y_ชื่อ_var_1,D:\TSL\data\external_tsl51\videos\Uowd70zu_2Y.mp4,ชื่อ_var_1,0.0,5.0,external_test,reviewed_external_manifest
+5L9u0Rvw118_ขอโทษ_อายุเท่ากันหรือน้อยกว่า,D:\TSL\data\external_tsl51\videos\5L9u0Rvw118.mp4,ขอโทษ_อายุเท่ากันหรือน้อยกว่า,0.0,5.0,external_test,reviewed_external_manifest
+0qR9LuwDa9I_ขอโทษ_อายุเท่ากันหรือน้อยกว่า,D:\TSL\data\external_tsl51\videos\0qR9LuwDa9I.mp4,ขอโทษ_อายุเท่ากันหรือน้อยกว่า,0.0,5.0,external_test,reviewed_external_manifest

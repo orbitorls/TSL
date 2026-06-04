@@ -1,0 +1,42 @@
+{
+  "generated": "2026-06-03",
+  "artifact": "full51_v3_external_weighted",
+  "findings": [
+    {
+      "layer": "live_pipeline",
+      "severity": "fixed",
+      "evidence": "reviewed_external: offline 100% vs live 60% before fix; 100% vs 100% after fix",
+      "root_causes": [
+        "sign_frames motion gate captured fewer frames than offline segment (short signs never reached min_sign_frames=10)",
+        "margin gate blocked sign-end commit even when confidence was high",
+        "offline uses all hand-detected frames; live used motion-only sign_frames"
+      ],
+      "fixes_applied": [
+        "prefer_seq_buf_on_commit: use seq_buf (all hand frames) at sign-end",
+        "relax_margin on sign-end and hands-lost commit",
+        "min_sign_frames 10→6, sign_end_frames 8→5"
+      ],
+      "report": "reports/live_vs_clip_diagnosis/reviewed_external_postfix/summary.json"
+    },
+    {
+      "layer": "model_domain",
+      "severity": "open",
+      "evidence": "th-sl crossval offline Top-1 ~8.9%; thsl_failed_10 live and offline both 0%",
+      "root_causes": [
+        "Training data is YouTube external clips; th-sl / webcam pose-lighting-speed differ",
+        "Model collapses to frequent classes (ชื่อ_var_1, กิน_var_1) on OOD input"
+      ],
+      "fixes_applied": [],
+      "next_step": "Record data/webcam_holdout via scripts/record_webcam_holdout.py then retrain if Top-1 < 70%",
+      "report": "reports/webcam_holdout_diagnosis/summary.json"
+    },
+    {
+      "layer": "capture",
+      "severity": "not_significant",
+      "evidence": "A/B jpeg_q65_640 and jpeg_q85_960 identical to baseline on reviewed_external",
+      "note": "Flip hurts accuracy; do not mirror inference pixels"
+    }
+  ],
+  "ab_ranking_note": "stretch_live caused 0% live commit; rolling_segment alone did not fix short-sign issue",
+  "webcam_holdout_status": "not_recorded — proxy th-sl eval used instead"
+}

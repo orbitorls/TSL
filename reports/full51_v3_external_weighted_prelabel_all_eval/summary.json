@@ -1,0 +1,272 @@
+{
+  "samples_file": "work\\full51_prelabel_all_samples.csv",
+  "artifact_dir": ".tools\\tsl51_experiments\\full51_v3_external_weighted\\artifacts\\tsl51",
+  "strategy": "uniform",
+  "target_fps": 15.0,
+  "total_samples": 61,
+  "detected_samples": 61,
+  "rejected_samples": 0,
+  "detection_rate": 1.0,
+  "top1_correct": 6,
+  "top3_correct": 7,
+  "top1_accuracy": 0.09836065573770492,
+  "top3_accuracy": 0.11475409836065574,
+  "confusion_pairs": [
+    {
+      "expected": "ถาม_ทำท่ามือถามไปยังผู้นั้น",
+      "predicted": "ตลาด_var_4",
+      "count": 2
+    },
+    {
+      "expected": "ยาย_var_1",
+      "predicted": "ชื่อ_var_1",
+      "count": 2
+    },
+    {
+      "expected": "ร้อน_สองมือ",
+      "predicted": "กลัว_var_1",
+      "count": 2
+    },
+    {
+      "expected": "อย่า_var_1",
+      "predicted": "เหนื่อย_var_1",
+      "count": 2
+    },
+    {
+      "expected": "ข้าว_var_1",
+      "predicted": "วันหยุด_var_1",
+      "count": 1
+    },
+    {
+      "expected": "ฉัน_var_1",
+      "predicted": "ชื่อ_var_1",
+      "count": 1
+    },
+    {
+      "expected": "ฉัน_var_1",
+      "predicted": "วันหยุด_var_1",
+      "count": 1
+    },
+    {
+      "expected": "ฉัน_var_1",
+      "predicted": "เหนื่อย_var_1",
+      "count": 1
+    },
+    {
+      "expected": "ฉัน_var_2",
+      "predicted": "ชื่อ_var_1",
+      "count": 1
+    },
+    {
+      "expected": "ฉัน_var_2",
+      "predicted": "วันหยุด_var_1",
+      "count": 1
+    },
+    {
+      "expected": "ชอบ_var_1",
+      "predicted": "กลัว_var_1",
+      "count": 1
+    },
+    {
+      "expected": "ชอบ_var_1",
+      "predicted": "เหนื่อย_var_1",
+      "count": 1
+    },
+    {
+      "expected": "ชื่อ_var_1",
+      "predicted": "เหนื่อย_var_1",
+      "count": 1
+    },
+    {
+      "expected": "ทำไม_var_1",
+      "predicted": "ภาษามือ_var_1",
+      "count": 1
+    },
+    {
+      "expected": "น้อง_var_1",
+      "predicted": "กลัว_var_1",
+      "count": 1
+    },
+    {
+      "expected": "น้อง_var_1",
+      "predicted": "ขนมปัง_var_1",
+      "count": 1
+    },
+    {
+      "expected": "พรุ่งนี้_var_1",
+      "predicted": "ชื่อ_var_1",
+      "count": 1
+    },
+    {
+      "expected": "พรุ่งนี้_var_1",
+      "predicted": "สวัสดี_อายุเท่ากันหรือน้อยกว่า",
+      "count": 1
+    },
+    {
+      "expected": "พรุ่งนี้_var_1",
+      "predicted": "แมว_var_1",
+      "count": 1
+    },
+    {
+      "expected": "พี่_var_1",
+      "predicted": "ชื่อ_var_1",
+      "count": 1
+    },
+    {
+      "expected": "ยาย_var_1",
+      "predicted": "ดี_var_1",
+      "count": 1
+    },
+    {
+      "expected": "ร้อน_สองมือ",
+      "predicted": "ไข่_var_2",
+      "count": 1
+    },
+    {
+      "expected": "วันนี้_var_1",
+      "predicted": "ชื่อ_var_1",
+      "count": 1
+    },
+    {
+      "expected": "วันหยุด_var_1",
+      "predicted": "ชื่อ_var_1",
+      "count": 1
+    },
+    {
+      "expected": "วันหยุด_var_1",
+      "predicted": "ตลาด_var_4",
+      "count": 1
+    },
+    {
+      "expected": "วันหยุด_var_1",
+      "predicted": "สวัสดี_อายุเท่ากันหรือน้อยกว่า",
+      "count": 1
+    },
+    {
+      "expected": "สบายดี_var_1",
+      "predicted": "ขนมปัง_var_1",
+      "count": 1
+    },
+    {
+      "expected": "สบายดี_var_1",
+      "predicted": "ขอโทษ_อายุเท่ากันหรือน้อยกว่า",
+      "count": 1
+    },
+    {
+      "expected": "สบายดี_var_1",
+      "predicted": "สวัสดี_อายุเท่ากันหรือน้อยกว่า",
+      "count": 1
+    },
+    {
+      "expected": "สวัสดี_อายุเท่ากันหรือน้อยกว่า",
+      "predicted": "ขอโทษ_อายุเท่ากันหรือน้อยกว่า",
+      "count": 1
+    },
+    {
+      "expected": "สวัสดี_อายุเท่ากันหรือน้อยกว่า",
+      "predicted": "ชื่อ_var_1",
+      "count": 1
+    },
+    {
+      "expected": "อยู่บ้าน_var_1",
+      "predicted": "ชื่อ_var_1",
+      "count": 1
+    },
+    {
+      "expected": "อย่า_var_1",
+      "predicted": "ทำงาน_var_2",
+      "count": 1
+    },
+    {
+      "expected": "อะไร_var_1",
+      "predicted": "ชื่อ_var_1",
+      "count": 1
+    },
+    {
+      "expected": "อะไร_var_1",
+      "predicted": "เหนื่อย_var_1",
+      "count": 1
+    },
+    {
+      "expected": "เช้า_var_1",
+      "predicted": "กลัว_var_1",
+      "count": 1
+    },
+    {
+      "expected": "เช้า_var_1",
+      "predicted": "เหนื่อย_var_1",
+      "count": 1
+    },
+    {
+      "expected": "เที่ยว_var_1",
+      "predicted": "ไข่_var_2",
+      "count": 1
+    },
+    {
+      "expected": "เรียก_var_1",
+      "predicted": "ทำงาน_var_2",
+      "count": 1
+    },
+    {
+      "expected": "เรียก_var_1",
+      "predicted": "เหนื่อย_var_1",
+      "count": 1
+    },
+    {
+      "expected": "เหนื่อย_var_1",
+      "predicted": "กลัว_var_1",
+      "count": 1
+    },
+    {
+      "expected": "เหนื่อย_var_1",
+      "predicted": "ขอบคุณ_เปิดมือสองข้าง",
+      "count": 1
+    },
+    {
+      "expected": "แต่งงาน_var_1",
+      "predicted": "เหนื่อย_var_1",
+      "count": 1
+    },
+    {
+      "expected": "แมว_var_1",
+      "predicted": "ตลาด_var_4",
+      "count": 1
+    },
+    {
+      "expected": "แม่_var_1",
+      "predicted": "สวัสดี_อายุเท่ากันหรือน้อยกว่า",
+      "count": 1
+    },
+    {
+      "expected": "โกรธ_var_1",
+      "predicted": "ขอบคุณ_เปิดมือสองข้าง",
+      "count": 1
+    },
+    {
+      "expected": "โกรธ_var_1",
+      "predicted": "ชื่อ_var_1",
+      "count": 1
+    },
+    {
+      "expected": "โกรธ_var_1",
+      "predicted": "ตลาด_var_4",
+      "count": 1
+    },
+    {
+      "expected": "โรงเรียน_var_1",
+      "predicted": "เหนื่อย_var_1",
+      "count": 1
+    },
+    {
+      "expected": "ไข่_var_2",
+      "predicted": "กลัว_var_1",
+      "count": 1
+    },
+    {
+      "expected": "ไข่_var_2",
+      "predicted": "ดี_var_1",
+      "count": 1
+    }
+  ],
+  "predictions_csv": "reports\\full51_v3_external_weighted_prelabel_all_eval\\predictions.csv"
+}
