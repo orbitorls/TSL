@@ -369,7 +369,7 @@ class Trainer:
 
         # Setup weighted loss for class imbalance.
         # Use explicit class indices so missing classes are handled explicitly.
-        present_classes = np.asarray(sorted(set(int(v) for v in np.unique(y_train_arr))), dtype=np.int64)
+        present_classes = np.asarray(sorted({int(v) for v in np.unique(y_train_arr)}), dtype=np.int64)
         # Guard against labels outside configured class range.
         present_classes = present_classes[(present_classes >= 0) & (present_classes < num_classes)]
         if present_classes.size == 0:

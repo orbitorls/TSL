@@ -7,7 +7,6 @@ from pathlib import Path
 from unittest.mock import patch, MagicMock
 
 from src.train.models import GRUModel
-from src.inference.runner import load_model
 
 
 class TestModelLoading:
