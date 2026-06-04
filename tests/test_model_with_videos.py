@@ -9,6 +9,7 @@ import sys
 import cv2
 import torch
 from pathlib import Path
+import pytest
 from collections import Counter
 
 def configure_stdout_encoding():
@@ -37,11 +38,12 @@ def get_label_from_filename(filename):
     return None
 
 
+@pytest.mark.skipif(not (Path(__file__).resolve().parent.parent / "models" / "tsl_model.pt").exists(), reason="Requires valid model checkpoint")
 def check_label_overlap():
     """Check if video labels match model labels."""
     
     print("Loading model...")
-    model_path = PROJECT_DIR / "models" / "tsl_model.pt"
+    model_path = PROJECT_DIR.parent / "models" / "tsl_model.pt"
     translator = ThaiSignTranslator(model_path=str(model_path))
     
     print(f"Model labels: {translator.labels}")
@@ -85,10 +87,11 @@ def check_label_overlap():
     return True
 
 
+@pytest.mark.skipif(not (Path(__file__).resolve().parent.parent / "models" / "tsl_model.pt").exists(), reason="Requires valid model checkpoint")
 def test_with_matching_videos(num_videos=20):
     """Test with videos that have matching labels."""
     
-    model_path = PROJECT_DIR / "models" / "tsl_model.pt"
+    model_path = PROJECT_DIR.parent / "models" / "tsl_model.pt"
     translator = ThaiSignTranslator(model_path=str(model_path))
     model_labels_set = set(translator.labels)
     

@@ -5,3 +5,7 @@
 ## 2024-05-18 - Redundant string creation inside loops
 **Learning:** Generating the same complex column names continuously using f-strings inside a loop (like `lh_x0`, `lh_y0`) during live feature extraction is a significant hotspot.
 **Action:** Pre-generate these fixed keys and cache them locally or at module-level (e.g., `_FEATURE_COLUMN_CACHE`), then reuse them via list slicing `keys[:feature_dim]` whenever possible.
+
+## 2024-05-18 - Pytest stdout capture interception crash
+**Learning:** Wrapping `sys.stdout` manually using `io.TextIOWrapper(sys.stdout.buffer)` completely breaks pytest's internal capture mechanism because pytest replaces `sys.stdout` with a dummy object that doesn't have a `.buffer` attribute, causing `AttributeError` and `ValueError: I/O operation on closed file.` crashes during test teardown.
+**Action:** Always prefer `sys.stdout.reconfigure(encoding="utf-8")` if available, and mock properly (with a `.buffer` proxy) if manual stream interception is absolutely required for backward compatibility.
