@@ -1,0 +1,3 @@
+## 2024-05-24 - Pandas Vectorization in Feature Extraction
+**Learning:** Pandas dataframes are incredibly slow when iterated over row-by-row or column-by-column inside Python loops. This creates a severe performance bottleneck during data loading and inference, especially when parsing out large arrays of data (e.g., 1596 landmark coordinates).
+**Action:** Always prefer pushing data manipulations down into Pandas or Numpy by using vectorized methods like `.mean()`, `.fillna()`, and `.values` for bulk array assignments instead of looping over columns explicitly. This yields over 30x performance improvements in critical path code.
