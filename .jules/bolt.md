@@ -1,0 +1,3 @@
+## 2025-02-12 - Font Caching in Rendering Loops
+**Learning:** In real-time video inference scripts (like `camera_translate.py`), repeatedly calling `ImageFont.truetype` inside the frame processing loop creates a massive disk I/O and CPU bottleneck because it reads and parses the font file on every frame (sometimes multiple times).
+**Action:** Always implement a simple instance-level dictionary cache (e.g., `self._font_cache = {}`) initialized in `__init__` to store and reuse loaded PIL font objects. Use hashable structures like tuples for the cache keys `(font_size, tuple(font_paths))` to ensure safe lookups.
