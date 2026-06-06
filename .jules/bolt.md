@@ -1,3 +1,0 @@
-## 2024-05-18 - Pandas Iterative Mean Overhead
-**Learning:** In standard feature extraction using Pandas DataFrames (such as iterating over column arrays using `safe_mean(lm_df[col])`), the overhead of repeated calls to Pandas/Numpy mean on individual Series is a major bottleneck (e.g. taking ~1s for 100 extractions of 162 dimensions).
-**Action:** Always replace per-column iterative aggregations in hot loops with vectorized DataFrame operations `lm_df[existing_cols].mean().fillna(0.0).to_dict()`. Combined with caching the expected mapping `col -> idx` to correctly populate fixed-sized NumPy arrays, this can yield a >10x speedup while preserving missing-value semantics.

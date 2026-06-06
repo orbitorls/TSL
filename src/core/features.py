@@ -12,6 +12,8 @@ from types import MappingProxyType
 
 import numpy as np
 
+from src.utils.dataset_utils import safe_mean
+
 FEATURE_SCHEMA_VERSION = "basic-162-v1"
 BASIC_FEATURE_DIM = 162
 HAND_FEATURE_DIM = 63
@@ -120,9 +122,6 @@ def get_basic_feature_columns() -> tuple[str, ...]:
     return BASIC_FEATURE_SCHEMA.columns
 
 
-_FEATURE_COLUMN_CACHE: dict[str, dict[str, list[str] | dict[str, int]]] = {}
-
-
 def extract_features(lm_df, feature_level: str = "basic") -> np.ndarray:
     """Extract mean-aggregated features from landmark DataFrame.
 
@@ -135,27 +134,13 @@ def extract_features(lm_df, feature_level: str = "basic") -> np.ndarray:
         numpy array of shape (feature_dim,)
     """
     feature_level = validate_feature_level(feature_level)
+    features = []
+
+    for col in BASIC_FEATURE_SCHEMA.columns:
+        if col in lm_df.columns:
+            features.append(safe_mean(lm_df[col]))
+        else:
+            features.append(0.0)
+
     feature_dim = FEATURE_LEVELS[feature_level]
-
-    if feature_level not in _FEATURE_COLUMN_CACHE:
-        ordered_cols = list(BASIC_FEATURE_SCHEMA.columns)[:feature_dim]
-        _FEATURE_COLUMN_CACHE[feature_level] = {
-            "cols": ordered_cols,
-            "col_to_idx": {col: i for i, col in enumerate(ordered_cols)},
-        }
-
-    cache = _FEATURE_COLUMN_CACHE[feature_level]
-    ordered_cols = cache["cols"]
-    col_to_idx = cache["col_to_idx"]
-
-    features = np.zeros(len(ordered_cols), dtype=np.float32)
-
-    # Intersection of expected columns vs actual dataframe columns
-    existing_cols = [col for col in ordered_cols if col in lm_df.columns]
-
-    if existing_cols:
-        means_dict = lm_df[existing_cols].mean().fillna(0.0).to_dict()
-        for col, val in means_dict.items():
-            features[col_to_idx[col]] = val  # type: ignore[index]
-
-    return features
+    return np.array(features[:feature_dim], dtype=np.float32)

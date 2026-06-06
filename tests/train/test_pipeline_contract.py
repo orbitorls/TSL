@@ -49,7 +49,7 @@ def test_pipeline_writes_canonical_training_artifacts(tmp_path: Path, monkeypatc
     dataset = _dataset(rows)
     calls: dict[str, Any] = {}
 
-    def fake_train_split_only(X, y, sample_ids, manifest, classes, **kwargs):
+    def fake_train_split_only(X, y, sample_ids, manifest, __classes, **kwargs):
         calls["augment_kwargs"] = kwargs
         train_ids = [row["sample_id"] for row in manifest["splits"]["train"]]
         val_ids = [row["sample_id"] for row in manifest["splits"]["val"]]
@@ -78,25 +78,25 @@ def test_pipeline_writes_canonical_training_artifacts(tmp_path: Path, monkeypatc
             self.config = config
             self.model = torch.nn.Linear(BASIC_FEATURE_DIM, len(CLASSES))
 
-        def train(self, X_train, y_train, X_val, y_val, classes, fold_idx=0):
-            calls["train_shape"] = X_train.shape
-            calls["val_shape"] = X_val.shape
-            calls["train_mean_after_norm"] = float(np.mean(X_train))
-            return {
-                "fold": fold_idx,
-                "val_acc": 75.0,
-                "val_f1_score": 70.0,
-                "val_macro_f1": 66.5,
-                "val_precision": 71.0,
-                "val_recall": 70.5,
-                "val_top3_acc": 85.0,
-                "val_top5_acc": 90.0,
-                "primary_metric_name": "macro_f1",
-                "primary_metric": 66.5,
-                "model_state": {"model_state_dict": self.model.state_dict(), "epoch": 0},
-                "per_class_metrics": {},
-                "confusion_matrix": [],
-            }
+        def train(self, X_train, _y_train, X_val, _y_val, _classes, fold_idx=0):
+                calls["train_shape"] = X_train.shape
+                calls["val_shape"] = X_val.shape
+                calls["train_mean_after_norm"] = float(np.mean(X_train))
+                return {
+                    "fold": fold_idx,
+                    "val_acc": 75.0,
+                    "val_f1_score": 70.0,
+                    "val_macro_f1": 66.5,
+                    "val_precision": 71.0,
+                    "val_recall": 70.5,
+                    "val_top3_acc": 85.0,
+                    "val_top5_acc": 90.0,
+                    "primary_metric_name": "macro_f1",
+                    "primary_metric": 66.5,
+                    "model_state": {"model_state_dict": self.model.state_dict(), "epoch": 0},
+                    "per_class_metrics": {},
+                    "confusion_matrix": [],
+                }
 
     monkeypatch.setattr(pipeline, "augment_train_split_only", fake_train_split_only)
     monkeypatch.setattr(pipeline, "Trainer", FakeTrainer)

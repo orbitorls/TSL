@@ -147,7 +147,6 @@ class TestModelEvaluation:
         y_true = sample_predictions['y_true']
         y_pred = sample_predictions['y_pred']
         n_classes = sample_predictions['n_classes']
-
         cm = confusion_matrix(y_true, y_pred, labels=range(n_classes))
 
         assert cm.shape == (n_classes, n_classes)
@@ -167,7 +166,6 @@ class TestModelEvaluation:
 
         # Per-class metrics
         precision = precision_score(y_true, y_pred, average=None, zero_division=0)
-        recall = recall_score(y_true, y_pred, average=None, zero_division=0)
         f1 = f1_score(y_true, y_pred, average=None, zero_division=0)
 
         # sklearn returns metrics only for classes present in data (y_true or y_pred)
@@ -387,7 +385,6 @@ class TestBenchmarkMetrics:
         """Test top-k accuracy."""
         y_true = sample_predictions['y_true']
         y_pred = sample_predictions['y_pred']
-        n_classes = sample_predictions['n_classes']
 
         # Simulate top-3 with confidence scores
         # Assuming true class is in top-3 ~98% of the time

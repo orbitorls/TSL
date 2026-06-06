@@ -71,7 +71,7 @@ def test_basic_extractors_use_identical_schema_order() -> None:
         lambda df: extract_features(df, "enhanced"),
         lambda df: extract_features_from_landmark_df(df, "enhanced"),
         lambda df: extract_sequence_from_landmark_df(df, "enhanced", target_frames=1),
-        lambda df: FeatureExtractor("enhanced"),
+        lambda _df: FeatureExtractor("enhanced"),
     ],
 )
 def test_enhanced_feature_level_is_explicitly_unsupported(call) -> None:
@@ -88,7 +88,7 @@ def test_augmentation_rejects_non_basic_feature_vectors_before_flip() -> None:
 
 
 def test_augmentation_flips_basic_schema_hands_only(monkeypatch) -> None:
-    monkeypatch.setattr(np.random, "choice", lambda choices: "flip")
+    monkeypatch.setattr(np.random, "choice", lambda _choices: "flip")
     X = np.arange(162, dtype=np.float32).reshape(1, 162)
     y = np.array([0])
 

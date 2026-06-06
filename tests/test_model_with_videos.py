@@ -6,13 +6,17 @@ This script tests the fixed model with videos and checks label overlap.
 
 # pyright: reportAttributeAccessIssue=false, reportIndexIssue=false
 
-import os
-import sys
+
 from pathlib import Path
 
 import cv2
 import pytest
 import torch
+
+from src.data.extractor import LANDMARK_VECTOR_DIM, extract_features, normalize_features
+from src.inference.camera_translate import ThaiSignTranslator
+
+PROJECT_DIR = Path(__file__).parent.parent
 
 pytestmark = [
     pytest.mark.manual,
@@ -21,19 +25,9 @@ pytestmark = [
     ),
 ]
 
-def configure_stdout_encoding():
-    """Enable UTF-8 console output for Thai text when run as a script."""
-    if sys.platform == 'win32' and hasattr(sys.stdout, "reconfigure"):
-        sys.stdout.reconfigure(encoding='utf-8', errors='replace')
+PROJECT_DIR = Path(__file__).resolve().parent.parent
 
-os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
-os.environ['TF_ENABLE_ONEDNN_OPTS'] = '0'
 
-PROJECT_DIR = Path(__file__).resolve().parent
-
-# Import model and extraction
-from src.data.extractor import LANDMARK_VECTOR_DIM, extract_features, normalize_features
-from src.inference.camera_translate import ThaiSignTranslator
 
 
 def get_label_from_filename(filename):
@@ -204,7 +198,6 @@ def process_video(video_path, translator, min_frames=60):
 
 
 if __name__ == "__main__":
-    configure_stdout_encoding()
     print("="*60)
     print("CHECKING LABEL OVERLAP")
     print("="*60 + "\n")

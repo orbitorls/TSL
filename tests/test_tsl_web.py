@@ -320,7 +320,6 @@ def test_tsl_web_defaults_sequence_mode_for_legacy_gru_checkpoint(monkeypatch):
         webapp.model = None
         webapp._model_load_error = None
         if ckpt_file.exists():
-            try:
+            import contextlib
+            with contextlib.suppress(OSError):
                 ckpt_file.unlink()
-            except OSError:
-                pass

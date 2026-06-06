@@ -5,10 +5,7 @@ from pathlib import Path
 from types import SimpleNamespace
 
 import numpy as np
-import pytest
 import torch
-
-pytestmark = pytest.mark.integration
 
 from src.core.features import BASIC_FEATURE_DIM
 from src.train.pipeline import run_training_pipeline
