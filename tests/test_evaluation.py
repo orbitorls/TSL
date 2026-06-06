@@ -10,15 +10,18 @@ Comprehensive tests for model evaluation including:
 
 # pyright: reportArgumentType=false, reportIndexIssue=false, reportCallIssue=false
 
+
 import numpy as np
 import pytest
 import torch
 from sklearn.metrics import (
-    accuracy_score, precision_score, recall_score, f1_score,
-    confusion_matrix, classification_report
+    accuracy_score,
+    classification_report,
+    confusion_matrix,
+    f1_score,
+    precision_score,
+    recall_score,
 )
-from pathlib import Path
-
 
 # Test configuration
 EXPECTED_CLASSES = 6
@@ -61,6 +64,7 @@ def test_checkpoint_path(tmp_path_factory):
 def trained_model(test_checkpoint_path):
     """Load trained model for evaluation."""
     import torch
+
     from src.core import GRUModel
 
     checkpoint = torch.load(test_checkpoint_path, map_location='cpu', weights_only=False)
@@ -143,7 +147,6 @@ class TestModelEvaluation:
         y_true = sample_predictions['y_true']
         y_pred = sample_predictions['y_pred']
         n_classes = sample_predictions['n_classes']
-
         cm = confusion_matrix(y_true, y_pred, labels=range(n_classes))
 
         assert cm.shape == (n_classes, n_classes)
@@ -163,7 +166,6 @@ class TestModelEvaluation:
 
         # Per-class metrics
         precision = precision_score(y_true, y_pred, average=None, zero_division=0)
-        recall = recall_score(y_true, y_pred, average=None, zero_division=0)
         f1 = f1_score(y_true, y_pred, average=None, zero_division=0)
 
         # sklearn returns metrics only for classes present in data (y_true or y_pred)
@@ -383,7 +385,6 @@ class TestBenchmarkMetrics:
         """Test top-k accuracy."""
         y_true = sample_predictions['y_true']
         y_pred = sample_predictions['y_pred']
-        n_classes = sample_predictions['n_classes']
 
         # Simulate top-3 with confidence scores
         # Assuming true class is in top-3 ~98% of the time

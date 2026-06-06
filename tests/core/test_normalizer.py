@@ -1,7 +1,7 @@
 """Tests for core normalizer module."""
 
 import numpy as np
-import pytest
+
 from src.core import Normalizer
 
 

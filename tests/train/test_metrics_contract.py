@@ -100,9 +100,9 @@ def test_trainer_prefers_macro_f1_over_accuracy_for_best_state(monkeypatch: pyte
     monkeypatch.setattr(
         Trainer,
         "_build_dataloaders",
-        lambda self, X_train, y_train, X_val, y_val: ([object()], [object()]),
+        lambda _self, _X_train, _y_train, _X_val, _y_val: ([object()], [object()]),
     )
-    monkeypatch.setattr(Trainer, "train_epoch", lambda self, loader, criterion, accumulation_steps=1: (0.1, 50.0))
+    monkeypatch.setattr(Trainer, "train_epoch", lambda _self, _loader, _criterion, _accumulation_steps=1: (0.1, 50.0))
 
     validation_returns = iter(
         [
@@ -111,7 +111,7 @@ def test_trainer_prefers_macro_f1_over_accuracy_for_best_state(monkeypatch: pyte
             (0.4, 75.0, np.array([0, 1, 2]), np.array([0, 1, 2]), np.eye(3)),
         ]
     )
-    monkeypatch.setattr(Trainer, "validate", lambda self, loader, criterion: next(validation_returns))
+    monkeypatch.setattr(Trainer, "validate", lambda _self, _loader, _criterion: next(validation_returns))
 
     def fake_setup_model(self, input_dim: int, num_classes: int) -> None:
         self.model = torch.nn.Linear(input_dim, num_classes)
@@ -160,7 +160,7 @@ def test_trainer_prefers_macro_f1_over_accuracy_for_best_state(monkeypatch: pyte
             },
         ]
     )
-    monkeypatch.setattr(trainer_module, "compute_metrics", lambda *args, **kwargs: next(metrics_by_call))
+    monkeypatch.setattr(trainer_module, "compute_metrics", lambda *_args, **_kwargs: next(metrics_by_call))
 
     result = trainer.train(X_train, y_train, X_val, y_val, CLASSES, fold_idx=0)
 
@@ -195,11 +195,11 @@ def test_trainer_best_state_snapshots_best_epoch_weights(monkeypatch: pytest.Mon
     X_val = np.zeros((3, BASIC_FEATURE_DIM), dtype=np.float32)
     y_val = np.array([0, 1, 2], dtype=np.int64)
 
-    monkeypatch.setattr(Trainer, "_build_dataloaders", lambda self, *args: ([object()], [object()]))
+    monkeypatch.setattr(Trainer, "_build_dataloaders", lambda _self, *_args: ([object()], [object()]))
 
     epoch_states: list[dict[str, torch.Tensor]] = []
 
-    def fake_train_epoch(self, loader, criterion, accumulation_steps=1):
+    def fake_train_epoch(self, _loader, _criterion, _accumulation_steps=1):
         with torch.no_grad():
             self.model.weight.fill_(float(len(epoch_states) + 1))
             self.model.bias.fill_(float(len(epoch_states) + 1))
@@ -215,7 +215,7 @@ def test_trainer_best_state_snapshots_best_epoch_weights(monkeypatch: pytest.Mon
             (0.4, 75.0, np.array([0, 1, 2]), np.array([0, 1, 2]), np.eye(3)),
         ]
     )
-    monkeypatch.setattr(Trainer, "validate", lambda self, loader, criterion: next(validation_returns))
+    monkeypatch.setattr(Trainer, "validate", lambda _self, _loader, _criterion: next(validation_returns))
 
     def fake_setup_model(self, input_dim: int, num_classes: int) -> None:
         self.model = torch.nn.Linear(input_dim, num_classes)
@@ -231,7 +231,7 @@ def test_trainer_best_state_snapshots_best_epoch_weights(monkeypatch: pytest.Mon
             {"accuracy": 92.0, "precision": 91.0, "recall": 90.0, "f1_score": 89.0, "top3_accuracy": 100.0, "top5_accuracy": 100.0, "per_class": {}, "confusion_matrix": np.eye(3, dtype=int), "most_confused": [], "macro": {"f1": 70.0}},
         ]
     )
-    monkeypatch.setattr(trainer_module, "compute_metrics", lambda *args, **kwargs: next(metrics_by_call))
+    monkeypatch.setattr(trainer_module, "compute_metrics", lambda *_args, **_kwargs: next(metrics_by_call))
 
     result = trainer.train(X_train, y_train, X_val, y_val, CLASSES, fold_idx=0)
 
@@ -267,7 +267,7 @@ def test_pipeline_rejects_incomplete_secondary_metrics_contract(
     rows = _rows()
     dataset = _dataset(rows)
 
-    def fake_train_split_only(X, y, sample_ids, manifest, classes, **kwargs):
+    def fake_train_split_only(X, y, sample_ids, manifest, _classes, **_kwargs):
         train_ids = [row["sample_id"] for row in manifest["splits"]["train"]]
         val_ids = [row["sample_id"] for row in manifest["splits"]["val"]]
         test_ids = [row["sample_id"] for row in manifest["splits"]["test"]]
@@ -291,7 +291,7 @@ def test_pipeline_rejects_incomplete_secondary_metrics_contract(
             self.config = config
             self.model = torch.nn.Linear(BASIC_FEATURE_DIM, len(CLASSES))
 
-        def train(self, X_train, y_train, X_val, y_val, classes, fold_idx=0):
+        def train(self, _X_train, _y_train, _X_val, _y_val, _classes, fold_idx=0):
             result = {
                 "fold": fold_idx,
                 "val_loss": 0.25,
@@ -325,7 +325,7 @@ def test_pipeline_rejects_missing_macro_f1_before_serialization(tmp_path: Path, 
     rows = _rows()
     dataset = _dataset(rows)
 
-    def fake_train_split_only(X, y, sample_ids, manifest, classes, **kwargs):
+    def fake_train_split_only(X, y, sample_ids, manifest, _classes, **_kwargs):
         train_ids = [row["sample_id"] for row in manifest["splits"]["train"]]
         val_ids = [row["sample_id"] for row in manifest["splits"]["val"]]
         test_ids = [row["sample_id"] for row in manifest["splits"]["test"]]
@@ -349,7 +349,7 @@ def test_pipeline_rejects_missing_macro_f1_before_serialization(tmp_path: Path, 
             self.config = config
             self.model = torch.nn.Linear(BASIC_FEATURE_DIM, len(CLASSES))
 
-        def train(self, X_train, y_train, X_val, y_val, classes, fold_idx=0):
+        def train(self, _X_train, _y_train, _X_val, _y_val, _classes, fold_idx=0):
             return {
                 "fold": fold_idx,
                 "val_acc": 84.0,
@@ -371,7 +371,7 @@ def test_pipeline_serializes_grouped_split_aware_metrics_contract(tmp_path: Path
     rows = _rows()
     dataset = _dataset(rows)
 
-    def fake_train_split_only(X, y, sample_ids, manifest, classes, **kwargs):
+    def fake_train_split_only(X, y, sample_ids, manifest, _classes, **_kwargs):
         train_ids = [row["sample_id"] for row in manifest["splits"]["train"]]
         val_ids = [row["sample_id"] for row in manifest["splits"]["val"]]
         test_ids = [row["sample_id"] for row in manifest["splits"]["test"]]
@@ -395,7 +395,7 @@ def test_pipeline_serializes_grouped_split_aware_metrics_contract(tmp_path: Path
             self.config = config
             self.model = torch.nn.Linear(BASIC_FEATURE_DIM, len(CLASSES))
 
-        def train(self, X_train, y_train, X_val, y_val, classes, fold_idx=0):
+        def train(self, _X_train, _y_train, _X_val, _y_val, _classes, fold_idx=0):
             return {
                 "fold": fold_idx,
                 "val_loss": 0.25,
