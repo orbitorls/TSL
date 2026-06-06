@@ -53,6 +53,9 @@ def _build_column_list(feature_level: str = "basic") -> list[str]:
     return cols[: get_feature_dim(feature_level)]
 
 
+_FEATURE_COLUMN_CACHE: dict[str, dict[str, list[str] | dict[str, int]]] = {}
+
+
 def extract_features_from_landmark_df(lm_df: Any, feature_level: str = "basic") -> np.ndarray:
     """Extract landmark features from a pandas DataFrame.
 
@@ -61,36 +64,52 @@ def extract_features_from_landmark_df(lm_df: Any, feature_level: str = "basic") 
     partial 162-dim vector for a claimed 249-dim schema.
     """
     feature_level = validate_feature_level(feature_level)
-    features = []
 
-    for col in BASIC_FEATURE_SCHEMA.columns:
-        if col in lm_df.columns:
-            features.append(safe_mean(lm_df[col]))
-        else:
-            features.append(0.0)
+    if feature_level not in _FEATURE_COLUMN_CACHE:
+        ordered_cols = list(BASIC_FEATURE_SCHEMA.columns)
+        if feature_level in ["finger", "full", "face"]:
+            finger_names = ["thumb", "index", "middle", "ring", "pinky"]
+            for hand_prefix in ["lh_", "rh_"]:
+                for finger in finger_names:
+                    for c in ["x", "y", "z"]:
+                        for joint in ["mcp", "pip", "dip"]:
+                            ordered_cols.append(f"{hand_prefix}{finger}_{joint}_{c}")
 
-    if feature_level in ["finger", "full", "face"]:
-        finger_names = ["thumb", "index", "middle", "ring", "pinky"]
-        for hand_prefix in ["lh_", "rh_"]:
-            for finger in finger_names:
+        if feature_level in ["full", "face"]:
+            for i in range(478):
                 for c in ["x", "y", "z"]:
-                    for joint in ["mcp", "pip", "dip"]:
-                        col = f"{hand_prefix}{finger}_{joint}_{c}"
-                        if col in lm_df.columns:
-                            features.append(safe_mean(lm_df[col]))
-                        else:
-                            features.append(0.0)
+                    ordered_cols.append(f"face_{c}{i}")
 
-    if feature_level in ["full", "face"]:
-        for i in range(478):
-            for c in ["x", "y", "z"]:
-                col = f"face_{c}{i}"
-                if col in lm_df.columns:
-                    features.append(safe_mean(lm_df[col]))
-                else:
-                    features.append(0.0)
+        expected_dim = get_feature_dim(feature_level)
+        ordered_cols = ordered_cols[:expected_dim]
+        _FEATURE_COLUMN_CACHE[feature_level] = {
+            "cols": ordered_cols,
+            "col_to_idx": {col: i for i, col in enumerate(ordered_cols)},
+        }
 
-    return np.array(features[: get_feature_dim(feature_level)], dtype=np.float32)
+    cache = _FEATURE_COLUMN_CACHE[feature_level]
+    ordered_cols = cache["cols"]
+    col_to_idx = cache["col_to_idx"]
+
+    features = np.zeros(len(ordered_cols), dtype=np.float32)
+
+    # Intersection of expected columns vs actual dataframe columns
+    # We use a list comprehension since lm_df might be a dict/other in tests sometimes
+    if hasattr(lm_df, "columns"):
+        existing_cols = [col for col in ordered_cols if col in lm_df.columns]
+    else:
+        existing_cols = [col for col in ordered_cols if col in lm_df]
+
+    if existing_cols and hasattr(lm_df, "mean"): # typically Pandas DataFrame
+        means_dict = lm_df[existing_cols].mean().fillna(0.0).to_dict()
+        for col, val in means_dict.items():
+            features[col_to_idx[col]] = val  # type: ignore[index]
+    else:
+        # Fallback for non-pandas dicts/mock objects in tests
+        for col in existing_cols:
+            features[col_to_idx[col]] = safe_mean(lm_df[col])  # type: ignore[index]
+
+    return features
 
 
 class FeatureExtractor:
