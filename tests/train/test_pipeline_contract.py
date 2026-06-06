@@ -2,16 +2,15 @@ from __future__ import annotations
 
 import ast
 import json
-from typing import Any
 from pathlib import Path
 from types import SimpleNamespace
+from typing import Any
 
 import numpy as np
 import pytest
 import torch
 
 from src.core.features import BASIC_FEATURE_DIM
-
 
 CLASSES = np.array(["hello", "thanks", "water"])
 LABEL_TO_INDEX = {label: idx for idx, label in enumerate(CLASSES.tolist())}
@@ -88,9 +87,15 @@ def test_pipeline_writes_canonical_training_artifacts(tmp_path: Path, monkeypatc
                 "val_acc": 75.0,
                 "val_f1_score": 70.0,
                 "val_macro_f1": 66.5,
+                "val_precision": 71.0,
+                "val_recall": 70.5,
+                "val_top3_acc": 85.0,
+                "val_top5_acc": 90.0,
                 "primary_metric_name": "macro_f1",
                 "primary_metric": 66.5,
                 "model_state": {"model_state_dict": self.model.state_dict(), "epoch": 0},
+                "per_class_metrics": {},
+                "confusion_matrix": [],
             }
 
     monkeypatch.setattr(pipeline, "augment_train_split_only", fake_train_split_only)

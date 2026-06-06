@@ -25,7 +25,7 @@ class TestModelRegistryConsistency:
             assert cls is core_registry[name]
 
     def test_get_model_fallback(self):
-        from src.core.models import get_model, GRUModel
+        from src.core.models import GRUModel, get_model
 
         assert get_model("gru") is GRUModel
         assert get_model("nonexistent") is GRUModel
@@ -93,7 +93,7 @@ class TestImportPaths:
         assert hasattr(src, "MODEL_REGISTRY")
 
     def test_import_from_src_core(self):
-        from src.core import GRUModel, MLPModel, FEATURE_LEVELS, MODEL_REGISTRY
+        from src.core import FEATURE_LEVELS, MODEL_REGISTRY, GRUModel, MLPModel
 
         assert GRUModel is not None
         assert MLPModel is not None
@@ -101,7 +101,7 @@ class TestImportPaths:
         assert "gru" in MODEL_REGISTRY
 
     def test_import_from_src_train(self):
-        from src.train import TrainingConfig, MODEL_CLASSES
+        from src.train import MODEL_CLASSES, TrainingConfig
 
         assert TrainingConfig is not None
         assert "gru" in MODEL_CLASSES
