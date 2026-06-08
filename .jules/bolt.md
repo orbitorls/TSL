@@ -1,3 +1,3 @@
-## 2024-05-18 - Pandas Data Extraction Bottleneck
-**Learning:** Iterating over columns and individually computing `.mean()` using `safe_mean` on a Pandas DataFrame in a hot path causes significant overhead (~1.04s per 100 calls for 162 columns) because of Python iteration and repeatedly entering/exiting C-level pandas code.
-**Action:** Replace iterative column access with vectorized pandas operations like `lm_df[cols].mean().fillna(0.0).to_dict()` whenever computing aggregate statistics across many columns. This yields a ~10x speedup while preserving missing-value fallback semantics.
+## 2024-05-18 - FakeTrainer Missing Validation Metrics in Tests
+**Learning:** In `tests/train/test_pipeline_contract.py`, the `FakeTrainer` mock fails to return all metrics required by `evaluator.py`, such as `val_precision`, `val_recall`, `val_top3_acc`, `val_top5_acc`, `per_class_metrics`, and `confusion_matrix`. This causes a `PipelineConfigError: training result contract requires 'val_precision' before checkpoint selection`.
+**Action:** Update the `FakeTrainer` mock in the tests to return dummy values for all these missing metrics to ensure it correctly fulfills the contract.
