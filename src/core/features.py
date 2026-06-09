@@ -12,8 +12,6 @@ from types import MappingProxyType
 
 import numpy as np
 
-from src.utils.dataset_utils import safe_mean
-
 FEATURE_SCHEMA_VERSION = "basic-162-v1"
 BASIC_FEATURE_DIM = 162
 HAND_FEATURE_DIM = 63
@@ -122,6 +120,9 @@ def get_basic_feature_columns() -> tuple[str, ...]:
     return BASIC_FEATURE_SCHEMA.columns
 
 
+# Module-level cache to avoid recomputing columns lists on every function call.
+_FEATURE_COLUMN_CACHE: dict[str, list[str]] = {}
+
 def extract_features(lm_df, feature_level: str = "basic") -> np.ndarray:
     """Extract mean-aggregated features from landmark DataFrame.
 
@@ -134,13 +135,21 @@ def extract_features(lm_df, feature_level: str = "basic") -> np.ndarray:
         numpy array of shape (feature_dim,)
     """
     feature_level = validate_feature_level(feature_level)
-    features = []
 
-    for col in BASIC_FEATURE_SCHEMA.columns:
-        if col in lm_df.columns:
-            features.append(safe_mean(lm_df[col]))
-        else:
-            features.append(0.0)
+    # Pre-determine required columns and cache them
+    if feature_level not in _FEATURE_COLUMN_CACHE:
+        _FEATURE_COLUMN_CACHE[feature_level] = list(BASIC_FEATURE_SCHEMA.columns)
+
+    required_cols = _FEATURE_COLUMN_CACHE[feature_level]
+
+    # Use vectorized operations to compute means significantly faster than loop with safe_mean
+    available_cols = lm_df.columns.intersection(required_cols)
+    if len(available_cols) > 0:
+        means = lm_df[available_cols].mean().fillna(0.0).to_dict()
+    else:
+        means = {}
+
+    features = [means.get(col, 0.0) for col in required_cols]
 
     feature_dim = FEATURE_LEVELS[feature_level]
     return np.array(features[:feature_dim], dtype=np.float32)

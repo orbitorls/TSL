@@ -1,6 +1,5 @@
 """Video inference with sliding window and temporal smoothing."""
 
-import numpy as np
 
 
 class VideoInference:

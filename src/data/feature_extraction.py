@@ -15,7 +15,6 @@ from src.core.features import (
     get_feature_dim,
     validate_feature_level,
 )
-from src.utils.dataset_utils import safe_mean
 
 FEATURE_DIMS = FEATURE_LEVELS
 
@@ -53,6 +52,9 @@ def _build_column_list(feature_level: str = "basic") -> list[str]:
     return cols[: get_feature_dim(feature_level)]
 
 
+# Module-level cache to avoid redundant list formatting on every function call.
+_FEATURE_COLUMN_CACHE: dict[str, list[str]] = {}
+
 def extract_features_from_landmark_df(lm_df: Any, feature_level: str = "basic") -> np.ndarray:
     """Extract landmark features from a pandas DataFrame.
 
@@ -61,34 +63,37 @@ def extract_features_from_landmark_df(lm_df: Any, feature_level: str = "basic") 
     partial 162-dim vector for a claimed 249-dim schema.
     """
     feature_level = validate_feature_level(feature_level)
-    features = []
 
-    for col in BASIC_FEATURE_SCHEMA.columns:
-        if col in lm_df.columns:
-            features.append(safe_mean(lm_df[col]))
-        else:
-            features.append(0.0)
+    if feature_level not in _FEATURE_COLUMN_CACHE:
+        cols = list(BASIC_FEATURE_SCHEMA.columns)
+        if feature_level in ["finger", "full", "face"]:
+            finger_names = ["thumb", "index", "middle", "ring", "pinky"]
+            for hand_prefix in ["lh_", "rh_"]:
+                for finger in finger_names:
+                    for c in ["x", "y", "z"]:
+                        for joint in ["mcp", "pip", "dip"]:
+                            cols.append(f"{hand_prefix}{finger}_{joint}_{c}")
 
-    if feature_level in ["finger", "full", "face"]:
-        finger_names = ["thumb", "index", "middle", "ring", "pinky"]
-        for hand_prefix in ["lh_", "rh_"]:
-            for finger in finger_names:
+        if feature_level in ["full", "face"]:
+            for i in range(478):
                 for c in ["x", "y", "z"]:
-                    for joint in ["mcp", "pip", "dip"]:
-                        col = f"{hand_prefix}{finger}_{joint}_{c}"
-                        if col in lm_df.columns:
-                            features.append(safe_mean(lm_df[col]))
-                        else:
-                            features.append(0.0)
+                    cols.append(f"face_{c}{i}")
+        _FEATURE_COLUMN_CACHE[feature_level] = cols
 
-    if feature_level in ["full", "face"]:
-        for i in range(478):
-            for c in ["x", "y", "z"]:
-                col = f"face_{c}{i}"
-                if col in lm_df.columns:
-                    features.append(safe_mean(lm_df[col]))
-                else:
-                    features.append(0.0)
+    required_cols = _FEATURE_COLUMN_CACHE[feature_level]
+
+    # Use vectorized operations to compute means significantly faster than iterative safe_mean
+    if hasattr(lm_df, "columns"):
+        available_cols = lm_df.columns.intersection(required_cols)
+        if len(available_cols) > 0:
+            means = lm_df[available_cols].mean().fillna(0.0).to_dict()
+        else:
+            means = {}
+    else:
+        # Fallback if lm_df is not a pandas DataFrame but still dictionary-like
+        means = {}
+
+    features = [means.get(col, 0.0) for col in required_cols]
 
     return np.array(features[: get_feature_dim(feature_level)], dtype=np.float32)
 
