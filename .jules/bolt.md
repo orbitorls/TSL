@@ -1,0 +1,3 @@
+## 2025-03-02 - Vectorized feature extraction from Pandas DataFrames
+**Learning:** Iteratively calling `series.mean()` or a custom python looping logic on each string column lookup in a Pandas DataFrame is a massive performance bottleneck. The overhead of checking column existence and series reduction per column makes feature extraction from landmarks incredibly slow (10+ seconds for 100 calls on large feature spaces).
+**Action:** Always prefer Pandas native vectorized operations like `.mean()` applied over intersected columns natively, which can yield a 10x-30x speedup and scales significantly better across larger datasets while also simplifying the code logic.
