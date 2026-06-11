@@ -77,7 +77,6 @@ def test_pipeline_writes_canonical_training_artifacts(tmp_path: Path, monkeypatc
     class FakeTrainer:
         def __init__(self, config):
             self.config = config
-            self.model = torch.nn.Linear(BASIC_FEATURE_DIM, len(CLASSES))
 
         def train(self, X_train, y_train, X_val, y_val, classes, fold_idx=0):
             calls["train_shape"] = X_train.shape
@@ -88,9 +87,15 @@ def test_pipeline_writes_canonical_training_artifacts(tmp_path: Path, monkeypatc
                 "val_acc": 75.0,
                 "val_f1_score": 70.0,
                 "val_macro_f1": 66.5,
+                    "val_precision": 72.0,
+                    "val_recall": 68.0,
+                    "val_top3_acc": 85.0,
+                    "val_top5_acc": 90.0,
                 "primary_metric_name": "macro_f1",
                 "primary_metric": 66.5,
-                "model_state": {"model_state_dict": self.model.state_dict(), "epoch": 0},
+                    "per_class_metrics": {},
+                    "confusion_matrix": [],
+                    "model_state": {"model_state_dict": {"layer.weight": [1.0]}, "epoch": 0},
             }
 
     monkeypatch.setattr(pipeline, "augment_train_split_only", fake_train_split_only)
