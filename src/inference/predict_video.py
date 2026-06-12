@@ -13,7 +13,6 @@ from __future__ import annotations
 import argparse
 from pathlib import Path
 
-import numpy as np
 import torch
 
 from src.core.models import MLP, MOPGRU, GRUModel, HybridGRUTransformer
