@@ -12,8 +12,6 @@ from typing import Any
 import numpy as np
 import pandas as pd
 
-from src.utils.dataset_utils import safe_mean
-
 logger = logging.getLogger(__name__)
 
 # Cache directory
@@ -74,12 +72,10 @@ def _extract_162_features(lm_df):
     Returns:
         numpy array of 162 features (mean-aggregated across frames)
     """
-    features = []
-    for col in _162_COLUMNS:
-        if col in lm_df.columns:
-            features.append(safe_mean(lm_df[col]))
-        else:
-            features.append(0.0)
+    available_cols = lm_df.columns.intersection(_162_COLUMNS)
+    means = lm_df[available_cols].mean().fillna(0.0).to_dict()
+
+    features = [means.get(col, 0.0) for col in _162_COLUMNS]
     return np.nan_to_num(np.array(features, dtype=np.float32))
 
 
@@ -98,10 +94,13 @@ def _extract_162_sequence(lm_df, target_frames: int = 30) -> np.ndarray:
         return np.zeros((target_frames, 162), dtype=np.float32)
 
     seq = np.zeros((n_frames, 162), dtype=np.float32)
-    for j, col in enumerate(_162_COLUMNS):
-        if col in lm_df.columns:
-            vals = lm_df[col].fillna(0.0).to_numpy(dtype=np.float32)
-            seq[:, j] = vals
+
+    available_cols = lm_df.columns.intersection(_162_COLUMNS)
+    col_to_idx = {col: i for i, col in enumerate(_162_COLUMNS)}
+    indices_cols = [col_to_idx[col] for col in available_cols]
+
+    if len(indices_cols) > 0:
+        seq[:, indices_cols] = lm_df[available_cols].fillna(0.0).values
 
     indices = np.linspace(0, n_frames - 1, target_frames).astype(int)
     return seq[indices]
