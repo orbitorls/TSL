@@ -191,7 +191,7 @@ def _normalise_dataset(dataset: Any, classes: np.ndarray) -> tuple[np.ndarray, n
 
 def _rows_from_labels(y: np.ndarray, classes: np.ndarray, sample_ids: list[str]) -> list[dict[str, Any]]:
     rows = []
-    for idx, (label_idx, sample_id) in enumerate(zip(y, sample_ids, strict=False)):
+    for _idx, (label_idx, sample_id) in enumerate(zip(y, sample_ids, strict=False)):
         label = str(classes[int(label_idx)]) if 0 <= int(label_idx) < len(classes) else str(label_idx)
         rows.append(
             {
@@ -207,10 +207,7 @@ def _rows_from_labels(y: np.ndarray, classes: np.ndarray, sample_ids: list[str])
 
 def _fit_normalizer(train_X: np.ndarray) -> tuple[Normalizer, np.ndarray, np.ndarray]:
     normalizer = Normalizer()
-    if train_X.ndim == 3:
-        flattened = train_X.reshape(-1, train_X.shape[-1])
-    else:
-        flattened = train_X
+    flattened = train_X.reshape(-1, train_X.shape[-1]) if train_X.ndim == 3 else train_X
     normalizer.fit(flattened)
     mean = np.asarray(normalizer.mean, dtype=np.float32)
     std = np.asarray(normalizer.std, dtype=np.float32)
