@@ -11,7 +11,6 @@ import torch
 from src.train.config import get_config_from_args
 from src.train.pipeline import run_training_pipeline
 
-
 SUPPORTED_PRIMARY_METRICS = ("macro_f1",)
 
 
