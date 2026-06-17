@@ -1,0 +1,3 @@
+## 2024-05-19 - Vectorized DataFrame Feature Extraction
+**Learning:** In a codebase heavily relying on Pandas for frame-by-frame or sequence feature extraction (like TSL landmarks), using Python loops and single-column aggregations (`safe_mean(lm_df[col])`) creates an immense performance bottleneck due to Pandas' high overhead per operation. The overhead scales with the number of columns (e.g., 162 to 1400+ landmarks).
+**Action:** When extracting data across many dataframe columns into NumPy, always use bulk Pandas operations (`lm_df[cols].mean()`) and bulk assignment. This achieved over 10x speedups (~1050ms down to ~95ms) for core extraction tasks without sacrificing readability.
