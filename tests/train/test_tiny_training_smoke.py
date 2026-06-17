@@ -13,7 +13,6 @@ pytestmark = pytest.mark.integration
 from src.core.features import BASIC_FEATURE_DIM
 from src.train.pipeline import run_training_pipeline
 
-
 CLASSES = np.array(["hello", "thanks", "water", "yes", "no", "sorry"])
 LABEL_TO_INDEX = {label: idx for idx, label in enumerate(CLASSES.tolist())}
 

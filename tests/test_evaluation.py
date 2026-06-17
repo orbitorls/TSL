@@ -10,15 +10,18 @@ Comprehensive tests for model evaluation including:
 
 # pyright: reportArgumentType=false, reportIndexIssue=false, reportCallIssue=false
 
+
 import numpy as np
 import pytest
 import torch
 from sklearn.metrics import (
-    accuracy_score, precision_score, recall_score, f1_score,
-    confusion_matrix, classification_report
+    accuracy_score,
+    classification_report,
+    confusion_matrix,
+    f1_score,
+    precision_score,
+    recall_score,
 )
-from pathlib import Path
-
 
 # Test configuration
 EXPECTED_CLASSES = 6
@@ -61,6 +64,7 @@ def test_checkpoint_path(tmp_path_factory):
 def trained_model(test_checkpoint_path):
     """Load trained model for evaluation."""
     import torch
+
     from src.core import GRUModel
 
     checkpoint = torch.load(test_checkpoint_path, map_location='cpu', weights_only=False)
