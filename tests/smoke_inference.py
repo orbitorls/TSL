@@ -71,8 +71,9 @@ def main():
         predictor = None
         try:
             # suppress prints from predictor init
-            import io
             import contextlib
+            import io
+
             from src.inference.runner import TSLPredictor
             with contextlib.redirect_stdout(io.StringIO()):
                 predictor = TSLPredictor(CKPT_PATH, device=torch.device('cpu'))
