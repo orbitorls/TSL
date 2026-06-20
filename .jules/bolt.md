@@ -1,0 +1,4 @@
+## 2024-05-14 - Vectorized Pandas column extraction
+
+**Learning:** When extracting features dynamically from DataFrames mapped by specific column names, utilizing iterative loops calling `safe_mean` creates a massive $O(N)$ Python loop dispatch bottleneck. In environments where datasets may map thousands of landmark coordinates, iterating iteratively takes ~1s for 100 loops of a few columns.
+**Action:** Always prefer utilizing `.intersection()` to match column existence, paired with single block vectorized evaluation via `lm_df[cols].mean(numeric_only=True).fillna(0.0).to_dict()`. Alternatively for sequence data mapped frame-by-frame (e.g. `(N_frames, feature_dim)` arrays), mapping indices from `.index(col)` and assigning via block `.to_numpy()` mapping speeds up array construction by ~13-14x.
