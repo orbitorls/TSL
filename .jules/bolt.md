@@ -1,0 +1,3 @@
+## 2024-05-24 - Pandas Feature Extraction Bottleneck
+**Learning:** Iterating over columns to check for their existence and calling `.fillna(0.0).to_numpy()` per column when extracting features from a pandas DataFrame is highly inefficient, resulting in a ~7-25x slowdown. Similarly, using slow iterative list building with `safe_mean` instead of `.mean(numeric_only=True)` is slow.
+**Action:** Use `.intersection()` with cached expected column lists to bulk-identify present columns, and execute bulk NumPy extraction and Pandas vectorized `.mean()` assignments directly by mapping available columns to their expected indices.
