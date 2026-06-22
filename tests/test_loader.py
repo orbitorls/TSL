@@ -1,10 +1,9 @@
 """Tests for data loading functionality."""
 
-import numpy as np
-import pytest
-from unittest.mock import patch, MagicMock
 
-from src.data.loader import validate_dataset, print_dataset_quality_report
+import numpy as np
+
+from src.data.loader import print_dataset_quality_report, validate_dataset
 
 
 class TestDatasetValidation:

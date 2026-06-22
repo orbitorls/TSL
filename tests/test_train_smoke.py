@@ -2,11 +2,10 @@
 
 import unittest
 
-import numpy as np
 import torch
 import torch.nn as nn
 
-from src.train.models import GRUModel, MLP
+from src.train.models import MLP, GRUModel
 
 
 class TrainSmokeTest(unittest.TestCase):

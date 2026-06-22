@@ -4,11 +4,12 @@ from __future__ import annotations
 
 import json
 import math
+from collections.abc import Mapping
 from dataclasses import asdict, is_dataclass
 from datetime import datetime
 from pathlib import Path
 from types import SimpleNamespace
-from typing import Any, Mapping
+from typing import Any
 
 import numpy as np
 import torch
@@ -29,7 +30,6 @@ from src.train.evaluator import save_results
 from src.train.preprocessing import save_training_preprocessing_manifest
 from src.train.splits import build_grouped_split_manifest
 from src.train.trainer import Trainer
-
 
 PRIMARY_METRIC_NAME = "macro_f1"
 GROUPED_SPLIT_STRATEGIES = frozenset({"video_family_grouped", "video_family_holdout"})
@@ -166,8 +166,8 @@ def _load_dataset(config: Any) -> SimpleNamespace:
 
 
 def _normalise_dataset(dataset: Any, classes: np.ndarray) -> tuple[np.ndarray, np.ndarray, list[str], list[dict[str, Any]]]:
-    X = np.asarray(getattr(dataset, "X"), dtype=np.float32)
-    y = np.asarray(getattr(dataset, "y"), dtype=np.int64)
+    X = np.asarray(dataset.X, dtype=np.float32)
+    y = np.asarray(dataset.y, dtype=np.int64)
     if X.ndim not in (2, 3):
         raise PipelineConfigError("X must be shaped (n_samples, 162) or (n_samples, T, 162)")
     if X.shape[-1] != BASIC_FEATURE_DIM:
@@ -379,7 +379,7 @@ def run_training_pipeline(config: Any, *, dataset: Any | None = None) -> dict[st
     requested_split_strategy = _resolve_split_strategy(config)
 
     dataset_obj = dataset if dataset is not None else _load_dataset(config)
-    classes = np.asarray(getattr(dataset_obj, "classes"))
+    classes = np.asarray(dataset_obj.classes)
     X, y, sample_ids, rows = _normalise_dataset(dataset_obj, classes)
 
     dataset_name = str(_cfg(config, "dataset", training_config.dataset))

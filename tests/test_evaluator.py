@@ -4,16 +4,16 @@ import numpy as np
 import pytest
 
 from src.train.evaluator import (
-    compute_metrics,
-    aggregate_fold_results,
     METRIC_ACCURACY,
+    METRIC_CONFUSION_MATRIX,
+    METRIC_F1,
+    METRIC_PER_CLASS,
     METRIC_PRECISION,
     METRIC_RECALL,
-    METRIC_F1,
     METRIC_TOP3_ACC,
     METRIC_TOP5_ACC,
-    METRIC_PER_CLASS,
-    METRIC_CONFUSION_MATRIX,
+    aggregate_fold_results,
+    compute_metrics,
 )
 
 
