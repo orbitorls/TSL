@@ -1,8 +1,8 @@
 """Tests for core models module."""
 
 import torch
-import pytest
-from src.core import GRUModel, MLPModel, MODEL_REGISTRY, get_model
+
+from src.core import MODEL_REGISTRY, GRUModel, MLPModel, get_model
 
 
 def test_gru_forward():

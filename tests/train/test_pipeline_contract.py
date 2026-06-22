@@ -2,16 +2,15 @@ from __future__ import annotations
 
 import ast
 import json
-from typing import Any
 from pathlib import Path
 from types import SimpleNamespace
+from typing import Any
 
 import numpy as np
 import pytest
 import torch
 
 from src.core.features import BASIC_FEATURE_DIM
-
 
 CLASSES = np.array(["hello", "thanks", "water"])
 LABEL_TO_INDEX = {label: idx for idx, label in enumerate(CLASSES.tolist())}
