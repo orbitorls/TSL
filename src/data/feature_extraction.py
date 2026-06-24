@@ -61,34 +61,18 @@ def extract_features_from_landmark_df(lm_df: Any, feature_level: str = "basic") 
     partial 162-dim vector for a claimed 249-dim schema.
     """
     feature_level = validate_feature_level(feature_level)
-    features = []
 
-    for col in BASIC_FEATURE_SCHEMA.columns:
-        if col in lm_df.columns:
-            features.append(safe_mean(lm_df[col]))
-        else:
-            features.append(0.0)
+    # Pre-compute ordered column list for the requested level
+    expected_cols = _build_column_list(feature_level)
 
-    if feature_level in ["finger", "full", "face"]:
-        finger_names = ["thumb", "index", "middle", "ring", "pinky"]
-        for hand_prefix in ["lh_", "rh_"]:
-            for finger in finger_names:
-                for c in ["x", "y", "z"]:
-                    for joint in ["mcp", "pip", "dip"]:
-                        col = f"{hand_prefix}{finger}_{joint}_{c}"
-                        if col in lm_df.columns:
-                            features.append(safe_mean(lm_df[col]))
-                        else:
-                            features.append(0.0)
+    # Vectorized mean across all available columns
+    available_cols = lm_df.columns.intersection(expected_cols)
+    if not available_cols.empty:
+        means = lm_df[available_cols].mean(numeric_only=True).fillna(0.0).to_dict()
+    else:
+        means = {}
 
-    if feature_level in ["full", "face"]:
-        for i in range(478):
-            for c in ["x", "y", "z"]:
-                col = f"face_{c}{i}"
-                if col in lm_df.columns:
-                    features.append(safe_mean(lm_df[col]))
-                else:
-                    features.append(0.0)
+    features = [means.get(col, 0.0) for col in expected_cols]
 
     return np.array(features[: get_feature_dim(feature_level)], dtype=np.float32)
 
