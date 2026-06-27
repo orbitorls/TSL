@@ -66,7 +66,7 @@ _162_COLUMNS = _build_162_column_list()
 
 
 def _extract_162_features(lm_df):
-    """Extract 162 features (hand + pose) from landmark dataframe.
+    """Extract mean features strictly for the 162-dim basic schema.
 
     Args:
         lm_df: Pandas DataFrame with landmark columns
@@ -74,12 +74,13 @@ def _extract_162_features(lm_df):
     Returns:
         numpy array of 162 features (mean-aggregated across frames)
     """
-    features = []
-    for col in _162_COLUMNS:
-        if col in lm_df.columns:
-            features.append(safe_mean(lm_df[col]))
-        else:
-            features.append(0.0)
+    available_cols = lm_df.columns.intersection(_162_COLUMNS)
+    if len(available_cols) > 0:
+        means = lm_df[available_cols].mean(numeric_only=True).fillna(0.0).to_dict()
+    else:
+        means = {}
+
+    features = [float(means.get(c, 0.0)) for c in _162_COLUMNS]
     return np.nan_to_num(np.array(features, dtype=np.float32))
 
 
@@ -98,10 +99,22 @@ def _extract_162_sequence(lm_df, target_frames: int = 30) -> np.ndarray:
         return np.zeros((target_frames, 162), dtype=np.float32)
 
     seq = np.zeros((n_frames, 162), dtype=np.float32)
+
+    df_cols = set(lm_df.columns)
+    present_cols = []
+    col_indices = []
+
     for j, col in enumerate(_162_COLUMNS):
-        if col in lm_df.columns:
-            vals = lm_df[col].fillna(0.0).to_numpy(dtype=np.float32)
-            seq[:, j] = vals
+        if col in df_cols:
+            present_cols.append(col)
+            col_indices.append(j)
+
+    if present_cols:
+        seq[:, col_indices] = lm_df[present_cols].fillna(0.0).to_numpy(dtype=np.float32)
+
+    # Uniform resampling
+    if n_frames == target_frames:
+        return seq
 
     indices = np.linspace(0, n_frames - 1, target_frames).astype(int)
     return seq[indices]
