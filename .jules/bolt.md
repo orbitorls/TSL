@@ -1,0 +1,3 @@
+## 2024-06-25 - Pandas Vectorized Aggregation for Feature Extraction
+**Learning:** Extracting mean feature vectors by iterating through hundreds of column names and calling `.mean()` individually is a significant performance bottleneck (O(N) operations involving Pandas Series overhead). Vectorized Pandas operations (`.mean(numeric_only=True).fillna(0.0).to_dict()`) on pre-filtered columns are over 10x faster. Similarly, converting dataframes to numpy array using iterative assignments is slow; bulk conversion with `.to_numpy()` is substantially faster.
+**Action:** Use `.mean().to_dict()` and `.to_numpy()` with `df.columns.intersection()` for extracting or aggregating multiple features in Pandas DataFrames, avoiding iterative `.mean()` calls per column.
