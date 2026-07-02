@@ -15,7 +15,6 @@ from src.core.features import (
     get_feature_dim,
     validate_feature_level,
 )
-from src.utils.dataset_utils import safe_mean
 
 FEATURE_DIMS = FEATURE_LEVELS
 
@@ -36,22 +35,34 @@ _POSE_LANDMARK_NAMES = [
 ]
 
 
+_FEATURE_COLUMN_CACHE: dict[str, list[str]] = {}
+
 def _build_column_list(feature_level: str = "basic") -> list[str]:
-    """Build the ordered list of column names for a supported feature level."""
+    """Build the expected list of column names for a given feature level.
+    Results are cached in _FEATURE_COLUMN_CACHE to avoid redundant string formatting.
+    """
     feature_level = validate_feature_level(feature_level)
+    if feature_level in _FEATURE_COLUMN_CACHE:
+        return _FEATURE_COLUMN_CACHE[feature_level]
+
     cols = list(BASIC_FEATURE_SCHEMA.columns)
+
     if feature_level in ["finger", "full", "face"]:
+        finger_names = ["thumb", "index", "middle", "ring", "pinky"]
         for hand_prefix in ["lh_", "rh_"]:
-            for finger in ["thumb", "index", "middle", "ring", "pinky"]:
+            for finger in finger_names:
                 for c in ["x", "y", "z"]:
                     for joint in ["mcp", "pip", "dip"]:
                         cols.append(f"{hand_prefix}{finger}_{joint}_{c}")
+
     if feature_level in ["full", "face"]:
         for i in range(478):
             for c in ["x", "y", "z"]:
                 cols.append(f"face_{c}{i}")
-    return cols[: get_feature_dim(feature_level)]
 
+    cols = cols[: get_feature_dim(feature_level)]
+    _FEATURE_COLUMN_CACHE[feature_level] = cols
+    return cols
 
 def extract_features_from_landmark_df(lm_df: Any, feature_level: str = "basic") -> np.ndarray:
     """Extract landmark features from a pandas DataFrame.
@@ -61,34 +72,15 @@ def extract_features_from_landmark_df(lm_df: Any, feature_level: str = "basic") 
     partial 162-dim vector for a claimed 249-dim schema.
     """
     feature_level = validate_feature_level(feature_level)
-    features = []
 
-    for col in BASIC_FEATURE_SCHEMA.columns:
-        if col in lm_df.columns:
-            features.append(safe_mean(lm_df[col]))
-        else:
-            features.append(0.0)
+    # ⚡ Performance Optimization: Vectorized mean calculation & Cached columns
+    # Eliminates redundant string formatting and replaces slow iterative safe_mean calls
+    expected_cols = _build_column_list(feature_level)
+    avail_cols = [c for c in expected_cols if c in lm_df.columns]
 
-    if feature_level in ["finger", "full", "face"]:
-        finger_names = ["thumb", "index", "middle", "ring", "pinky"]
-        for hand_prefix in ["lh_", "rh_"]:
-            for finger in finger_names:
-                for c in ["x", "y", "z"]:
-                    for joint in ["mcp", "pip", "dip"]:
-                        col = f"{hand_prefix}{finger}_{joint}_{c}"
-                        if col in lm_df.columns:
-                            features.append(safe_mean(lm_df[col]))
-                        else:
-                            features.append(0.0)
+    means = lm_df[avail_cols].mean(numeric_only=True).fillna(0.0).to_dict() if avail_cols else {}
 
-    if feature_level in ["full", "face"]:
-        for i in range(478):
-            for c in ["x", "y", "z"]:
-                col = f"face_{c}{i}"
-                if col in lm_df.columns:
-                    features.append(safe_mean(lm_df[col]))
-                else:
-                    features.append(0.0)
+    features = [means.get(col, 0.0) for col in expected_cols]
 
     return np.array(features[: get_feature_dim(feature_level)], dtype=np.float32)
 

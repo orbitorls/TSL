@@ -73,7 +73,7 @@ tsl_web = ["templates/*.html", "static/*", "models/*"]
 [tool.ruff]
 target-version = "py310"
 line-length = 100
-select = [
+lint.select = [
     "E",   # pycodestyle errors
     "W",   # pycodestyle warnings
     "F",   # pyflakes
@@ -84,13 +84,13 @@ select = [
     "ARG", # flake8-unused-arguments
     "SIM", # flake8-simplify
 ]
-ignore = [
+lint.ignore = [
     "E501",  # line too long (handled by black)
     "B008",  # do not perform function calls in argument defaults
     "B904",  # raise without from inside except
 ]
 
-[tool.ruff.per-file-ignores]
+[tool.ruff.lint.per-file-ignores]
 "__init__.py" = ["F401"]  # unused imports
 "train_tsl51_v3.py" = ["E402"]  # module level import not at top
 

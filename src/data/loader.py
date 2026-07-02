@@ -12,8 +12,6 @@ from typing import Any
 import numpy as np
 import pandas as pd
 
-from src.utils.dataset_utils import safe_mean
-
 logger = logging.getLogger(__name__)
 
 # Cache directory
@@ -74,12 +72,12 @@ def _extract_162_features(lm_df):
     Returns:
         numpy array of 162 features (mean-aggregated across frames)
     """
-    features = []
-    for col in _162_COLUMNS:
-        if col in lm_df.columns:
-            features.append(safe_mean(lm_df[col]))
-        else:
-            features.append(0.0)
+    # ⚡ Performance Optimization: Vectorized mean calculation
+    # Replaces slow iterative safe_mean(series) with fast Pandas native mean
+    avail_cols = [c for c in _162_COLUMNS if c in lm_df.columns]
+    means = lm_df[avail_cols].mean(numeric_only=True).fillna(0.0).to_dict() if avail_cols else {}
+
+    features = [means.get(col, 0.0) for col in _162_COLUMNS]
     return np.nan_to_num(np.array(features, dtype=np.float32))
 
 
