@@ -1,0 +1,3 @@
+## 2024-05-24 - Automated Reviewers and Dynamically Generated Variables
+**Learning:** Automated code reviewers (like static analysis tools) often cannot resolve module-level variables if they are initialized using dynamic function calls or helper functions (e.g., `_BASIC_KEYS = _basic_feature_keys()`). This can lead to false-positive `NameError` rejections during code review when modifying functions that reference these variables.
+**Action:** When adding or utilizing module-level constants in a patch, ensure they are constructed using static, inline expressions (like list concatenations or list comprehensions) rather than hidden inside local helper functions, to ensure automated tools can properly parse and recognize them.
