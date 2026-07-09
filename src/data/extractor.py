@@ -87,21 +87,11 @@ _POSE_BASES = [
 ]
 
 
-def _basic_feature_keys() -> list[str]:
-    keys: list[str] = []
-    for i in range(21):
-        for c in ("x", "y", "z"):
-            keys.append(f"lh_{c}{i}")
-    for i in range(21):
-        for c in ("x", "y", "z"):
-            keys.append(f"rh_{c}{i}")
-    for base in _POSE_BASES:
-        for c in ("x", "y", "z"):
-            keys.append(f"{base}_{c}")
-    return keys
-
-
-_BASIC_KEYS = _basic_feature_keys()
+_BASIC_KEYS = (
+    [f"lh_{c}{i}" for i in range(21) for c in ("x", "y", "z")]
+    + [f"rh_{c}{i}" for i in range(21) for c in ("x", "y", "z")]
+    + [f"{base}_{c}" for base in _POSE_BASES for c in ("x", "y", "z")]
+)
 
 
 def extract_sequence_features(
@@ -187,22 +177,25 @@ def extract_features(frames: list, feature_level: str = "basic") -> np.ndarray |
 
 def _frame_dict_to_vector(frame: dict, _feature_level: str, feature_dim: int) -> np.ndarray | None:
     """Convert a single landmark dict to a feature vector."""
-    feats: list[float] = []
+    if _feature_level == "basic":
+        feats = [float(frame.get(k, 0.0)) for k in _BASIC_KEYS]
+    else:
+        feats: list[float] = []
 
-    # Left hand (63)
-    for i in range(21):
-        for c in ("x", "y", "z"):
-            feats.append(float(frame.get(f"lh_{c}{i}", 0.0)))
+        # Left hand (63)
+        for i in range(21):
+            for c in ("x", "y", "z"):
+                feats.append(float(frame.get(f"lh_{c}{i}", 0.0)))
 
-    # Right hand (63)
-    for i in range(21):
-        for c in ("x", "y", "z"):
-            feats.append(float(frame.get(f"rh_{c}{i}", 0.0)))
+        # Right hand (63)
+        for i in range(21):
+            for c in ("x", "y", "z"):
+                feats.append(float(frame.get(f"rh_{c}{i}", 0.0)))
 
-    # Pose (36)
-    for base in _POSE_BASES:
-        for c in ("x", "y", "z"):
-            feats.append(float(frame.get(f"{base}_{c}", 0.0)))
+        # Pose (36)
+        for base in _POSE_BASES:
+            for c in ("x", "y", "z"):
+                feats.append(float(frame.get(f"{base}_{c}", 0.0)))
 
     if len(feats) < feature_dim:
         feats.extend([0.0] * (feature_dim - len(feats)))
