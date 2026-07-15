@@ -134,13 +134,13 @@ def extract_features(lm_df, feature_level: str = "basic") -> np.ndarray:
         numpy array of shape (feature_dim,)
     """
     feature_level = validate_feature_level(feature_level)
-    features = []
+    schema_cols = BASIC_FEATURE_SCHEMA.columns
 
-    for col in BASIC_FEATURE_SCHEMA.columns:
-        if col in lm_df.columns:
-            features.append(safe_mean(lm_df[col]))
-        else:
-            features.append(0.0)
+    # Vectorized extraction
+    cols = lm_df.columns.intersection(schema_cols)
+    means = lm_df[cols].mean(numeric_only=True).fillna(0.0).to_dict()
+
+    features = [means.get(c, 0.0) for c in schema_cols]
 
     feature_dim = FEATURE_LEVELS[feature_level]
     return np.array(features[:feature_dim], dtype=np.float32)
