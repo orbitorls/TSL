@@ -15,7 +15,6 @@ from src.core.features import (
     get_feature_dim,
     validate_feature_level,
 )
-from src.utils.dataset_utils import safe_mean
 
 FEATURE_DIMS = FEATURE_LEVELS
 
@@ -631,6 +630,3 @@ def resolve_feature_level_for_inference(
             f"Continuing with adaptation — accuracy may be degraded."
         )
         return requested_level, msg
-
-
-
