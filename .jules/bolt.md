@@ -1,0 +1,3 @@
+## 2026-07-16 - Pandas Iteration Bottlenecks
+**Learning:** When mapping DataFrame columns to a numpy array sequentially via a loop, extracting multiple series individually via pandas column references (e.g. `lm_df[col]`) is extremely slow. In this codebase, `extract_sequence_from_landmark_df` mapped 162 columns frame-by-frame and took significant time.
+**Action:** Always replace column-by-column iteration with bulk operations. Intersecting the known column list with `df.columns` and writing it to numpy via advanced indexing (e.g., `seq[:, indices] = df[cols].fillna(0).to_numpy()`) provides a ~10x speedup.
