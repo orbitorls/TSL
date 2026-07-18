@@ -90,6 +90,12 @@ def test_pipeline_writes_canonical_training_artifacts(tmp_path: Path, monkeypatc
                 "val_macro_f1": 66.5,
                 "primary_metric_name": "macro_f1",
                 "primary_metric": 66.5,
+                "val_precision": 60.0,
+                "val_recall": 65.0,
+                "val_top3_acc": 85.0,
+                "val_top5_acc": 95.0,
+                "per_class_metrics": {},
+                "confusion_matrix": [],
                 "model_state": {"model_state_dict": self.model.state_dict(), "epoch": 0},
             }
 

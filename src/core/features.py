@@ -12,8 +12,6 @@ from types import MappingProxyType
 
 import numpy as np
 
-from src.utils.dataset_utils import safe_mean
-
 FEATURE_SCHEMA_VERSION = "basic-162-v1"
 BASIC_FEATURE_DIM = 162
 HAND_FEATURE_DIM = 63
