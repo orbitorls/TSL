@@ -49,7 +49,7 @@ def test_pipeline_writes_canonical_training_artifacts(tmp_path: Path, monkeypatc
     dataset = _dataset(rows)
     calls: dict[str, Any] = {}
 
-    def fake_train_split_only(X, y, sample_ids, manifest, classes, **kwargs):
+    def fake_train_split_only(X, y, sample_ids, manifest, _classes, **kwargs):
         calls["augment_kwargs"] = kwargs
         train_ids = [row["sample_id"] for row in manifest["splits"]["train"]]
         val_ids = [row["sample_id"] for row in manifest["splits"]["val"]]
@@ -95,7 +95,7 @@ def test_pipeline_writes_canonical_training_artifacts(tmp_path: Path, monkeypatc
             self.config = config
             self.model = torch.nn.Linear(BASIC_FEATURE_DIM, len(CLASSES))
 
-        def train(self, X_train, y_train, X_val, y_val, classes, fold_idx=0):
+        def train(self, X_train, _y_train, X_val, _y_val, _classes, fold_idx=0):
             calls["train_shape"] = X_train.shape
             calls["val_shape"] = X_val.shape
             calls["train_mean_after_norm"] = float(np.mean(X_train))

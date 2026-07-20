@@ -74,7 +74,9 @@ def _base_pipeline_config(tmp_path: Path) -> SimpleNamespace:
     )
 
 
-def test_trainer_prefers_macro_f1_over_accuracy_for_best_state(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_trainer_prefers_macro_f1_over_accuracy_for_best_state(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     import src.train.trainer as trainer_module
 
     config = TrainingConfig(
@@ -102,7 +104,9 @@ def test_trainer_prefers_macro_f1_over_accuracy_for_best_state(monkeypatch: pyte
         "_build_dataloaders",
         lambda self, X_train, y_train, X_val, y_val: ([object()], [object()]),
     )
-    monkeypatch.setattr(Trainer, "train_epoch", lambda self, loader, criterion, accumulation_steps=1: (0.1, 50.0))
+    monkeypatch.setattr(
+        Trainer, "train_epoch", lambda self, loader, criterion, accumulation_steps=1: (0.1, 50.0)
+    )
 
     validation_returns = iter(
         [
@@ -111,7 +115,9 @@ def test_trainer_prefers_macro_f1_over_accuracy_for_best_state(monkeypatch: pyte
             (0.4, 75.0, np.array([0, 1, 2]), np.array([0, 1, 2]), np.eye(3)),
         ]
     )
-    monkeypatch.setattr(Trainer, "validate", lambda self, loader, criterion: next(validation_returns))
+    monkeypatch.setattr(
+        Trainer, "validate", lambda self, loader, criterion: next(validation_returns)
+    )
 
     def fake_setup_model(self, input_dim: int, num_classes: int) -> None:
         self.model = torch.nn.Linear(input_dim, num_classes)
@@ -160,7 +166,9 @@ def test_trainer_prefers_macro_f1_over_accuracy_for_best_state(monkeypatch: pyte
             },
         ]
     )
-    monkeypatch.setattr(trainer_module, "compute_metrics", lambda *args, **kwargs: next(metrics_by_call))
+    monkeypatch.setattr(
+        trainer_module, "compute_metrics", lambda *args, **kwargs: next(metrics_by_call)
+    )
 
     result = trainer.train(X_train, y_train, X_val, y_val, CLASSES, fold_idx=0)
 
@@ -215,7 +223,9 @@ def test_trainer_best_state_snapshots_best_epoch_weights(monkeypatch: pytest.Mon
             (0.4, 75.0, np.array([0, 1, 2]), np.array([0, 1, 2]), np.eye(3)),
         ]
     )
-    monkeypatch.setattr(Trainer, "validate", lambda self, loader, criterion: next(validation_returns))
+    monkeypatch.setattr(
+        Trainer, "validate", lambda self, loader, criterion: next(validation_returns)
+    )
 
     def fake_setup_model(self, input_dim: int, num_classes: int) -> None:
         self.model = torch.nn.Linear(input_dim, num_classes)
@@ -226,12 +236,47 @@ def test_trainer_best_state_snapshots_best_epoch_weights(monkeypatch: pytest.Mon
 
     metrics_by_call = iter(
         [
-            {"accuracy": 92.0, "precision": 91.0, "recall": 90.0, "f1_score": 89.0, "top3_accuracy": 100.0, "top5_accuracy": 100.0, "per_class": {}, "confusion_matrix": np.eye(3, dtype=int), "most_confused": [], "macro": {"f1": 70.0}},
-            {"accuracy": 75.0, "precision": 74.0, "recall": 73.0, "f1_score": 72.0, "top3_accuracy": 100.0, "top5_accuracy": 100.0, "per_class": {}, "confusion_matrix": np.eye(3, dtype=int), "most_confused": [], "macro": {"f1": 60.0}},
-            {"accuracy": 92.0, "precision": 91.0, "recall": 90.0, "f1_score": 89.0, "top3_accuracy": 100.0, "top5_accuracy": 100.0, "per_class": {}, "confusion_matrix": np.eye(3, dtype=int), "most_confused": [], "macro": {"f1": 70.0}},
+            {
+                "accuracy": 92.0,
+                "precision": 91.0,
+                "recall": 90.0,
+                "f1_score": 89.0,
+                "top3_accuracy": 100.0,
+                "top5_accuracy": 100.0,
+                "per_class": {},
+                "confusion_matrix": np.eye(3, dtype=int),
+                "most_confused": [],
+                "macro": {"f1": 70.0},
+            },
+            {
+                "accuracy": 75.0,
+                "precision": 74.0,
+                "recall": 73.0,
+                "f1_score": 72.0,
+                "top3_accuracy": 100.0,
+                "top5_accuracy": 100.0,
+                "per_class": {},
+                "confusion_matrix": np.eye(3, dtype=int),
+                "most_confused": [],
+                "macro": {"f1": 60.0},
+            },
+            {
+                "accuracy": 92.0,
+                "precision": 91.0,
+                "recall": 90.0,
+                "f1_score": 89.0,
+                "top3_accuracy": 100.0,
+                "top5_accuracy": 100.0,
+                "per_class": {},
+                "confusion_matrix": np.eye(3, dtype=int),
+                "most_confused": [],
+                "macro": {"f1": 70.0},
+            },
         ]
     )
-    monkeypatch.setattr(trainer_module, "compute_metrics", lambda *args, **kwargs: next(metrics_by_call))
+    monkeypatch.setattr(
+        trainer_module, "compute_metrics", lambda *args, **kwargs: next(metrics_by_call)
+    )
 
     result = trainer.train(X_train, y_train, X_val, y_val, CLASSES, fold_idx=0)
 
@@ -267,7 +312,7 @@ def test_pipeline_rejects_incomplete_secondary_metrics_contract(
     rows = _rows()
     dataset = _dataset(rows)
 
-    def fake_train_split_only(X, y, sample_ids, manifest, classes, **kwargs):
+    def fake_train_split_only(X, y, sample_ids, manifest, _classes, **_kwargs):
         train_ids = [row["sample_id"] for row in manifest["splits"]["train"]]
         val_ids = [row["sample_id"] for row in manifest["splits"]["val"]]
         test_ids = [row["sample_id"] for row in manifest["splits"]["test"]]
@@ -281,9 +326,24 @@ def test_pipeline_rejects_incomplete_secondary_metrics_contract(
         val_X, val_y, val_sample_ids = select(val_ids)
         test_X, test_y, test_sample_ids = select(test_ids)
         return {
-            "train": {"X": train_X, "y": train_y, "sample_ids": train_sample_ids, "rows": manifest["splits"]["train"]},
-            "val": {"X": val_X, "y": val_y, "sample_ids": val_sample_ids, "rows": manifest["splits"]["val"]},
-            "test": {"X": test_X, "y": test_y, "sample_ids": test_sample_ids, "rows": manifest["splits"]["test"]},
+            "train": {
+                "X": train_X,
+                "y": train_y,
+                "sample_ids": train_sample_ids,
+                "rows": manifest["splits"]["train"],
+            },
+            "val": {
+                "X": val_X,
+                "y": val_y,
+                "sample_ids": val_sample_ids,
+                "rows": manifest["splits"]["val"],
+            },
+            "test": {
+                "X": test_X,
+                "y": test_y,
+                "sample_ids": test_sample_ids,
+                "rows": manifest["splits"]["test"],
+            },
         }
 
     class IncompleteMetricsTrainer:
@@ -291,7 +351,7 @@ def test_pipeline_rejects_incomplete_secondary_metrics_contract(
             self.config = config
             self.model = torch.nn.Linear(BASIC_FEATURE_DIM, len(CLASSES))
 
-        def train(self, X_train, y_train, X_val, y_val, classes, fold_idx=0):
+        def train(self, _X_train, _y_train, _X_val, _y_val, _classes, fold_idx=0):
             result = {
                 "fold": fold_idx,
                 "val_loss": 0.25,
@@ -304,7 +364,9 @@ def test_pipeline_rejects_incomplete_secondary_metrics_contract(
                 "val_recall": 78.0,
                 "val_top3_acc": 95.0,
                 "val_top5_acc": 100.0,
-                "per_class_metrics": {"hello": {"accuracy": 100.0, "precision": 100.0, "recall": 100.0, "f1": 100.0}},
+                "per_class_metrics": {
+                    "hello": {"accuracy": 100.0, "precision": 100.0, "recall": 100.0, "f1": 100.0}
+                },
                 "confusion_matrix": np.eye(len(CLASSES), dtype=int),
                 "most_confused": [],
                 "model_state": {"model_state_dict": self.model.state_dict(), "epoch": 0},
@@ -319,13 +381,15 @@ def test_pipeline_rejects_incomplete_secondary_metrics_contract(
         pipeline.run_training_pipeline(_base_pipeline_config(tmp_path), dataset=dataset)
 
 
-def test_pipeline_rejects_missing_macro_f1_before_serialization(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_pipeline_rejects_missing_macro_f1_before_serialization(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     from src.train import pipeline
 
     rows = _rows()
     dataset = _dataset(rows)
 
-    def fake_train_split_only(X, y, sample_ids, manifest, classes, **kwargs):
+    def fake_train_split_only(X, y, sample_ids, manifest, _classes, **_kwargs):
         train_ids = [row["sample_id"] for row in manifest["splits"]["train"]]
         val_ids = [row["sample_id"] for row in manifest["splits"]["val"]]
         test_ids = [row["sample_id"] for row in manifest["splits"]["test"]]
@@ -339,9 +403,24 @@ def test_pipeline_rejects_missing_macro_f1_before_serialization(tmp_path: Path, 
         val_X, val_y, val_sample_ids = select(val_ids)
         test_X, test_y, test_sample_ids = select(test_ids)
         return {
-            "train": {"X": train_X, "y": train_y, "sample_ids": train_sample_ids, "rows": manifest["splits"]["train"]},
-            "val": {"X": val_X, "y": val_y, "sample_ids": val_sample_ids, "rows": manifest["splits"]["val"]},
-            "test": {"X": test_X, "y": test_y, "sample_ids": test_sample_ids, "rows": manifest["splits"]["test"]},
+            "train": {
+                "X": train_X,
+                "y": train_y,
+                "sample_ids": train_sample_ids,
+                "rows": manifest["splits"]["train"],
+            },
+            "val": {
+                "X": val_X,
+                "y": val_y,
+                "sample_ids": val_sample_ids,
+                "rows": manifest["splits"]["val"],
+            },
+            "test": {
+                "X": test_X,
+                "y": test_y,
+                "sample_ids": test_sample_ids,
+                "rows": manifest["splits"]["test"],
+            },
         }
 
     class MissingMacroTrainer:
@@ -349,7 +428,7 @@ def test_pipeline_rejects_missing_macro_f1_before_serialization(tmp_path: Path, 
             self.config = config
             self.model = torch.nn.Linear(BASIC_FEATURE_DIM, len(CLASSES))
 
-        def train(self, X_train, y_train, X_val, y_val, classes, fold_idx=0):
+        def train(self, _X_train, _y_train, _X_val, _y_val, _classes, fold_idx=0):
             return {
                 "fold": fold_idx,
                 "val_acc": 84.0,
@@ -365,13 +444,15 @@ def test_pipeline_rejects_missing_macro_f1_before_serialization(tmp_path: Path, 
         pipeline.run_training_pipeline(_base_pipeline_config(tmp_path), dataset=dataset)
 
 
-def test_pipeline_serializes_grouped_split_aware_metrics_contract(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_pipeline_serializes_grouped_split_aware_metrics_contract(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     from src.train import pipeline
 
     rows = _rows()
     dataset = _dataset(rows)
 
-    def fake_train_split_only(X, y, sample_ids, manifest, classes, **kwargs):
+    def fake_train_split_only(X, y, sample_ids, manifest, _classes, **_kwargs):
         train_ids = [row["sample_id"] for row in manifest["splits"]["train"]]
         val_ids = [row["sample_id"] for row in manifest["splits"]["val"]]
         test_ids = [row["sample_id"] for row in manifest["splits"]["test"]]
@@ -385,9 +466,24 @@ def test_pipeline_serializes_grouped_split_aware_metrics_contract(tmp_path: Path
         val_X, val_y, val_sample_ids = select(val_ids)
         test_X, test_y, test_sample_ids = select(test_ids)
         return {
-            "train": {"X": train_X, "y": train_y, "sample_ids": train_sample_ids, "rows": manifest["splits"]["train"]},
-            "val": {"X": val_X, "y": val_y, "sample_ids": val_sample_ids, "rows": manifest["splits"]["val"]},
-            "test": {"X": test_X, "y": test_y, "sample_ids": test_sample_ids, "rows": manifest["splits"]["test"]},
+            "train": {
+                "X": train_X,
+                "y": train_y,
+                "sample_ids": train_sample_ids,
+                "rows": manifest["splits"]["train"],
+            },
+            "val": {
+                "X": val_X,
+                "y": val_y,
+                "sample_ids": val_sample_ids,
+                "rows": manifest["splits"]["val"],
+            },
+            "test": {
+                "X": test_X,
+                "y": test_y,
+                "sample_ids": test_sample_ids,
+                "rows": manifest["splits"]["test"],
+            },
         }
 
     class ContractTrainer:
@@ -395,7 +491,7 @@ def test_pipeline_serializes_grouped_split_aware_metrics_contract(tmp_path: Path
             self.config = config
             self.model = torch.nn.Linear(BASIC_FEATURE_DIM, len(CLASSES))
 
-        def train(self, X_train, y_train, X_val, y_val, classes, fold_idx=0):
+        def train(self, _X_train, _y_train, _X_val, _y_val, _classes, fold_idx=0):
             return {
                 "fold": fold_idx,
                 "val_loss": 0.25,
@@ -443,7 +539,9 @@ def test_pipeline_serializes_grouped_split_aware_metrics_contract(tmp_path: Path
     assert payload["metrics"]["per_class"] == {
         "hello": {"accuracy": 100.0, "precision": 100.0, "recall": 100.0, "f1": 100.0}
     }
-    assert payload["metrics"]["confusion_matrix"]["data"] == np.eye(len(CLASSES), dtype=int).tolist()
+    assert (
+        payload["metrics"]["confusion_matrix"]["data"] == np.eye(len(CLASSES), dtype=int).tolist()
+    )
     assert payload["metrics"]["confusion_matrix"]["path"] is None
     assert payload["artifacts"]["checkpoint"] == result["artifacts"]["checkpoint"]
     assert payload["artifacts"]["split_manifest"] == result["artifacts"]["split_manifest"]

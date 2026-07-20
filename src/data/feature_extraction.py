@@ -37,7 +37,6 @@ _POSE_LANDMARK_NAMES = [
 
 _FEATURE_COLUMN_CACHE = {}
 
-
 def _build_column_list(feature_level: str = "basic") -> list[str]:
     """Build the ordered list of column names for a supported feature level."""
     feature_level = validate_feature_level(feature_level)
