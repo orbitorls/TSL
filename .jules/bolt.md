@@ -1,0 +1,4 @@
+
+## 2024-05-18 - Optimize Pandas Dataframe Sequence Extraction
+**Learning:** Extracting sequence features by iteratively indexing DataFrame columns (e.g. `lm_df[col]`) and calling `.to_numpy()` in a loop is extremely slow due to repeated Pandas overhead per column. When building a sequence block, it is significantly faster to intersect the required columns with the DataFrame's columns, select the slice in a single bulk operation `lm_df[available_cols]`, map the selected columns to their target array indices, and execute a single `.to_numpy()` assignment via advanced indexing.
+**Action:** When extracting large chunks of data from a Pandas DataFrame into a pre-allocated numpy array, prefer computing column intersections and performing one vectorized bulk extraction instead of looping column-by-column.
