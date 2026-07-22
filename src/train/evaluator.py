@@ -34,6 +34,7 @@ METRIC_CONFUSION_MATRIX = "confusion_matrix"
 # Core metric computation
 # ---------------------------------------------------------------------------
 
+
 def compute_metrics(
     y_true: np.ndarray,
     y_pred: np.ndarray,
@@ -56,8 +57,12 @@ def compute_metrics(
     """
     metrics: dict[str, Any] = {
         METRIC_ACCURACY: float(accuracy_score(y_true, y_pred)) * 100,
-        METRIC_PRECISION: float(precision_score(y_true, y_pred, average="weighted", zero_division=0)) * 100,
-        METRIC_RECALL: float(recall_score(y_true, y_pred, average="weighted", zero_division=0)) * 100,
+        METRIC_PRECISION: float(
+            precision_score(y_true, y_pred, average="weighted", zero_division=0)
+        )
+        * 100,
+        METRIC_RECALL: float(recall_score(y_true, y_pred, average="weighted", zero_division=0))
+        * 100,
         METRIC_F1: float(f1_score(y_true, y_pred, average="weighted", zero_division=0)) * 100,
     }
 
@@ -82,7 +87,12 @@ def compute_metrics(
             "f1": float(f1) * 100,
         }
         for class_name, acc, prec, rec, f1 in zip(
-            classes, per_class_accuracy, per_class_precision, per_class_recall, per_class_f1, strict=False
+            classes,
+            per_class_accuracy,
+            per_class_precision,
+            per_class_recall,
+            per_class_f1,
+            strict=False,
         )
     }
 
@@ -127,7 +137,9 @@ def _per_class_accuracy_from_cm(cm: np.ndarray) -> np.ndarray:
     return per_class_acc
 
 
-def _find_most_confused_pairs(cm: np.ndarray, classes: np.ndarray, top_n: int = 5) -> list[dict[str, Any]]:
+def _find_most_confused_pairs(
+    cm: np.ndarray, classes: np.ndarray, top_n: int = 5
+) -> list[dict[str, Any]]:
     """Find the most commonly confused class pairs (excluding diagonal)."""
     n_classes = len(classes)
     confused: list[tuple[int, int, int]] = []
@@ -149,6 +161,7 @@ def _find_most_confused_pairs(cm: np.ndarray, classes: np.ndarray, top_n: int = 
 # ---------------------------------------------------------------------------
 # Reporting helpers
 # ---------------------------------------------------------------------------
+
 
 def print_metrics_report(metrics: dict[str, Any], fold_idx: int = 0):
     """Print formatted metrics report."""
@@ -215,6 +228,7 @@ def print_aggregated_report(aggregated: dict[str, Any]):
 # ---------------------------------------------------------------------------
 # Serialization helpers
 # ---------------------------------------------------------------------------
+
 
 def _convert_numpy(obj: Any) -> Any:
     """Recursively convert numpy types to Python native types for JSON."""

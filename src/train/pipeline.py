@@ -4,11 +4,12 @@ from __future__ import annotations
 
 import json
 import math
+from collections.abc import Mapping
 from dataclasses import asdict, is_dataclass
 from datetime import datetime
 from pathlib import Path
 from types import SimpleNamespace
-from typing import Any, Mapping
+from typing import Any
 
 import numpy as np
 import torch
@@ -29,7 +30,6 @@ from src.train.evaluator import save_results
 from src.train.preprocessing import save_training_preprocessing_manifest
 from src.train.splits import build_grouped_split_manifest
 from src.train.trainer import Trainer
-
 
 PRIMARY_METRIC_NAME = "macro_f1"
 GROUPED_SPLIT_STRATEGIES = frozenset({"video_family_grouped", "video_family_holdout"})
@@ -86,7 +86,9 @@ def _resolve_split_strategy(config: Any) -> str:
                 "real-world mode requires a grouped video-family split strategy; "
                 f"got {strategy!r}. Accepted strategies: {accepted}."
             )
-        raise PipelineConfigError(f"Unsupported split_strategy={strategy!r}; random split is not implemented here")
+        raise PipelineConfigError(
+            f"Unsupported split_strategy={strategy!r}; random split is not implemented here"
+        )
     return strategy
 
 
@@ -137,9 +139,13 @@ def _load_dataset(config: Any) -> SimpleNamespace:
         data_path = _cfg(config, "data_path", None)
         if data_path is None:
             raise PipelineConfigError("data_path is required when dataset='local'")
-        features, labels, class_names = load_local_dataset(data_path, use_cache=not bool(_cfg(config, "no_cache", False)))
+        features, labels, class_names = load_local_dataset(
+            data_path, use_cache=not bool(_cfg(config, "no_cache", False))
+        )
     elif dataset_name == "tsl51_user_sign":
-        features, labels, class_names = load_tsl51_user_sign(max_samples=max_samples, force_download=force_download)
+        features, labels, class_names = load_tsl51_user_sign(
+            max_samples=max_samples, force_download=force_download
+        )
     elif dataset_name == "tsl51_expert":
         features, labels, class_names = load_tsl51_expert(
             include_augmented=bool(_cfg(config, "include_augmented", False)),
@@ -147,9 +153,13 @@ def _load_dataset(config: Any) -> SimpleNamespace:
             force_download=force_download,
         )
     elif dataset_name == "tsl51_expert_full":
-        features, labels, class_names = load_tsl51_expert_full(max_samples=max_samples, force_download=force_download)
+        features, labels, class_names = load_tsl51_expert_full(
+            max_samples=max_samples, force_download=force_download
+        )
     elif dataset_name == "tsl51_combined":
-        features, labels, class_names = load_tsl51_combined(max_samples=max_samples, force_download=force_download)
+        features, labels, class_names = load_tsl51_combined(
+            max_samples=max_samples, force_download=force_download
+        )
     elif dataset_name == "tsl51_full":
         features, labels, class_names = load_tsl51_full(
             include_augmented=True,
@@ -165,13 +175,17 @@ def _load_dataset(config: Any) -> SimpleNamespace:
     return SimpleNamespace(X=features, y=labels, classes=class_names)
 
 
-def _normalise_dataset(dataset: Any, classes: np.ndarray) -> tuple[np.ndarray, np.ndarray, list[str], list[dict[str, Any]]]:
-    X = np.asarray(getattr(dataset, "X"), dtype=np.float32)
-    y = np.asarray(getattr(dataset, "y"), dtype=np.int64)
+def _normalise_dataset(
+    dataset: Any, classes: np.ndarray
+) -> tuple[np.ndarray, np.ndarray, list[str], list[dict[str, Any]]]:
+    X = np.asarray(dataset.X, dtype=np.float32)
+    y = np.asarray(dataset.y, dtype=np.int64)
     if X.ndim not in (2, 3):
         raise PipelineConfigError("X must be shaped (n_samples, 162) or (n_samples, T, 162)")
     if X.shape[-1] != BASIC_FEATURE_DIM:
-        raise PipelineConfigError(f"Canonical pipeline supports only basic {BASIC_FEATURE_DIM}-dim features")
+        raise PipelineConfigError(
+            f"Canonical pipeline supports only basic {BASIC_FEATURE_DIM}-dim features"
+        )
     if len(X) != len(y):
         raise PipelineConfigError("X and y length mismatch")
 
@@ -189,10 +203,14 @@ def _normalise_dataset(dataset: Any, classes: np.ndarray) -> tuple[np.ndarray, n
     return X, y, sample_ids, rows
 
 
-def _rows_from_labels(y: np.ndarray, classes: np.ndarray, sample_ids: list[str]) -> list[dict[str, Any]]:
+def _rows_from_labels(
+    y: np.ndarray, classes: np.ndarray, sample_ids: list[str]
+) -> list[dict[str, Any]]:
     rows = []
-    for idx, (label_idx, sample_id) in enumerate(zip(y, sample_ids, strict=False)):
-        label = str(classes[int(label_idx)]) if 0 <= int(label_idx) < len(classes) else str(label_idx)
+    for _idx, (label_idx, sample_id) in enumerate(zip(y, sample_ids, strict=False)):
+        label = (
+            str(classes[int(label_idx)]) if 0 <= int(label_idx) < len(classes) else str(label_idx)
+        )
         rows.append(
             {
                 "sample_id": sample_id,
@@ -207,10 +225,7 @@ def _rows_from_labels(y: np.ndarray, classes: np.ndarray, sample_ids: list[str])
 
 def _fit_normalizer(train_X: np.ndarray) -> tuple[Normalizer, np.ndarray, np.ndarray]:
     normalizer = Normalizer()
-    if train_X.ndim == 3:
-        flattened = train_X.reshape(-1, train_X.shape[-1])
-    else:
-        flattened = train_X
+    flattened = train_X.reshape(-1, train_X.shape[-1]) if train_X.ndim == 3 else train_X
     normalizer.fit(flattened)
     mean = np.asarray(normalizer.mean, dtype=np.float32)
     std = np.asarray(normalizer.std, dtype=np.float32)
@@ -224,7 +239,10 @@ def _transform_split(normalizer: Normalizer, X: np.ndarray) -> np.ndarray:
 
 def _write_json(path: Path, payload: Any) -> Path:
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(_json_safe(payload), ensure_ascii=False, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    path.write_text(
+        json.dumps(_json_safe(payload), ensure_ascii=False, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
     return path
 
 
@@ -278,8 +296,12 @@ def _build_result_metrics_contract(train_result: dict[str, Any]) -> dict[str, An
     accuracy = _require_metric(train_result, "val_acc", context="training result contract")
     precision = _require_metric(train_result, "val_precision", context="training result contract")
     recall = _require_metric(train_result, "val_recall", context="training result contract")
-    top3_accuracy = _require_metric(train_result, "val_top3_acc", context="training result contract")
-    top5_accuracy = _require_metric(train_result, "val_top5_acc", context="training result contract")
+    top3_accuracy = _require_metric(
+        train_result, "val_top3_acc", context="training result contract"
+    )
+    top5_accuracy = _require_metric(
+        train_result, "val_top5_acc", context="training result contract"
+    )
 
     if "per_class_metrics" not in train_result or train_result["per_class_metrics"] is None:
         raise PipelineConfigError(
@@ -299,12 +321,16 @@ def _build_result_metrics_contract(train_result: dict[str, Any]) -> dict[str, An
         "top3_accuracy": top3_accuracy,
         "top5_accuracy": top5_accuracy,
         "per_class": _json_safe(train_result["per_class_metrics"]),
-        "confusion_matrix": _build_confusion_matrix_contract(train_result["confusion_matrix"], path=None),
+        "confusion_matrix": _build_confusion_matrix_contract(
+            train_result["confusion_matrix"], path=None
+        ),
         "most_confused": _json_safe(train_result.get("most_confused", [])),
     }
 
 
-def _build_split_metadata_contract(split_manifest: dict[str, Any], *, requested_strategy: str) -> dict[str, Any]:
+def _build_split_metadata_contract(
+    split_manifest: dict[str, Any], *, requested_strategy: str
+) -> dict[str, Any]:
     return {
         "requested_strategy": requested_strategy,
         "persisted_strategy": str(split_manifest["split_strategy"]),
@@ -368,7 +394,9 @@ def run_training_pipeline(config: Any, *, dataset: Any | None = None) -> dict[st
     training_config = _training_config_from(config)
     validate_feature_level(training_config.feature_level)
     if training_config.feature_level != "basic":
-        raise PipelineConfigError("Canonical pipeline currently supports feature_level='basic' only")
+        raise PipelineConfigError(
+            "Canonical pipeline currently supports feature_level='basic' only"
+        )
 
     np.random.seed(training_config.seed)
     torch.manual_seed(training_config.seed)
@@ -379,7 +407,7 @@ def run_training_pipeline(config: Any, *, dataset: Any | None = None) -> dict[st
     requested_split_strategy = _resolve_split_strategy(config)
 
     dataset_obj = dataset if dataset is not None else _load_dataset(config)
-    classes = np.asarray(getattr(dataset_obj, "classes"))
+    classes = np.asarray(dataset_obj.classes)
     X, y, sample_ids, rows = _normalise_dataset(dataset_obj, classes)
 
     dataset_name = str(_cfg(config, "dataset", training_config.dataset))
@@ -480,7 +508,9 @@ def run_training_pipeline(config: Any, *, dataset: Any | None = None) -> dict[st
         "split_manifest_path": str(split_manifest_path),
         "label_map_path": str(label_map_path),
         "metrics": _build_result_metrics_contract(train_result),
-        "split_metadata": _build_split_metadata_contract(split_manifest, requested_strategy=requested_split_strategy),
+        "split_metadata": _build_split_metadata_contract(
+            split_manifest, requested_strategy=requested_split_strategy
+        ),
         "train_result": train_result,
         "split_manifest": split_manifest,
         "artifacts": artifacts,
