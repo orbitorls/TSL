@@ -1,7 +1,5 @@
 """Video inference with sliding window and temporal smoothing."""
 
-import numpy as np
-
 
 class VideoInference:
     def __init__(self, predictor):
@@ -20,12 +18,13 @@ class VideoInference:
 
     def _extract_windows(self, frames, size, stride):
         """Extract sliding windows from frames."""
-        return [frames[i:i+size] for i in range(0, len(frames)-size+1, stride)]
+        return [frames[i : i + size] for i in range(0, len(frames) - size + 1, stride)]
 
     def _confidence_weighted_vote(self, preds, confs):
         """Weighted voting by confidence."""
-        if not preds: return None, 0
+        if not preds:
+            return None, 0
         weighted = {}
-        for p, c in zip(preds, confs):
+        for p, c in zip(preds, confs, strict=False):
             weighted[p] = weighted.get(p, 0) + c
         return max(weighted, key=weighted.get), max(confs)
