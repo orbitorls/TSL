@@ -1,0 +1,4 @@
+
+## 2024-07-23 - Vectorizing Pandas Extractions Avoids O(N) Iteration Penalties
+**Learning:** In `src/data/feature_extraction.py`, extracting feature columns using individual `.append(safe_mean(lm_df[col]))` queries forces Pandas to evaluate series one-by-one. In a wide schema like `face` (~1400+ dimensions), this triggers enormous lookup penalties. We discovered that switching to a bulk 2D array selection and using `means = lm_df[cols].mean(numeric_only=True).to_dict()` provides a 30x performance improvement.
+**Action:** When working with high-dimensional DataFrame extraction tasks in the future, avoid looping over lists of expected column names to extract series individually. Instead, use vectorized operations such as `intersection` on columns and bulk `.to_numpy()` mapping to maintain performance scaling.

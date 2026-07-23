@@ -15,7 +15,6 @@ from src.core.features import (
     get_feature_dim,
     validate_feature_level,
 )
-from src.utils.dataset_utils import safe_mean
 
 FEATURE_DIMS = FEATURE_LEVELS
 
@@ -61,36 +60,20 @@ def extract_features_from_landmark_df(lm_df: Any, feature_level: str = "basic") 
     partial 162-dim vector for a claimed 249-dim schema.
     """
     feature_level = validate_feature_level(feature_level)
-    features = []
+    feature_dim = get_feature_dim(feature_level)
+    col_list = _build_column_list(feature_level)
 
-    for col in BASIC_FEATURE_SCHEMA.columns:
-        if col in lm_df.columns:
-            features.append(safe_mean(lm_df[col]))
-        else:
-            features.append(0.0)
+    # Vectorized mean extraction
+    df_cols = lm_df.columns
+    available_cols = [col for col in col_list if col in df_cols]
 
-    if feature_level in ["finger", "full", "face"]:
-        finger_names = ["thumb", "index", "middle", "ring", "pinky"]
-        for hand_prefix in ["lh_", "rh_"]:
-            for finger in finger_names:
-                for c in ["x", "y", "z"]:
-                    for joint in ["mcp", "pip", "dip"]:
-                        col = f"{hand_prefix}{finger}_{joint}_{c}"
-                        if col in lm_df.columns:
-                            features.append(safe_mean(lm_df[col]))
-                        else:
-                            features.append(0.0)
+    if not available_cols:
+        return np.zeros(feature_dim, dtype=np.float32)
 
-    if feature_level in ["full", "face"]:
-        for i in range(478):
-            for c in ["x", "y", "z"]:
-                col = f"face_{c}{i}"
-                if col in lm_df.columns:
-                    features.append(safe_mean(lm_df[col]))
-                else:
-                    features.append(0.0)
+    means = lm_df[available_cols].mean(numeric_only=True).fillna(0.0).to_dict()
+    features = [means.get(col, 0.0) for col in col_list]
 
-    return np.array(features[: get_feature_dim(feature_level)], dtype=np.float32)
+    return np.array(features[:feature_dim], dtype=np.float32)
 
 
 class FeatureExtractor:
@@ -133,10 +116,13 @@ def extract_sequence_from_landmark_df(
 
     col_list = _build_column_list(feature_level)
     seq = np.zeros((n_frames, feature_dim), dtype=np.float32)
-    for j, col in enumerate(col_list):
-        if col in lm_df.columns:
-            vals = lm_df[col].fillna(0.0).to_numpy(dtype=np.float32)
-            seq[:, j] = vals
+
+    # Vectorized bulk extraction
+    df_cols = lm_df.columns
+    available_cols = [col for col in col_list if col in df_cols]
+    if available_cols:
+        col_indices = [col_list.index(col) for col in available_cols]
+        seq[:, col_indices] = lm_df[available_cols].fillna(0.0).to_numpy(dtype=np.float32)
 
     return sample_frames_uniform(seq, target_frames)  # type: ignore[no-any-return]
 
@@ -646,6 +632,3 @@ def resolve_feature_level_for_inference(
             f"Continuing with adaptation — accuracy may be degraded."
         )
         return requested_level, msg
-
-
-
