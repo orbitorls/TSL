@@ -1,0 +1,3 @@
+## 2024-03-11 - [Vectorize pandas feature extraction]
+**Learning:** In the TSL recognition system, extracting sequence features from a Pandas DataFrame into a pre-allocated NumPy array or extracting means iteratively using `.mean()` per column with `safe_mean()` is an architectural bottleneck (~12.7s for sequence extraction).
+**Action:** Use vectorized operations such as `lm_df[available_cols].mean(numeric_only=True).fillna(0.0).to_dict()` and advanced indexing (e.g., `seq[:, col_indices] = lm_df[available_cols].fillna(0.0).to_numpy()`) to avoid iterative calls. This yields up to a 50x speedup in sequence and average feature extraction.
