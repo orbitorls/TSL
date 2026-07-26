@@ -7,10 +7,10 @@ train/validation/test boundaries.
 
 from __future__ import annotations
 
+import random
 from collections import Counter, defaultdict
 from collections.abc import Iterable, Mapping
 from pathlib import Path
-import random
 from typing import Any, cast
 
 AUGMENTATION_TOKENS = (
@@ -180,7 +180,7 @@ def _assign_holdout_groups(
     remaining_after_val = max(0, len(available) - val_target)
     test_target = _target_count(remaining_after_val, test_size / max(1e-12, 1 - val_size))
 
-    assignments = {group_id: "train" for group_id in groups}
+    assignments = dict.fromkeys(groups, "train")
     for group_id in available[:val_target]:
         assignments[group_id] = "val"
     for group_id in available[val_target : val_target + test_target]:
