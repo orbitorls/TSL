@@ -11,7 +11,6 @@ import torch
 from src.train.config import get_config_from_args
 from src.train.pipeline import run_training_pipeline
 
-
 SUPPORTED_PRIMARY_METRICS = ("macro_f1",)
 
 
@@ -21,12 +20,23 @@ def build_parser() -> argparse.ArgumentParser:
         "--dataset",
         type=str,
         default="tsl51_user_sign",
-        choices=["tsl51_user_sign", "tsl51_expert", "tsl51_expert_full", "tsl51_combined", "tsl51_full", "local"],
+        choices=[
+            "tsl51_user_sign",
+            "tsl51_expert",
+            "tsl51_expert_full",
+            "tsl51_combined",
+            "tsl51_full",
+            "local",
+        ],
         help="Dataset to use (default: tsl51_user_sign)",
     )
-    parser.add_argument("--data-path", type=str, default=None, help="Path to local dataset for --dataset local")
+    parser.add_argument(
+        "--data-path", type=str, default=None, help="Path to local dataset for --dataset local"
+    )
     parser.add_argument("--samples", type=int, default=None, help="Number of samples to use")
-    parser.add_argument("--folds", type=int, default=5, help="Compatibility option stored in config")
+    parser.add_argument(
+        "--folds", type=int, default=5, help="Compatibility option stored in config"
+    )
     parser.add_argument("--hidden", type=int, default=256, help="Hidden dimension size")
     parser.add_argument("--layers", type=int, default=3, help="Number of model layers")
     parser.add_argument("--dropout", type=float, default=0.3, help="Dropout rate")
@@ -44,14 +54,18 @@ def build_parser() -> argparse.ArgumentParser:
         choices=["basic", "finger", "full", "face"],
         help="Feature level; canonical training currently supports basic",
     )
-    parser.add_argument("--target-frames", type=int, default=30, help="Target frames for sequence models")
+    parser.add_argument(
+        "--target-frames", type=int, default=30, help="Target frames for sequence models"
+    )
     parser.add_argument("--epochs", type=int, default=30, help="Maximum training epochs")
     parser.add_argument("--batch", type=int, default=64, help="Batch size")
     parser.add_argument("--lr", type=float, default=1e-3, help="Learning rate")
     parser.add_argument("--patience", type=int, default=10, help="Early stopping patience")
     parser.add_argument("--seed", type=int, default=42, help="Random seed")
     parser.add_argument("--no-cache", action="store_true", help="Do not use local dataset cache")
-    parser.add_argument("--force-download", action="store_true", help="Force dataset download/rebuild")
+    parser.add_argument(
+        "--force-download", action="store_true", help="Force dataset download/rebuild"
+    )
     parser.add_argument("--augment", type=int, default=0, help="Train-only augmentation factor")
     parser.add_argument(
         "--include-augmented",
@@ -60,8 +74,12 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument("--require-cuda", action="store_true", help="Abort if CUDA is unavailable")
     parser.add_argument("--smoke", action="store_true", help="Fast CPU smoke run")
-    parser.add_argument("--test-split", type=float, default=0.15, help="Grouped test holdout fraction")
-    parser.add_argument("--val-size", type=float, default=0.15, help="Grouped validation holdout fraction")
+    parser.add_argument(
+        "--test-split", type=float, default=0.15, help="Grouped test holdout fraction"
+    )
+    parser.add_argument(
+        "--val-size", type=float, default=0.15, help="Grouped validation holdout fraction"
+    )
     parser.add_argument(
         "--split-strategy",
         type=str,
@@ -81,7 +99,9 @@ def build_parser() -> argparse.ArgumentParser:
         default=True,
         help="Require grouped video-family splitting safeguards (default: enabled)",
     )
-    parser.add_argument("--output-dir", type=Path, default=None, help="Directory for canonical artifacts")
+    parser.add_argument(
+        "--output-dir", type=Path, default=None, help="Directory for canonical artifacts"
+    )
     return parser
 
 

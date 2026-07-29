@@ -7,10 +7,10 @@ train/validation/test boundaries.
 
 from __future__ import annotations
 
+import random
 from collections import Counter, defaultdict
 from collections.abc import Iterable, Mapping
 from pathlib import Path
-import random
 from typing import Any, cast
 
 AUGMENTATION_TOKENS = (
@@ -86,7 +86,9 @@ def derive_video_family_id(row: Any) -> str:
     if not source:
         source = _clean_string(_row_get(row, "sample_id"))
     if not source:
-        raise ValueError("Cannot derive video_family_id without video_id, landmark_path, or sample_id")
+        raise ValueError(
+            "Cannot derive video_family_id without video_id, landmark_path, or sample_id"
+        )
     family_id = strip_known_augmentation_suffix(source)
     if not family_id:
         raise ValueError("Derived empty video_family_id")
@@ -104,7 +106,10 @@ def _coerce_bool(value: Any) -> bool:
 
 
 def _filename_has_augmentation_token(row: Any) -> bool:
-    candidates = [_clean_string(_row_get(row, "landmark_path")), _clean_string(_row_get(row, "video_id"))]
+    candidates = [
+        _clean_string(_row_get(row, "landmark_path")),
+        _clean_string(_row_get(row, "video_id")),
+    ]
     for candidate in candidates:
         if not candidate:
             continue
@@ -130,7 +135,9 @@ def is_augmented_row(row: Any) -> bool:
 
 def _normalise_row(row: Any, index: int) -> dict[str, Any]:
     family_id = derive_video_family_id(row)
-    sample_id = _clean_string(_row_get(row, "sample_id")) or _clean_string(_row_get(row, "video_id"))
+    sample_id = _clean_string(_row_get(row, "sample_id")) or _clean_string(
+        _row_get(row, "video_id")
+    )
     if not sample_id:
         sample_id = _clean_string(_row_get(row, "landmark_path")) or f"row-{index}"
     label = _clean_string(_row_get(row, "sign_clean")) or _clean_string(_row_get(row, "label"))
@@ -175,12 +182,14 @@ def _assign_holdout_groups(
     val_size: float,
     test_size: float,
 ) -> dict[str, str]:
-    available = [group_id for group_id in _stable_group_order(groups, seed) if group_id not in forced_train]
+    available = [
+        group_id for group_id in _stable_group_order(groups, seed) if group_id not in forced_train
+    ]
     val_target = _target_count(len(available), val_size)
     remaining_after_val = max(0, len(available) - val_target)
     test_target = _target_count(remaining_after_val, test_size / max(1e-12, 1 - val_size))
 
-    assignments = {group_id: "train" for group_id in groups}
+    assignments = dict.fromkeys(groups, "train")
     for group_id in available[:val_target]:
         assignments[group_id] = "val"
     for group_id in available[val_target : val_target + test_target]:
@@ -235,7 +244,9 @@ def build_grouped_split_manifest(
         splits[split].extend(sorted(groups[family_id], key=lambda row: row["sample_id"]))
 
     for split in SPLIT_NAMES:
-        splits[split] = sorted(splits[split], key=lambda row: (row["video_family_id"], row["sample_id"]))
+        splits[split] = sorted(
+            splits[split], key=lambda row: (row["video_family_id"], row["sample_id"])
+        )
 
     manifest = {
         "dataset_name": dataset_name,
@@ -313,4 +324,3 @@ __all__ = [
     "strip_known_augmentation_suffix",
     "validate_split_manifest",
 ]
-

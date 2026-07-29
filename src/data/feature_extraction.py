@@ -635,6 +635,3 @@ def resolve_feature_level_for_inference(
             f"Continuing with adaptation — accuracy may be degraded."
         )
         return requested_level, msg
-
-
-
