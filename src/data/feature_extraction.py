@@ -15,7 +15,6 @@ from src.core.features import (
     get_feature_dim,
     validate_feature_level,
 )
-from src.utils.dataset_utils import safe_mean
 
 FEATURE_DIMS = FEATURE_LEVELS
 
@@ -122,6 +121,7 @@ def extract_sequence_from_landmark_df(
 
     # Fast bulk extraction of sequence columns
     import pandas as pd
+
     available_cols = lm_df.columns.intersection(col_list)
     if not available_cols.empty:
         col_indices = pd.Index(col_list).get_indexer(available_cols)
