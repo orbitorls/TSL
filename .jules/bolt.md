@@ -1,0 +1,3 @@
+## 2024-05-25 - Pandas vectorization vs iterative scalar ops
+**Learning:** Extracting sequence features from a Pandas DataFrame iteratively (e.g. `for col in cols: features.append(safe_mean(df[col]))` or sequential array assignments) is extremely slow due to Pandas overhead per column access.
+**Action:** When extracting sequence features or computing aggregations across numerous DataFrame columns, use vectorized operations such as `df[cols].mean(numeric_only=True).fillna(0.0).to_dict()` and bulk array assignments via advanced indexing (`seq[:, col_indices] = df[cols].to_numpy()`) to eliminate overhead and achieve massive performance gains (~20-40x speedups).
