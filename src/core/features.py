@@ -12,8 +12,6 @@ from types import MappingProxyType
 
 import numpy as np
 
-from src.utils.dataset_utils import safe_mean
-
 FEATURE_SCHEMA_VERSION = "basic-162-v1"
 BASIC_FEATURE_DIM = 162
 HAND_FEATURE_DIM = 63
@@ -135,13 +133,18 @@ def extract_features(lm_df, feature_level: str = "basic") -> np.ndarray:
     """
     feature_level = validate_feature_level(feature_level)
     feature_dim = FEATURE_LEVELS[feature_level]
+    col_list = BASIC_FEATURE_SCHEMA.columns
 
-    available_cols = lm_df.columns.intersection(BASIC_FEATURE_SCHEMA.columns)
+    features = np.zeros(len(col_list), dtype=np.float32)
 
-    # Vectorized mean calculation
-    means = lm_df[available_cols].mean(numeric_only=True).fillna(0.0).to_dict()
+    present_cols = lm_df.columns.intersection(col_list)
+    if len(present_cols) > 0:
+        present_cols_list = list(present_cols)
+        col_idx_map = {c: i for i, c in enumerate(col_list)}
+        present_indices = [col_idx_map[c] for c in present_cols_list]
 
-    # Ensure consistent order based on schema
-    features = [means.get(col, 0.0) for col in BASIC_FEATURE_SCHEMA.columns]
+        means_dict = lm_df[present_cols_list].mean(numeric_only=True).fillna(0.0).to_dict()
+        for col, idx in zip(present_cols_list, present_indices, strict=False):
+            features[idx] = means_dict[col]
 
-    return np.array(features[:feature_dim], dtype=np.float32)
+    return features[:feature_dim]

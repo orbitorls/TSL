@@ -15,7 +15,6 @@ from src.core.features import (
     get_feature_dim,
     validate_feature_level,
 )
-from src.utils.dataset_utils import safe_mean
 
 FEATURE_DIMS = FEATURE_LEVELS
 
@@ -61,17 +60,22 @@ def extract_features_from_landmark_df(lm_df: Any, feature_level: str = "basic") 
     partial 162-dim vector for a claimed 249-dim schema.
     """
     feature_level = validate_feature_level(feature_level)
-
+    feature_dim = get_feature_dim(feature_level)
     col_list = _build_column_list(feature_level)
-    available_cols = lm_df.columns.intersection(col_list)
 
-    # Vectorized mean calculation over all valid columns at once
-    means = lm_df[available_cols].mean(numeric_only=True).fillna(0.0).to_dict()
+    features = np.zeros(len(col_list), dtype=np.float32)
 
-    # Ensure correct ordering and handle missing columns with 0.0
-    features = [means.get(col, 0.0) for col in col_list]
+    present_cols = lm_df.columns.intersection(col_list)
+    if len(present_cols) > 0:
+        present_cols_list = list(present_cols)
+        col_idx_map = {c: i for i, c in enumerate(col_list)}
+        present_indices = [col_idx_map[c] for c in present_cols_list]
 
-    return np.array(features, dtype=np.float32)
+        means_dict = lm_df[present_cols_list].mean(numeric_only=True).fillna(0.0).to_dict()
+        for col, idx in zip(present_cols_list, present_indices, strict=False):
+            features[idx] = means_dict[col]
+
+    return features[:feature_dim]
 
 
 class FeatureExtractor:
@@ -105,8 +109,6 @@ def extract_sequence_from_landmark_df(
     Returns:
         ``np.ndarray`` of shape ``(target_frames, feature_dim)``, float32.
     """
-    import pandas as pd
-
     feature_level = validate_feature_level(feature_level)
     feature_dim = get_feature_dim(feature_level)
     n_frames = len(lm_df)
@@ -117,11 +119,12 @@ def extract_sequence_from_landmark_df(
     col_list = _build_column_list(feature_level)
     seq = np.zeros((n_frames, feature_dim), dtype=np.float32)
 
-    # Bulk array assignment for ~40x speedup
-    available_cols = lm_df.columns.intersection(col_list)
-    if len(available_cols) > 0:
-        col_indices = pd.Index(col_list).get_indexer(available_cols)
-        seq[:, col_indices] = lm_df[available_cols].fillna(0.0).to_numpy(dtype=np.float32)
+    present_cols = lm_df.columns.intersection(col_list)
+    if len(present_cols) > 0:
+        present_cols_list = list(present_cols)
+        col_idx_map = {c: i for i, c in enumerate(col_list)}
+        present_indices = [col_idx_map[c] for c in present_cols_list]
+        seq[:, present_indices] = lm_df[present_cols_list].fillna(0.0).to_numpy(dtype=np.float32)
 
     return sample_frames_uniform(seq, target_frames)  # type: ignore[no-any-return]
 
