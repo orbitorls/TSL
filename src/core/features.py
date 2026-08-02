@@ -11,8 +11,7 @@ from dataclasses import dataclass
 from types import MappingProxyType
 
 import numpy as np
-
-from src.utils.dataset_utils import safe_mean
+import pandas as pd
 
 FEATURE_SCHEMA_VERSION = "basic-162-v1"
 BASIC_FEATURE_DIM = 162
@@ -134,13 +133,17 @@ def extract_features(lm_df, feature_level: str = "basic") -> np.ndarray:
         numpy array of shape (feature_dim,)
     """
     feature_level = validate_feature_level(feature_level)
-    features = []
-
-    for col in BASIC_FEATURE_SCHEMA.columns:
-        if col in lm_df.columns:
-            features.append(safe_mean(lm_df[col]))
-        else:
-            features.append(0.0)
-
     feature_dim = FEATURE_LEVELS[feature_level]
-    return np.array(features[:feature_dim], dtype=np.float32)
+
+    cols = list(BASIC_FEATURE_SCHEMA.columns)
+    extract_dim = min(len(cols), feature_dim)
+    target_cols = cols[:extract_dim]
+
+    features = np.zeros(extract_dim, dtype=np.float32)
+    available_cols = lm_df.columns.intersection(target_cols)
+    if not available_cols.empty:
+        means = lm_df[available_cols].mean(numeric_only=True).fillna(0.0).to_numpy(dtype=np.float32)
+        col_indices = pd.Index(target_cols).get_indexer(available_cols)
+        features[col_indices] = means
+
+    return features
