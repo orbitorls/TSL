@@ -216,7 +216,9 @@ def save_visualizations(
     for fold in fold_results:
         fold_table += f"  Fold {fold['fold']}: {_fold_metric(fold, 'val_acc'):>6.2f}%\n"
     fold_table += "-" * 40 + "\n"
-    fold_table += f"  Best Fold: Fold {np.argmax([_fold_metric(r, 'val_acc') for r in fold_results]) + 1}\n"
+    fold_table += (
+        f"  Best Fold: Fold {np.argmax([_fold_metric(r, 'val_acc') for r in fold_results]) + 1}\n"
+    )
     fold_table += f"  Std Dev:   {_result_metric(results, 'std_accuracy'):>6.2f}%\n"
     fold_table += f"  Best Acc:  {max([_fold_metric(r, 'val_acc') for r in fold_results]):>6.2f}%\n"
     fold_table += f"  Worst Acc: {min([_fold_metric(r, 'val_acc') for r in fold_results]):>6.2f}%\n"
@@ -447,7 +449,9 @@ def save_visualizations(
         f.write("-" * 70 + "\n")
         for fold in fold_results:
             f.write(f"  Fold {fold['fold']}: {_fold_metric(fold, 'val_acc'):.2f}%\n")
-        f.write(f"\n  Best Fold: Fold {np.argmax([_fold_metric(r, 'val_acc') for r in fold_results]) + 1}\n")
+        f.write(
+            f"\n  Best Fold: Fold {np.argmax([_fold_metric(r, 'val_acc') for r in fold_results]) + 1}\n"
+        )
         f.write(f"  Std Dev: {_result_metric(results, 'std_accuracy'):.2f}%\n")
         f.write("\nOVERALL METRICS\n")
         f.write("-" * 70 + "\n")

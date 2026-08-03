@@ -57,7 +57,9 @@ class Trainer:
                 raise TypeError(
                     "Legacy positional training data is only accepted when passing a model as first arg"
                 )
-            resolved_device = device or (X_train if isinstance(X_train, str) else self.config.device)
+            resolved_device = device or (
+                X_train if isinstance(X_train, str) else self.config.device
+            )
             self.model: Any = None
             self.train_data = None
             self.train_labels = None
@@ -181,7 +183,9 @@ class Trainer:
                     self.scaler = None
                     logger.warning("AMP not available, training without mixed precision")
 
-    def _build_dataloaders(self, X_train: np.ndarray, y_train: np.ndarray, X_val: np.ndarray, y_val: np.ndarray):
+    def _build_dataloaders(
+        self, X_train: np.ndarray, y_train: np.ndarray, X_val: np.ndarray, y_val: np.ndarray
+    ):
         train_dataset = TensorDataset(
             torch.from_numpy(X_train).float(),
             torch.from_numpy(y_train).long(),
@@ -221,7 +225,9 @@ class Trainer:
         total = 0
         accumulated_steps = 0
 
-        is_amp_enabled = self.config.use_amp and self.scaler is not None and self.device.type == "cuda"
+        is_amp_enabled = (
+            self.config.use_amp and self.scaler is not None and self.device.type == "cuda"
+        )
 
         for batch_idx, (X_batch, y_batch) in enumerate(train_loader):
             X_batch = X_batch.to(self.device, non_blocking=self.device.type == "cuda")
@@ -243,7 +249,9 @@ class Trainer:
                 if should_step:
                     self.scaler.unscale_(self.optimizer)
                     if self.config.gradient_clip_value is not None:
-                        nn.utils.clip_grad_norm_(self.model.parameters(), self.config.gradient_clip_value)
+                        nn.utils.clip_grad_norm_(
+                            self.model.parameters(), self.config.gradient_clip_value
+                        )
                     self.scaler.step(self.optimizer)
                     self.scaler.update()
                     self.optimizer.zero_grad(set_to_none=True)
@@ -347,7 +355,9 @@ class Trainer:
         if len(X_val_arr) != len(y_val_arr):
             raise ValueError("X_val and y_val length mismatch")
 
-        train_loader, val_loader = self._build_dataloaders(X_train_arr, y_train_arr, X_val_arr, y_val_arr)
+        train_loader, val_loader = self._build_dataloaders(
+            X_train_arr, y_train_arr, X_val_arr, y_val_arr
+        )
 
         input_dim = int(X_train_arr.shape[-1])
         num_classes = int(len(classes)) if classes is not None else int(y_train_arr.max()) + 1
@@ -368,7 +378,9 @@ class Trainer:
 
         # Setup weighted loss for class imbalance.
         # Use explicit class indices so missing classes are handled explicitly.
-        present_classes = np.asarray(sorted(set(int(v) for v in np.unique(y_train_arr))), dtype=np.int64)
+        present_classes = np.asarray(
+            sorted({int(v) for v in np.unique(y_train_arr)}), dtype=np.int64
+        )
         # Guard against labels outside configured class range.
         present_classes = present_classes[(present_classes >= 0) & (present_classes < num_classes)]
         if present_classes.size == 0:
@@ -399,7 +411,9 @@ class Trainer:
 
         for epoch in range(self.config.epochs):
             train_loss, train_acc = self.train_epoch(train_loader, criterion, accumulation_steps)
-            val_loss, val_acc, val_preds, val_labels, val_probs = self.validate(val_loader, criterion)
+            val_loss, val_acc, val_preds, val_labels, val_probs = self.validate(
+                val_loader, criterion
+            )
             epoch_metrics = compute_metrics(val_labels, val_preds, classes, y_probs=val_probs)
             val_macro_f1 = float(epoch_metrics["macro"]["f1"])
 

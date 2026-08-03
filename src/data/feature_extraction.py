@@ -16,7 +16,6 @@ from src.core.features import (
     get_feature_dim,
     validate_feature_level,
 )
-from src.utils.dataset_utils import safe_mean
 
 FEATURE_DIMS = FEATURE_LEVELS
 
