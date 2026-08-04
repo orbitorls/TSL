@@ -7,7 +7,6 @@ processing across scripts.
 from typing import Any
 
 import numpy as np
-import pandas as pd
 
 from src.core.features import (
     BASIC_FEATURE_DIM,
@@ -63,6 +62,7 @@ def extract_features_from_landmark_df(lm_df: Any, feature_level: str = "basic") 
     feature_level = validate_feature_level(feature_level)
     col_list = _build_column_list(feature_level)
 
+
     # ⚡ Bolt Optimization: Replaced O(N) iterative safe_mean column extraction
     # with O(1) vectorized Pandas block operations for >30x faster aggregation.
     available_cols = lm_df.columns.intersection(col_list)
@@ -117,6 +117,8 @@ def extract_sequence_from_landmark_df(
 
     col_list = _build_column_list(feature_level)
     seq = np.zeros((n_frames, feature_dim), dtype=np.float32)
+
+    import pandas as pd
 
     # ⚡ Bolt Optimization: Replaced iterative column-by-column extraction
     # with bulk NumPy array assignment using advanced index mapping.
