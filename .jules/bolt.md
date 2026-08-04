@@ -1,0 +1,3 @@
+## 2024-08-04 - Pandas DataFrame Iteration Bottleneck
+**Learning:** Iterating through columns of a Pandas DataFrame using a `for` loop and applying a custom aggregation function (`safe_mean`) element-by-element is a severe performance anti-pattern. This is extremely slow for high-dimensional schemas (e.g., 1600+ dims) because Pandas object overhead is incurred thousands of times per call.
+**Action:** Always replace iterative Pandas column operations with vectorized block operations (e.g., `df.mean(numeric_only=True).to_dict()`) and bulk NumPy array assignments via advanced indexing. This typically yields a >30x performance improvement.
