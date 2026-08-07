@@ -6,7 +6,6 @@ import pytest
 from src.train.augment import augment_data, augment_train_split_only
 from src.train.splits import build_grouped_split_manifest
 
-
 CLASSES = np.array(["hello", "thanks", "water"])
 LABEL_TO_INDEX = {label: idx for idx, label in enumerate(CLASSES.tolist())}
 

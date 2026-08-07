@@ -3,6 +3,7 @@
 import numpy as np
 import pandas as pd
 import pytest
+
 from src.core import FEATURE_LEVELS, extract_features
 from src.core.features import UnsupportedFeatureLevelError
 
