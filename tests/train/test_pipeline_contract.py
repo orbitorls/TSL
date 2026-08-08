@@ -65,13 +65,30 @@ def test_pipeline_writes_canonical_training_artifacts(tmp_path: Path, monkeypatc
         if kwargs["augmentation_factor"] > 0:
             train_X = np.concatenate([train_X, train_X + 0.5], axis=0)
             train_y = np.concatenate([train_y, train_y], axis=0)
-            train_sample_ids = train_sample_ids + [f"{sample_id}__aug_1" for sample_id in train_sample_ids]
+            train_sample_ids = train_sample_ids + [
+                f"{sample_id}__aug_1" for sample_id in train_sample_ids
+            ]
         val_X, val_y, val_sample_ids = select(val_ids)
         test_X, test_y, test_sample_ids = select(test_ids)
         return {
-            "train": {"X": train_X, "y": train_y, "sample_ids": train_sample_ids, "rows": manifest["splits"]["train"]},
-            "val": {"X": val_X, "y": val_y, "sample_ids": val_sample_ids, "rows": manifest["splits"]["val"]},
-            "test": {"X": test_X, "y": test_y, "sample_ids": test_sample_ids, "rows": manifest["splits"]["test"]},
+            "train": {
+                "X": train_X,
+                "y": train_y,
+                "sample_ids": train_sample_ids,
+                "rows": manifest["splits"]["train"],
+            },
+            "val": {
+                "X": val_X,
+                "y": val_y,
+                "sample_ids": val_sample_ids,
+                "rows": manifest["splits"]["val"],
+            },
+            "test": {
+                "X": test_X,
+                "y": test_y,
+                "sample_ids": test_sample_ids,
+                "rows": manifest["splits"]["test"],
+            },
         }
 
     class FakeTrainer:
@@ -88,9 +105,15 @@ def test_pipeline_writes_canonical_training_artifacts(tmp_path: Path, monkeypatc
                 "val_acc": 75.0,
                 "val_f1_score": 70.0,
                 "val_macro_f1": 66.5,
+                "val_precision": 72.0,
+                "val_recall": 74.0,
+                "val_top3_acc": 95.0,
+                "val_top5_acc": 99.0,
                 "primary_metric_name": "macro_f1",
                 "primary_metric": 66.5,
                 "model_state": {"model_state_dict": self.model.state_dict(), "epoch": 0},
+                "per_class_metrics": {},
+                "confusion_matrix": [],
             }
 
     monkeypatch.setattr(pipeline, "augment_train_split_only", fake_train_split_only)
@@ -138,7 +161,13 @@ def test_pipeline_writes_canonical_training_artifacts(tmp_path: Path, monkeypatc
     preprocessing_manifest_path = Path(artifact_paths["preprocessing_manifest"])
     label_map_path = Path(artifact_paths["label_map"])
 
-    for path in (checkpoint_path, metrics_path, split_manifest_path, preprocessing_manifest_path, label_map_path):
+    for path in (
+        checkpoint_path,
+        metrics_path,
+        split_manifest_path,
+        preprocessing_manifest_path,
+        label_map_path,
+    ):
         assert path.exists(), path
 
     label_map = json.loads(label_map_path.read_text(encoding="utf-8"))
@@ -218,9 +247,7 @@ def test_train_cli_normal_path_does_not_import_legacy_training_script() -> None:
         for alias in node.names
     }
     imported_modules.update(
-        node.module or ""
-        for node in ast.walk(tree)
-        if isinstance(node, ast.ImportFrom)
+        node.module or "" for node in ast.walk(tree) if isinstance(node, ast.ImportFrom)
     )
 
     assert "legacy.root_scripts.train_tsl51_v3" not in imported_modules
