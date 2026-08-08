@@ -1,0 +1,3 @@
+## 2023-10-27 - Fast Dynamic Feature Extraction
+**Learning:** In hot loops for high-frequency ML data extraction pipelines like `_frame_dict_to_vector`, redundant string concatenations inside simple nested loops (e.g., `f"lh_{c}{i}"`) create heavy latency bottlenecks in Python compared to single list comprehensions using static lookup keys.
+**Action:** When working on frame-by-frame processing or extraction from parsed dicts in ML repositories, construct and use statically pre-computed lookup lists like `_BASIC_KEYS` for feature retrieval instead of dynamically re-constructing keys strings, saving a massive percentage of extraction time.
