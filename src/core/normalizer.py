@@ -12,7 +12,6 @@ import numpy as np
 
 from src.core.features import BASIC_FEATURE_DIM, FEATURE_SCHEMA_VERSION
 
-
 PREPROCESSING_MANIFEST_FILENAME = "preprocessing_manifest.json"
 SUPPORTED_NORMALIZATION_TYPE = "zscore"
 SUPPORTED_FEATURE_LEVEL = "basic"
@@ -42,7 +41,9 @@ class PreprocessingManifest:
     def validate(self, *, checkpoint_input_dim: int | None = None) -> None:
         """Validate this phase's supported preprocessing contract."""
         if self.feature_level == "enhanced":
-            raise ValueError("feature_level='enhanced' is not supported for preprocessing manifests")
+            raise ValueError(
+                "feature_level='enhanced' is not supported for preprocessing manifests"
+            )
         if self.feature_level != SUPPORTED_FEATURE_LEVEL:
             raise ValueError(f"Unsupported feature_level={self.feature_level!r}; expected 'basic'")
         if self.feature_schema_version != FEATURE_SCHEMA_VERSION:
@@ -51,7 +52,9 @@ class PreprocessingManifest:
                 f"expected {FEATURE_SCHEMA_VERSION!r}, got {self.feature_schema_version!r}"
             )
         if self.feature_dim != BASIC_FEATURE_DIM:
-            raise ValueError(f"feature_dim mismatch: expected {BASIC_FEATURE_DIM}, got {self.feature_dim}")
+            raise ValueError(
+                f"feature_dim mismatch: expected {BASIC_FEATURE_DIM}, got {self.feature_dim}"
+            )
         if self.feature_order != SUPPORTED_FEATURE_ORDER:
             raise ValueError(
                 f"feature_order mismatch: expected {SUPPORTED_FEATURE_ORDER!r}, got {self.feature_order!r}"
@@ -62,9 +65,13 @@ class PreprocessingManifest:
                 f"expected {SUPPORTED_NORMALIZATION_TYPE!r}, got {self.normalization_type!r}"
             )
         if len(self.mean) != self.feature_dim:
-            raise ValueError(f"mean length {len(self.mean)} does not match feature_dim {self.feature_dim}")
+            raise ValueError(
+                f"mean length {len(self.mean)} does not match feature_dim {self.feature_dim}"
+            )
         if len(self.std) != self.feature_dim:
-            raise ValueError(f"std length {len(self.std)} does not match feature_dim {self.feature_dim}")
+            raise ValueError(
+                f"std length {len(self.std)} does not match feature_dim {self.feature_dim}"
+            )
         if checkpoint_input_dim is not None and int(checkpoint_input_dim) != self.feature_dim:
             raise ValueError(
                 "checkpoint input_dim mismatch: "
@@ -94,7 +101,7 @@ class PreprocessingManifest:
         }
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "PreprocessingManifest":
+    def from_dict(cls, data: dict[str, Any]) -> PreprocessingManifest:
         """Create a manifest from a JSON-compatible dictionary."""
         return cls(
             feature_schema_version=str(data.get("feature_schema_version", FEATURE_SCHEMA_VERSION)),
@@ -146,7 +153,9 @@ def save_preprocessing_manifest(
     return output_path
 
 
-def load_preprocessing_manifest(path: str | Path, *, validate: bool = True) -> PreprocessingManifest:
+def load_preprocessing_manifest(
+    path: str | Path, *, validate: bool = True
+) -> PreprocessingManifest:
     """Load and validate a preprocessing manifest JSON file."""
     manifest = PreprocessingManifest.from_dict(json.loads(Path(path).read_text(encoding="utf-8")))
     if validate:
@@ -203,7 +212,6 @@ def resolve_checkpoint_preprocessing(
     }
 
 
-
 class Normalizer:
     """Z-score normalizer with statistics tracking."""
 
@@ -215,7 +223,7 @@ class Normalizer:
     def is_fitted(self) -> bool:
         return self.mean is not None and self.std is not None
 
-    def fit(self, features: np.ndarray) -> "Normalizer":
+    def fit(self, features: np.ndarray) -> Normalizer:
         """Fit normalizer to training data."""
         self.mean = np.mean(features, axis=0)
         self.std = np.std(features, axis=0)
@@ -247,7 +255,7 @@ class Normalizer:
         }
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "Normalizer":
+    def from_dict(cls, data: dict[str, Any]) -> Normalizer:
         """Deserialize from dict."""
         mean = np.array(data["mean"]) if data.get("mean") is not None else None
         std = np.array(data["std"]) if data.get("std") is not None else None
