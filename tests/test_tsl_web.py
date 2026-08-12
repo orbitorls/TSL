@@ -1,3 +1,4 @@
+import contextlib
 import importlib
 import tempfile
 from pathlib import Path
@@ -320,7 +321,5 @@ def test_tsl_web_defaults_sequence_mode_for_legacy_gru_checkpoint(monkeypatch):
         webapp.model = None
         webapp._model_load_error = None
         if ckpt_file.exists():
-            try:
+            with contextlib.suppress(OSError):
                 ckpt_file.unlink()
-            except OSError:
-                pass

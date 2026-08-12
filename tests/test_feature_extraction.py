@@ -5,7 +5,7 @@ import unittest
 import numpy as np
 import pandas as pd
 
-from src.data.feature_extraction import extract_features_from_landmark_df, FEATURE_DIMS
+from src.data.feature_extraction import FEATURE_DIMS, extract_features_from_landmark_df
 
 
 class FeatureExtractionTest(unittest.TestCase):
