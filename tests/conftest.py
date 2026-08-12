@@ -1,10 +1,10 @@
 """Shared pytest fixtures for TSL tests."""
 
 import numpy as np
-import torch
 import pytest
+import torch
 
-from src.train.models import GRUModel, MLP
+from src.train.models import MLP, GRUModel
 
 
 @pytest.fixture
