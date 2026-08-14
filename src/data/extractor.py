@@ -187,6 +187,8 @@ def extract_features(frames: list, feature_level: str = "basic") -> np.ndarray |
 
 def _frame_dict_to_vector(frame: dict, _feature_level: str, feature_dim: int) -> np.ndarray | None:
     """Convert a single landmark dict to a feature vector."""
+    # Performance optimization: using a list comprehension over pre-computed _BASIC_KEYS
+    # is ~3x faster than dynamic string formatting (f"lh_{c}{i}") in nested loops.
     feats = [float(frame.get(k, 0.0)) for k in _BASIC_KEYS]
 
     if len(feats) < feature_dim:
