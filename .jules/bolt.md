@@ -1,0 +1,3 @@
+## 2024-08-15 - Vectorizing Pandas DataFrame Operations
+**Learning:** Iterating over Pandas DataFrame columns one-by-one to extract and compute statistics (like `safe_mean(lm_df[col])`) in Python loops introduces massive performance overhead due to repeated `__getitem__` calls and Pandas Series instantiation.
+**Action:** When computing means across numerous Pandas DataFrame columns, avoid iterative calls to series methods. Instead, use vectorized operations such as `lm_df[cols].mean(numeric_only=True)` and map results quickly using `.reindex(expected_cols, fill_value=0.0).to_numpy()` to reduce overhead and drastically speed up data extraction.
