@@ -15,7 +15,6 @@ from src.core.features import (
     get_feature_dim,
     validate_feature_level,
 )
-from src.utils.dataset_utils import safe_mean
 
 FEATURE_DIMS = FEATURE_LEVELS
 
@@ -61,36 +60,16 @@ def extract_features_from_landmark_df(lm_df: Any, feature_level: str = "basic") 
     partial 162-dim vector for a claimed 249-dim schema.
     """
     feature_level = validate_feature_level(feature_level)
-    features = []
+    expected_cols = _build_column_list(feature_level)
 
-    for col in BASIC_FEATURE_SCHEMA.columns:
-        if col in lm_df.columns:
-            features.append(safe_mean(lm_df[col]))
-        else:
-            features.append(0.0)
+    available_cols = lm_df.columns.intersection(expected_cols)
+    if len(available_cols) > 0:
+        means = lm_df[available_cols].mean(numeric_only=True).fillna(0.0)
+        features = means.reindex(expected_cols, fill_value=0.0).to_numpy(dtype=np.float32)
+    else:
+        features = np.zeros(len(expected_cols), dtype=np.float32)
 
-    if feature_level in ["finger", "full", "face"]:
-        finger_names = ["thumb", "index", "middle", "ring", "pinky"]
-        for hand_prefix in ["lh_", "rh_"]:
-            for finger in finger_names:
-                for c in ["x", "y", "z"]:
-                    for joint in ["mcp", "pip", "dip"]:
-                        col = f"{hand_prefix}{finger}_{joint}_{c}"
-                        if col in lm_df.columns:
-                            features.append(safe_mean(lm_df[col]))
-                        else:
-                            features.append(0.0)
-
-    if feature_level in ["full", "face"]:
-        for i in range(478):
-            for c in ["x", "y", "z"]:
-                col = f"face_{c}{i}"
-                if col in lm_df.columns:
-                    features.append(safe_mean(lm_df[col]))
-                else:
-                    features.append(0.0)
-
-    return np.array(features[: get_feature_dim(feature_level)], dtype=np.float32)
+    return features[: get_feature_dim(feature_level)]
 
 
 class FeatureExtractor:
@@ -646,6 +625,3 @@ def resolve_feature_level_for_inference(
             f"Continuing with adaptation — accuracy may be degraded."
         )
         return requested_level, msg
-
-
-
