@@ -1,0 +1,3 @@
+## 2024-05-18 - DataFrame Feature Extraction Bottleneck
+**Learning:** Iterative `safe_mean` calls inside Python loops (e.g., `[safe_mean(lm_df[col]) for col in cols]`) over pandas DataFrames are a major bottleneck for feature extraction functions (`extract_features`, `extract_features_from_landmark_df`, `extract_sequence_from_landmark_df`). They add up quickly, especially given high feature dimensions (up to 1596 for 'full').
+**Action:** Replace iterative series operations with Pandas vectorized operations (e.g., `lm_df[available_cols].mean(numeric_only=True).fillna(0.0).to_dict()`) and bulk numpy assignments.
