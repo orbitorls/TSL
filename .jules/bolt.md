@@ -1,0 +1,3 @@
+## 2026-08-21 - Vectorization Optimization in _frame_dict_to_vector
+**Learning:** In `src/data/extractor.py`, `_frame_dict_to_vector` is a performance hot path for real-time inference. It is optimized by using a direct list comprehension over the pre-computed `_BASIC_KEYS` constant for landmark lookups (e.g., `[float(frame.get(k, 0.0)) for k in _BASIC_KEYS]`). This extracts the expected 162 features and bypasses redundant string formatting inside nested loops, providing a significant speedup.
+**Action:** Replace nested loops and string formatting with direct list comprehensions using pre-computed key lists in data extraction hot paths.
