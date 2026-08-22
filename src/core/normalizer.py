@@ -12,7 +12,6 @@ import numpy as np
 
 from src.core.features import BASIC_FEATURE_DIM, FEATURE_SCHEMA_VERSION
 
-
 PREPROCESSING_MANIFEST_FILENAME = "preprocessing_manifest.json"
 SUPPORTED_NORMALIZATION_TYPE = "zscore"
 SUPPORTED_FEATURE_LEVEL = "basic"
@@ -94,7 +93,7 @@ class PreprocessingManifest:
         }
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "PreprocessingManifest":
+    def from_dict(cls, data: dict[str, Any]) -> PreprocessingManifest:
         """Create a manifest from a JSON-compatible dictionary."""
         return cls(
             feature_schema_version=str(data.get("feature_schema_version", FEATURE_SCHEMA_VERSION)),
@@ -215,7 +214,7 @@ class Normalizer:
     def is_fitted(self) -> bool:
         return self.mean is not None and self.std is not None
 
-    def fit(self, features: np.ndarray) -> "Normalizer":
+    def fit(self, features: np.ndarray) -> Normalizer:
         """Fit normalizer to training data."""
         self.mean = np.mean(features, axis=0)
         self.std = np.std(features, axis=0)
@@ -247,7 +246,7 @@ class Normalizer:
         }
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "Normalizer":
+    def from_dict(cls, data: dict[str, Any]) -> Normalizer:
         """Deserialize from dict."""
         mean = np.array(data["mean"]) if data.get("mean") is not None else None
         std = np.array(data["std"]) if data.get("std") is not None else None
